@@ -53,6 +53,94 @@ class PhotoActions {
     );
   }
 
+  /// Picks (or records) a video, uploads it, and appends it to the video
+  /// gallery.
+  static Future<void> addGalleryVideo(
+    BuildContext context,
+    WidgetRef ref,
+    Person person,
+  ) async {
+    final ImageSource? source = await _chooseSource(context, video: true);
+    if (source == null || !context.mounted) return;
+
+    final XFile? file = await _picker.pickVideo(
+      source: source,
+      maxDuration: const Duration(minutes: 10),
+    );
+    if (file == null || !context.mounted) return;
+
+    _showProgress(context);
+    try {
+      final storage = ref.read(photoStorageServiceProvider);
+      final repo = ref.read(treeRepositoryProvider);
+      final String reference = await storage.uploadPersonPhoto(
+        personId: person.id,
+        file: file,
+      );
+      await repo.upsertPerson(person.copyWith(
+        videoGallery: <String>[...person.videoGallery, reference],
+      ));
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    } catch (e) {
+      if (context.mounted) _handleError(context, e, 'Could not upload video.');
+    }
+  }
+
+  /// Uploads a recorded voice note (at [path]) and appends it to the voice
+  /// notes list.
+  static Future<void> saveVoiceNote(
+    BuildContext context,
+    WidgetRef ref,
+    Person person,
+    String path,
+  ) async {
+    _showProgress(context);
+    try {
+      final storage = ref.read(photoStorageServiceProvider);
+      final repo = ref.read(treeRepositoryProvider);
+      final String reference = await storage.uploadPersonFile(
+        personId: person.id,
+        path: path,
+      );
+      await repo.upsertPerson(person.copyWith(
+        voiceNotes: <String>[...person.voiceNotes, reference],
+      ));
+      if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+    } catch (e) {
+      if (context.mounted) {
+        _handleError(context, e, 'Could not save voice note.');
+      }
+    }
+  }
+
+  /// Removes a video from the gallery (and deletes the stored object/file).
+  static Future<void> removeVideo(
+    WidgetRef ref,
+    Person person,
+    String reference,
+  ) async {
+    final storage = ref.read(photoStorageServiceProvider);
+    final repo = ref.read(treeRepositoryProvider);
+    await repo.upsertPerson(person.copyWith(
+      videoGallery: person.videoGallery.where((r) => r != reference).toList(),
+    ));
+    await storage.deletePersonPhoto(reference);
+  }
+
+  /// Removes a voice note (and deletes the stored object/file).
+  static Future<void> removeVoiceNote(
+    WidgetRef ref,
+    Person person,
+    String reference,
+  ) async {
+    final storage = ref.read(photoStorageServiceProvider);
+    final repo = ref.read(treeRepositoryProvider);
+    await repo.upsertPerson(person.copyWith(
+      voiceNotes: person.voiceNotes.where((r) => r != reference).toList(),
+    ));
+    await storage.deletePersonPhoto(reference);
+  }
+
   /// Removes a gallery photo (and deletes the stored object/file).
   static Future<void> removeGalleryPhoto(
     BuildContext context,
@@ -116,18 +204,23 @@ class PhotoActions {
       await repo.upsertPerson(onUploaded(reference));
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
-      if (context.mounted) {
-        Navigator.of(context, rootNavigator: true).pop();
-        final String msg =
-            e is Failure ? e.message : 'Could not upload photo.';
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(msg)));
-      }
+      if (context.mounted) _handleError(context, e, 'Could not upload photo.');
     }
   }
 
-  static Future<ImageSource?> _chooseSource(BuildContext context) {
+  static void _handleError(BuildContext context, Object e, String fallback) {
+    if (!context.mounted) return;
+    Navigator.of(context, rootNavigator: true).pop();
+    final String msg = e is Failure ? e.message : fallback;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  static Future<ImageSource?> _chooseSource(
+    BuildContext context, {
+    bool video = false,
+  }) {
     return showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -140,8 +233,12 @@ class PhotoActions {
           children: <Widget>[
             const SizedBox(height: AppSpacing.md),
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
+              leading: Icon(
+                video
+                    ? Icons.videocam_outlined
+                    : Icons.photo_camera_outlined,
+              ),
+              title: Text(video ? 'Record video' : 'Take photo'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),
             ),
             ListTile(

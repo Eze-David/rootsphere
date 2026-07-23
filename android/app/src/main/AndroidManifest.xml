@@ -3,6 +3,8 @@
          Flutter only auto-adds this to the debug/profile manifests, so it must
          be declared here for release builds. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Required for recording voice notes. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:label="Rootsphere"
         android:name="${applicationName}"
@@ -27,6 +29,18 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Custom URL scheme so Supabase auth emails (password reset,
+                 confirm signup) can link back into the app instead of a
+                 browser — see docs/auth-email-links.md. supabase_flutter
+                 already listens for and processes these automatically
+                 (detectSessionInUri, on by default); this just registers the
+                 app as the OS-level handler for the scheme. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="rootsphere"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

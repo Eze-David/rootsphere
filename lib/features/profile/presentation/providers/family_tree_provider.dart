@@ -1,88 +1,70 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/config/supabase_config.dart';
 import '../../../../core/storage/preferences_provider.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../data/repositories/family_tree_repository_local.dart';
+import '../../data/repositories/family_tree_repository_supabase.dart';
 import '../../domain/entities/family_tree.dart';
+import '../../domain/repositories/family_tree_repository.dart';
 
-/// Stub controller that stores linked trees locally in SharedPreferences.
-///
-/// In Phase 2 this will be replaced by a real repository backed by Supabase.
-class FamilyTreeController extends Notifier<List<FamilyTree>> {
-  static const String _kTrees = 'profile_linked_trees';
-
-  dynamic get _prefs => ref.read(sharedPreferencesProvider);
-
-  List<FamilyTree> _readTrees() {
-    final String? raw = _prefs.getString(_kTrees);
-    if (raw == null || raw.isEmpty) return const <FamilyTree>[];
-    try {
-      final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      return list.map((e) => _fromJson(e as Map<String, dynamic>)).toList();
-    } catch (_) {
-      return const <FamilyTree>[];
-    }
+/// Family-tree linking repository: Supabase-backed when configured, local
+/// SharedPreferences otherwise. The interface is identical either way.
+final familyTreeRepositoryProvider = Provider<FamilyTreeRepository>((ref) {
+  if (SupabaseConfig.isReady) {
+    return FamilyTreeRepositorySupabase(SupabaseConfig.client);
   }
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return FamilyTreeRepositoryLocal(prefs);
+});
 
-  static FamilyTree _fromJson(Map<String, dynamic> json) {
-    return FamilyTree(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      role: TreeRole.values.firstWhere(
-        (r) => r.name == json['role'],
-        orElse: () => TreeRole.viewer,
-      ),
-      memberCount: json['memberCount'] as int? ?? 0,
-    );
-  }
-
-  static Map<String, dynamic> _toJson(FamilyTree tree) {
-    return <String, dynamic>{
-      'id': tree.id,
-      'name': tree.name,
-      'role': tree.role.name,
-      'memberCount': tree.memberCount,
-    };
-  }
-
-  Future<void> _persist() async {
-    final String encoded = jsonEncode(state.map(_toJson).toList());
-    await _prefs.setString(_kTrees, encoded);
-  }
+/// Loads and mutates the list of trees the signed-in user is linked to.
+class FamilyTreeController extends AsyncNotifier<List<FamilyTree>> {
+  FamilyTreeRepository get _repo => ref.read(familyTreeRepositoryProvider);
 
   @override
-  List<FamilyTree> build() => _readTrees();
-
-  Future<void> createTree(String name) async {
-    final tree = FamilyTree(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      name: name,
-      role: TreeRole.owner,
-      memberCount: 1,
-    );
-    state = [...state, tree];
-    await _persist();
+  Future<List<FamilyTree>> build() {
+    // Must watch the reactive auth stream, not just read the repository —
+    // otherwise this AsyncNotifier's result is computed once for whichever
+    // account is signed in first and cached for the rest of the app
+    // session, so a different account signing in later would keep seeing
+    // the previous account's linked trees on the Profile screen.
+    ref.watch(authStateProvider);
+    return _repo.getTrees();
   }
 
-  Future<void> joinTree(String id, String name) async {
-    if (state.any((t) => t.id == id)) return;
-    final tree = FamilyTree(
-      id: id,
-      name: name.isEmpty ? 'Untitled tree' : name,
-      role: TreeRole.viewer,
-      memberCount: 0,
-    );
-    state = [...state, tree];
-    await _persist();
+  Future<void> _refresh() async {
+    state = AsyncValue<List<FamilyTree>>.data(await _repo.getTrees());
+  }
+
+  /// Creates a tree and refreshes the list. Rethrows on failure so the caller
+  /// (dialog) can surface the error.
+  Future<FamilyTree> createTree(String name) async {
+    final tree = await _repo.createTree(name);
+    await _refresh();
+    return tree;
+  }
+
+  /// Joins a tree by id and refreshes the list. Throws when the id is invalid.
+  Future<FamilyTree> joinTree(String id, {String fallbackName = ''}) async {
+    final tree = await _repo.joinTree(id, fallbackName: fallbackName);
+    await _refresh();
+    return tree;
   }
 
   Future<void> unlinkTree(String id) async {
-    state = state.where((t) => t.id != id).toList();
-    await _persist();
+    await _repo.unlinkTree(id);
+    await _refresh();
+  }
+
+  Future<FamilyTree> renameTree(String id, String name) async {
+    final tree = await _repo.renameTree(id, name);
+    await _refresh();
+    return tree;
   }
 }
 
 final familyTreeControllerProvider =
-    NotifierProvider<FamilyTreeController, List<FamilyTree>>(
+    AsyncNotifierProvider<FamilyTreeController, List<FamilyTree>>(
       FamilyTreeController.new,
     );

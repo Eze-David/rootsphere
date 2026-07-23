@@ -21,6 +21,9 @@ class TreeConnectorPainter extends CustomPainter {
   final Color lineColor;
   final Color spouseColor;
 
+  /// Corner radius used to round the elbow connectors.
+  static const double _corner = 10;
+
   @override
   void paint(Canvas canvas, Size size) {
     final parentPaint = Paint()
@@ -41,13 +44,39 @@ class TreeConnectorPainter extends CustomPainter {
     for (final c in connectors) {
       if (!c.bounds.overlaps(inflated)) continue; // viewport culling
       if (c.points.length < 2) continue;
-
-      final path = Path()..moveTo(c.points.first.dx, c.points.first.dy);
-      for (int i = 1; i < c.points.length; i++) {
-        path.lineTo(c.points[i].dx, c.points[i].dy);
-      }
-      canvas.drawPath(path, c.isSpouse ? spousePaint : parentPaint);
+      canvas.drawPath(
+        _roundedPolyline(c.points),
+        c.isSpouse ? spousePaint : parentPaint,
+      );
     }
+  }
+
+  /// Builds a polyline with rounded corners at each interior vertex.
+  Path _roundedPolyline(List<Offset> pts) {
+    final path = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (int i = 1; i < pts.length - 1; i++) {
+      final Offset prev = pts[i - 1];
+      final Offset cur = pts[i];
+      final Offset next = pts[i + 1];
+
+      final double inLen = (cur - prev).distance;
+      final double outLen = (next - cur).distance;
+      final double half = inLen < outLen ? inLen / 2 : outLen / 2;
+      final double r = _corner < half ? _corner : half;
+
+      final Offset before = cur - _unit(cur - prev) * r;
+      final Offset after = cur + _unit(next - cur) * r;
+
+      path.lineTo(before.dx, before.dy);
+      path.quadraticBezierTo(cur.dx, cur.dy, after.dx, after.dy);
+    }
+    path.lineTo(pts.last.dx, pts.last.dy);
+    return path;
+  }
+
+  Offset _unit(Offset v) {
+    final double d = v.distance;
+    return d == 0 ? Offset.zero : v / d;
   }
 
   @override

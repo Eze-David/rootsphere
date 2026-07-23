@@ -15,6 +15,7 @@ class AppTextField extends StatelessWidget {
     this.obscureText = false,
     this.keyboardType,
     this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
     this.validator,
     this.onSubmitted,
   });
@@ -26,6 +27,7 @@ class AppTextField extends StatelessWidget {
   final bool obscureText;
   final TextInputType? keyboardType;
   final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onSubmitted;
 
@@ -42,6 +44,7 @@ class AppTextField extends StatelessWidget {
           obscureText: obscureText,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
+          textCapitalization: textCapitalization,
           validator: validator,
           onFieldSubmitted: onSubmitted,
           decoration: InputDecoration(

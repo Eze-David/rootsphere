@@ -67,6 +67,4 @@ class SettingsController extends Notifier<SettingsState> {
 }
 
 final settingsControllerProvider =
-    NotifierProvider<SettingsController, SettingsState>(
-      SettingsController.new,
-    );
+    NotifierProvider<SettingsController, SettingsState>(SettingsController.new);

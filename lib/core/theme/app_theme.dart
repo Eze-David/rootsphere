@@ -8,6 +8,14 @@ import 'app_typography.dart';
 abstract class AppTheme {
   AppTheme._();
 
+  /// The same sunGold hover highlight used on the tree's cards/placeholder
+  /// slots and the map pins, applied to every button via the theme (rather
+  /// than each button re-implementing its own MouseRegion) so mouse/trackpad
+  /// hover reads consistently app-wide. `styleFrom`'s single-colour
+  /// `overlayColor` already resolves to Material's standard hover/press/focus
+  /// opacities for that colour.
+  static const Color _hoverOverlay = AppColors.sunGold;
+
   static ThemeData get dark {
     final ColorScheme scheme =
         ColorScheme.fromSeed(
@@ -56,6 +64,7 @@ abstract class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primaryHover,
           foregroundColor: AppColors.onPrimary,
+          overlayColor: _hoverOverlay,
           minimumSize: const Size.fromHeight(54),
           elevation: 0,
           textStyle: textTheme.labelLarge?.copyWith(
@@ -70,6 +79,7 @@ abstract class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.onPrimary,
+          overlayColor: _hoverOverlay,
           minimumSize: const Size.fromHeight(54),
           side: const BorderSide(color: Color(0xFF3E3834)),
           textStyle: textTheme.labelLarge,
@@ -79,7 +89,10 @@ abstract class AppTheme {
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: AppColors.primaryHover),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primaryHover,
+          overlayColor: _hoverOverlay,
+        ),
       ),
       cardTheme: CardThemeData(
         color: const Color(0xFF1C1917),
@@ -149,6 +162,7 @@ abstract class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: AppColors.onPrimary,
+          overlayColor: _hoverOverlay,
           minimumSize: const Size.fromHeight(54),
           elevation: 0,
           textStyle: textTheme.labelLarge?.copyWith(
@@ -163,6 +177,7 @@ abstract class AppTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.textPrimary,
+          overlayColor: _hoverOverlay,
           minimumSize: const Size.fromHeight(54),
           side: const BorderSide(color: AppColors.border),
           textStyle: textTheme.labelLarge,
@@ -172,7 +187,10 @@ abstract class AppTheme {
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          overlayColor: _hoverOverlay,
+        ),
       ),
       cardTheme: CardThemeData(
         color: AppColors.background,

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/services/tree_pdf_service.dart';
 import '../../domain/entities/person.dart';
 import '../layout/tree_layout.dart';
 import '../painters/tree_connector_painter.dart';
@@ -10,6 +13,8 @@ import '../providers/tree_providers.dart';
 import '../widgets/person_card_widget.dart';
 import '../widgets/person_actions_sheet.dart';
 import '../widgets/person_editor_sheet.dart';
+import '../widgets/tree_node_widgets.dart';
+import '../../../../shared/widgets/zoom_controls.dart';
 
 /// The Phase 2 centrepiece: an interactive, pan/zoom family-tree renderer with
 /// Ancestors / Descendants / Pedigree modes.
@@ -24,6 +29,8 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   final TransformationController _controller = TransformationController();
   Size _viewport = Size.zero;
   bool _didInitialFit = false;
+  TreeOrientation? _lastOrientation;
+  bool _printing = false;
 
   @override
   void initState() {
@@ -43,7 +50,8 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   /// Visible rectangle in scene (content) coordinates, for culling.
   Rect get _visibleSceneRect {
     if (_viewport == Size.zero) return Rect.largest;
-    final Matrix4 inverse = Matrix4.tryInvert(_controller.value) ?? Matrix4.identity();
+    final Matrix4 inverse =
+        Matrix4.tryInvert(_controller.value) ?? Matrix4.identity();
     final Offset topLeft = MatrixUtils.transformPoint(inverse, Offset.zero);
     final Offset bottomRight = MatrixUtils.transformPoint(
       inverse,
@@ -56,11 +64,35 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     if (_viewport == Size.zero) return;
     final Rect f = layout.focusRect;
     final double scale = _controller.value.getMaxScaleOnAxis().clamp(0.1, 4.0);
-    final double tx = _viewport.width / 2 - f.center.dx * scale;
-    final double ty = _viewport.height / 3 - f.center.dy * scale;
+    final bool horizontal =
+        ref.read(treeOrientationProvider) == TreeOrientation.horizontal;
+    // Vertical: focus near the bottom (ancestors above). Horizontal: focus
+    // near the left (ancestors to the right).
+    final double anchorX = horizontal ? 0.28 : 0.5;
+    final double anchorY = horizontal ? 0.5 : 0.72;
+    final double tx = _viewport.width * anchorX - f.center.dx * scale;
+    final double ty = _viewport.height * anchorY - f.center.dy * scale;
     _controller.value = Matrix4.identity()
       ..translateByDouble(tx, ty, 0, 1)
       ..scaleByDouble(scale, scale, scale, 1);
+  }
+
+  /// Multiplies the current zoom by [factor], keeping the viewport centre fixed.
+  void _zoomBy(double factor) {
+    if (_viewport == Size.zero) return;
+    final Matrix4 m = _controller.value;
+    final double scale = m.getMaxScaleOnAxis();
+    final double target = (scale * factor).clamp(0.2, 4.0);
+    if ((target - scale).abs() < 1e-6) return;
+
+    final Matrix4 inverse = Matrix4.tryInvert(m) ?? Matrix4.identity();
+    final Offset centre = Offset(_viewport.width / 2, _viewport.height / 2);
+    final Offset scenePoint = MatrixUtils.transformPoint(inverse, centre);
+    final double tx = centre.dx - scenePoint.dx * target;
+    final double ty = centre.dy - scenePoint.dy * target;
+    _controller.value = Matrix4.identity()
+      ..translateByDouble(tx, ty, 0, 1)
+      ..scaleByDouble(target, target, target, 1);
   }
 
   void _resetZoom(TreeLayout layout) {
@@ -69,14 +101,45 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _centerOnFocus(layout));
   }
 
+  /// Focuses the tree on a person found via search and re-centers on them.
+  ///
+  /// Unlike a plain camera pan, this sets them as the tree's focus (like
+  /// "Center on this person" on the card menu) — searching only panned to an
+  /// already-rendered node before, so picking someone outside the current
+  /// focus's ancestors/spouse/children (e.g. a different branch entirely)
+  /// silently did nothing, since they simply weren't in that layout.
+  Future<void> _showSearch(List<Person> persons) async {
+    final Person? selected = await showDialog<Person>(
+      context: context,
+      builder: (context) => _TreeSearchDialog(persons: persons),
+    );
+    if (selected == null || !mounted) return;
+
+    setFocusPerson(ref, selected.id);
+    final TreeLayout? newLayout = ref.read(treeLayoutProvider);
+    if (newLayout == null) return;
+    _didInitialFit = false;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _centerOnFocus(newLayout),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final AsyncValue<List<Person>> personsAsync = ref.watch(personsProvider);
     final TreeMode mode = ref.watch(treeModeProvider);
+    final TreeOrientation orientation = ref.watch(treeOrientationProvider);
     final TreeLayout? layout = ref.watch(treeLayoutProvider);
     final int generations = layout?.generations ?? 0;
     final treeId = ref.watch(activeTreeIdProvider);
+
+    // Re-fit the view whenever the orientation flips.
+    if (orientation != _lastOrientation) {
+      _lastOrientation = orientation;
+      _didInitialFit = false;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -93,11 +156,56 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
             ),
           ],
         ),
+        // Zoom in/out/recenter used to live here too, but 7 action icons
+        // (each needing ~48dp) plus the leading button overflows AppBars on
+        // phones narrower than ~400dp — most Android devices, not just the
+        // budget end — silently clipping the trailing icons off-screen
+        // rather than throwing a visible overflow error. They're a floating
+        // cluster over the canvas instead (see _buildCanvas below).
         actions: <Widget>[
+          PopupMenuButton<TreeOrientation>(
+            tooltip: 'View',
+            icon: Icon(
+              orientation == TreeOrientation.vertical
+                  ? Icons.account_tree_outlined
+                  : Icons.account_tree,
+            ),
+            onSelected: (o) =>
+                ref.read(treeOrientationProvider.notifier).state = o,
+            itemBuilder: (context) => <PopupMenuEntry<TreeOrientation>>[
+              CheckedPopupMenuItem<TreeOrientation>(
+                value: TreeOrientation.vertical,
+                checked: orientation == TreeOrientation.vertical,
+                child: const Text('Vertical'),
+              ),
+              CheckedPopupMenuItem<TreeOrientation>(
+                value: TreeOrientation.horizontal,
+                checked: orientation == TreeOrientation.horizontal,
+                child: const Text('Horizontal'),
+              ),
+            ],
+          ),
           IconButton(
-            tooltip: 'Recenter',
-            icon: const Icon(Icons.center_focus_strong_outlined),
-            onPressed: layout == null ? null : () => _resetZoom(layout),
+            tooltip: 'Search people',
+            icon: const Icon(Icons.search),
+            onPressed: layout == null
+                ? null
+                : () => _showSearch(
+                    ref.read(personsProvider).value ?? const <Person>[],
+                  ),
+          ),
+          IconButton(
+            tooltip: 'Print family tree',
+            icon: _printing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.print_outlined),
+            onPressed: layout == null || _printing
+                ? null
+                : () => _printTree(layout, treeId),
           ),
           IconButton(
             tooltip: 'Add person',
@@ -116,11 +224,27 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
           }
           return Column(
             children: <Widget>[
-              Expanded(child: _buildCanvas(layout)),
+              Expanded(
+                child: Stack(
+                  children: <Widget>[
+                    _buildCanvas(layout),
+                    Positioned(
+                      right: AppSpacing.lg,
+                      bottom: AppSpacing.lg,
+                      child: ZoomControls(
+                        onZoomIn: () => _zoomBy(1.25),
+                        onZoomOut: () => _zoomBy(0.8),
+                        thirdIcon: Icons.center_focus_strong_outlined,
+                        thirdTooltip: 'Recenter',
+                        onThird: () => _resetZoom(layout),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               _ModeToggle(
                 mode: mode,
-                onChanged: (m) =>
-                    ref.read(treeModeProvider.notifier).state = m,
+                onChanged: (m) => ref.read(treeModeProvider.notifier).state = m,
               ),
             ],
           );
@@ -130,65 +254,169 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   }
 
   Widget _buildCanvas(TreeLayout layout) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final Size newViewport = Size(constraints.maxWidth, constraints.maxHeight);
-        if (newViewport != _viewport) {
-          _viewport = newViewport;
-        }
-        if (!_didInitialFit && _viewport != Size.zero) {
-          _didInitialFit = true;
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _centerOnFocus(layout),
+    final bool dark = Theme.of(context).brightness == Brightness.dark;
+    final bool horizontal =
+        ref.watch(treeOrientationProvider) == TreeOrientation.horizontal;
+    final Color canvasBg = dark
+        ? AppColors.treeCanvasDark
+        : AppColors.treeCanvasLight;
+    final Color connectorColor = AppColors.textTertiary.withValues(alpha: 0.7);
+
+    return ColoredBox(
+      color: canvasBg,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final Size newViewport = Size(
+            constraints.maxWidth,
+            constraints.maxHeight,
           );
-        }
+          if (newViewport != _viewport) {
+            _viewport = newViewport;
+          }
+          if (!_didInitialFit && _viewport != Size.zero) {
+            _didInitialFit = true;
+            WidgetsBinding.instance.addPostFrameCallback(
+              (_) => _centerOnFocus(layout),
+            );
+          }
 
-        final Rect visible = _visibleSceneRect;
+          final Rect visible = _visibleSceneRect;
 
-        // Viewport culling for cards: only build those intersecting the
-        // (inflated) visible rect.
-        final Rect cullRect = visible.inflate(120);
-        final visibleNodes = layout.nodes
-            .where((n) => n.rect.overlaps(cullRect))
-            .toList();
+          // Viewport culling: only build elements intersecting the visible rect.
+          final Rect cullRect = visible.inflate(160);
+          final visibleNodes = layout.nodes
+              .where((n) => n.rect.overlaps(cullRect))
+              .toList();
+          final visibleSlots = layout.slots
+              .where((s) => s.rect.overlaps(cullRect))
+              .toList();
 
-        return InteractiveViewer(
-          transformationController: _controller,
-          minScale: 0.2,
-          maxScale: 4.0,
-          boundaryMargin: const EdgeInsets.all(double.infinity),
-          constrained: false,
-          child: SizedBox(
-            width: layout.size.width,
-            height: layout.size.height,
-            child: Stack(
-              children: <Widget>[
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: TreeConnectorPainter(
-                      connectors: layout.connectors,
-                      visibleRect: visible,
+          return InteractiveViewer(
+            transformationController: _controller,
+            minScale: 0.2,
+            maxScale: 4.0,
+            boundaryMargin: const EdgeInsets.all(double.infinity),
+            constrained: false,
+            child: SizedBox(
+              width: layout.size.width,
+              height: layout.size.height,
+              child: Stack(
+                children: <Widget>[
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: TreeConnectorPainter(
+                        connectors: layout.connectors,
+                        visibleRect: visible,
+                        lineColor: connectorColor,
+                        spouseColor: connectorColor,
+                      ),
                     ),
                   ),
-                ),
-                for (final node in visibleNodes)
-                  Positioned(
-                    left: node.rect.left,
-                    top: node.rect.top,
-                    width: node.rect.width,
-                    height: node.rect.height,
-                    child: PersonCardWidget(
-                      person: node.person,
-                      isFocus: node.isFocus,
-                      onTap: () => _onCardTap(node.person),
+                  for (final label in layout.labels) _positionedLabel(label),
+                  for (final slot in visibleSlots)
+                    Positioned(
+                      left: slot.rect.left,
+                      top: slot.rect.top,
+                      width: slot.rect.width,
+                      height: slot.rect.height,
+                      child: PlaceholderSlotWidget(
+                        label: slot.label,
+                        horizontal: horizontal,
+                        onTap: () => _onSlotTap(slot),
+                      ),
                     ),
-                  ),
-              ],
+                  for (final node in visibleNodes)
+                    Positioned(
+                      left: node.rect.left,
+                      top: node.rect.top,
+                      width: node.rect.width,
+                      // The focus card reserves extra height for its inline
+                      // "Add relative" footer, overflowing below its base rect.
+                      // Skipped in horizontal orientation: there, the focus's
+                      // spouse sits directly below it (breadth runs
+                      // vertically there), close enough that this overflow
+                      // would overlap the spouse's card. Tapping the card
+                      // itself opens the same actions either way.
+                      height: (node.isFocus && !horizontal)
+                          ? node.rect.height + TreeMetrics.focusFooter
+                          : node.rect.height,
+                      child: PersonCardWidget(
+                        person: node.person,
+                        isFocus: node.isFocus,
+                        horizontal: horizontal,
+                        onTap: () => _onCardTap(node.person),
+                        onAddRelative: (node.isFocus && !horizontal)
+                            ? () => _onCardTap(node.person)
+                            : null,
+                      ),
+                    ),
+                  for (final toggle in layout.toggles)
+                    Positioned(
+                      left: toggle.center.dx - CollapseToggleWidget.size / 2,
+                      top: toggle.center.dy - CollapseToggleWidget.size / 2,
+                      width: CollapseToggleWidget.size,
+                      height: CollapseToggleWidget.size,
+                      child: CollapseToggleWidget(
+                        collapsed: toggle.collapsed,
+                        onTap: () => _onToggle(toggle.personId),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
+  }
+
+  Widget _positionedLabel(GenerationLabel label) {
+    const double w = 200;
+    return Positioned(
+      left: label.center.dx - w / 2,
+      top: label.center.dy - 9,
+      width: w,
+      child: Text(
+        label.text,
+        textAlign: TextAlign.center,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: AppColors.textTertiary,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  void _onToggle(String personId) {
+    final notifier = ref.read(collapsedAncestorsProvider.notifier);
+    final Set<String> next = <String>{...ref.read(collapsedAncestorsProvider)};
+    if (!next.remove(personId)) next.add(personId);
+    notifier.state = next;
+  }
+
+  Future<void> _onSlotTap(PositionedSlot slot) async {
+    final Person? child = ref.read(personMapProvider)[slot.childId];
+    if (child == null) return;
+    final bool isFather = slot.kind == SlotKind.father;
+    final Person? created = await showPersonEditorSheet(
+      context,
+      ref,
+      treeId: child.treeId,
+      relationLabel: isFather ? 'Add father' : 'Add mother',
+      relativeOf: child.fullName,
+      prefillSurname: isFather ? child.surname : null,
+      defaultSex: isFather ? Sex.male : Sex.female,
+    );
+    if (created == null) return;
+    await ref
+        .read(treeRepositoryProvider)
+        .linkChild(
+          treeId: child.treeId,
+          parentId: created.id,
+          childId: child.id,
+        );
   }
 
   void _onCardTap(Person person) {
@@ -206,7 +434,56 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
 
     // Focus the new person so they're visible — whether they were linked via
     // the in-form "Add to tree" picker or added standalone.
-    ref.read(focusPersonIdProvider.notifier).state = created.id;
+    setFocusPerson(ref, created.id);
+  }
+
+  Future<void> _printTree(TreeLayout layout, String treeId) async {
+    setState(() => _printing = true);
+    try {
+      final String treeName = _treeName(treeId);
+      final String focusName = layout.nodes.isEmpty
+          ? treeName
+          : layout.nodes
+                .firstWhere((n) => n.isFocus, orElse: () => layout.nodes.first)
+                .person
+                .fullName;
+      final PdfPageFormat format = layout.size.width >= layout.size.height
+          ? PdfPageFormat.a4.landscape
+          : PdfPageFormat.a4;
+      // Building the PDF fetches Google Fonts over the network the first
+      // time, which can take a few seconds (or fail if offline) — the print
+      // dialog only appears once this future resolves, so without the
+      // loading spinner + error surfacing below, a slow or failed fetch
+      // looks indistinguishable from the button doing nothing.
+      final bool launched = await Printing.layoutPdf(
+        format: format,
+        name: '$treeName family tree.pdf',
+        onLayout: (PdfPageFormat fmt) => TreePdfService.build(
+          layout: layout,
+          treeName: treeName,
+          focusName: focusName,
+          format: fmt,
+        ),
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Printing was cancelled.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not prepare the PDF. Check your internet connection '
+              'and try again. ($e)',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
   }
 
   String _treeName(String treeId) {
@@ -217,8 +494,6 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
         : treeId[0].toUpperCase() + treeId.substring(1);
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _ModeToggle extends StatelessWidget {
   const _ModeToggle({required this.mode, required this.onChanged});
@@ -250,12 +525,6 @@ class _ModeToggle extends StatelessWidget {
               selected: mode == TreeMode.descendants,
               onTap: () => onChanged(TreeMode.descendants),
             ),
-            const SizedBox(width: AppSpacing.sm),
-            _ModeButton(
-              label: 'Pedigree',
-              selected: mode == TreeMode.pedigree,
-              onTap: () => onChanged(TreeMode.pedigree),
-            ),
           ],
         ),
       ),
@@ -276,7 +545,9 @@ class _ModeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    final ThemeData theme = Theme.of(context);
+    final TextTheme text = theme.textTheme;
+    final Color primary = theme.colorScheme.primary;
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -284,16 +555,16 @@ class _ModeButton extends StatelessWidget {
           height: 48,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? AppColors.primary : AppColors.background,
+            color: selected ? primary : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(
-              color: selected ? AppColors.primary : AppColors.border,
-            ),
+            border: Border.all(color: selected ? primary : theme.dividerColor),
           ),
           child: Text(
             label,
             style: text.labelLarge?.copyWith(
-              color: selected ? AppColors.onPrimary : AppColors.textPrimary,
+              color: selected
+                  ? AppColors.onPrimary
+                  : theme.textTheme.bodyLarge?.color,
             ),
           ),
         ),
@@ -343,6 +614,117 @@ class _EmptyTree extends StatelessWidget {
               label: const Text('Add person'),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Search dialog for finding a person in the tree by name.
+class _TreeSearchDialog extends StatefulWidget {
+  const _TreeSearchDialog({required this.persons});
+
+  final List<Person> persons;
+
+  @override
+  State<_TreeSearchDialog> createState() => _TreeSearchDialogState();
+}
+
+class _TreeSearchDialogState extends State<_TreeSearchDialog> {
+  final TextEditingController _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<Person> get _results {
+    final String q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.persons;
+    return widget.persons
+        .where((p) => p.fullName.toLowerCase().contains(q))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xxl,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Text('Search people', style: text.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search by name…',
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textTertiary,
+                  ),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _results.length,
+                  itemBuilder: (_, i) {
+                    final Person p = _results[i];
+                    return ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.cream,
+                        child: Text(
+                          p.givenName.isNotEmpty
+                              ? p.givenName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(color: AppColors.primary),
+                        ),
+                      ),
+                      title: Text(p.fullName),
+                      subtitle: p.birthDate != null
+                          ? Text('${p.birthDate!.year}', style: text.bodySmall)
+                          : null,
+                      onTap: () => Navigator.of(context).pop(p),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -21,3 +21,11 @@ final isSignedInProvider = Provider<bool>((ref) {
   final AsyncValue<AppUser?> state = ref.watch(authStateProvider);
   return state.maybeWhen(data: (user) => user != null, orElse: () => false);
 });
+
+/// Whether the user just landed via a password-reset email link — the
+/// router forces navigation to the "set new password" screen while this is
+/// true. See docs/auth-email-links.md.
+final passwordRecoveryProvider = StreamProvider<bool>((ref) {
+  final AuthRepository repo = ref.watch(authRepositoryProvider);
+  return repo.passwordRecoveryEvents();
+});

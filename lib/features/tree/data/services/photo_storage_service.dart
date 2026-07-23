@@ -24,24 +24,46 @@ class PhotoStorageService {
   static const String bucket = 'photos';
 
   /// Reads [file], uploads it for [personId], and returns a reference
-  /// (public URL or local path).
+  /// (public URL or local path). Works for any media kind (image, video).
   Future<String> uploadPersonPhoto({
     required String personId,
     required XFile file,
   }) async {
     final Uint8List bytes = await file.readAsBytes();
     if (bytes.isEmpty) {
-      throw const ServerFailure('Selected image could not be read.');
+      throw const ServerFailure('Selected file could not be read.');
     }
     final String ext = _extension(file.name.isNotEmpty ? file.name : file.path);
+    return _store(personId: personId, bytes: bytes, ext: ext);
+  }
 
+  /// Uploads a file at [path] (e.g. a recorded voice note) for [personId].
+  Future<String> uploadPersonFile({
+    required String personId,
+    required String path,
+  }) async {
+    if (kIsWeb) {
+      throw const ServerFailure('Recording is not supported on the web.');
+    }
+    final Uint8List bytes = await File(path).readAsBytes();
+    if (bytes.isEmpty) {
+      throw const ServerFailure('Recording could not be read.');
+    }
+    return _store(personId: personId, bytes: bytes, ext: _extension(path));
+  }
+
+  Future<String> _store({
+    required String personId,
+    required Uint8List bytes,
+    required String ext,
+  }) async {
     if (SupabaseConfig.isReady) {
       return _uploadToSupabase(personId: personId, bytes: bytes, ext: ext);
     }
     if (kIsWeb) {
       // No local filesystem on web — Supabase is required there.
       throw const ServerFailure(
-        'Connect Supabase to upload photos on the web.',
+        'Connect Supabase to upload media on the web.',
       );
     }
     return _persistLocally(personId: personId, bytes: bytes, ext: ext);
@@ -130,8 +152,35 @@ class PhotoStorageService {
         return 'image/webp';
       case 'heic':
         return 'image/heic';
-      default:
+      case 'jpg':
+      case 'jpeg':
         return 'image/jpeg';
+      // Video.
+      case 'mp4':
+      case 'm4v':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'webm':
+        return 'video/webm';
+      case '3gp':
+        return 'video/3gpp';
+      // Audio.
+      case 'm4a':
+        return 'audio/mp4';
+      case 'aac':
+        return 'audio/aac';
+      case 'mp3':
+        return 'audio/mpeg';
+      case 'wav':
+        return 'audio/wav';
+      case 'ogg':
+      case 'opus':
+        return 'audio/ogg';
+      case 'caf':
+        return 'audio/x-caf';
+      default:
+        return 'application/octet-stream';
     }
   }
 

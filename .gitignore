@@ -57,4 +57,3 @@ app.*.map.json
 **/*.jks
 **/*.keystore
 .vercel
-.env*.local

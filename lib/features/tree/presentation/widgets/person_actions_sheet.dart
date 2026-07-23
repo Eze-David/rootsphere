@@ -82,8 +82,7 @@ class _ActionsList extends StatelessWidget {
                       icon: Icons.center_focus_strong_outlined,
                       label: 'Center on this person',
                       onTap: () {
-                        ref.read(focusPersonIdProvider.notifier).state =
-                            person.id;
+                        setFocusPerson(ref, person.id);
                         Navigator.pop(context);
                       },
                     ),

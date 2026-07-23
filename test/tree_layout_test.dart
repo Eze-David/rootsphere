@@ -92,15 +92,209 @@ void main() {
       }
     });
 
-    test('pedigree includes ancestors and descendants of focus', () {
+    test('ancestors (kinship) adds Add-parent slots and captions', () {
+      final layout = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'adaeze',
+        mode: TreeMode.ancestors,
+      );
+      // ngozi, arthur and grace have unknown parents → placeholder slots.
+      expect(layout.slots, isNotEmpty);
+      expect(
+        layout.slots.every((s) => s.label.startsWith('Add ')),
+        isTrue,
+      );
+      // Captions are generated per generation relative to the focus.
+      final captions = layout.labels.map((l) => l.text).toList();
+      expect(captions, contains("Adaeze's parents"));
+      expect(captions, contains("Adaeze's grandparents"));
+      // Each real person gets a collapse toggle.
+      expect(layout.toggles.map((t) => t.personId), contains('adaeze'));
+    });
+
+    test('horizontal orientation grows ancestors to the right of focus', () {
+      final layout = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'adaeze',
+        mode: TreeMode.ancestors,
+        orientation: TreeOrientation.horizontal,
+      );
+      final focus = layout.nodes.firstWhere((n) => n.isFocus);
+      // Every other node (real or parent) sits to the right of the focus.
+      for (final n in layout.nodes.where((n) => !n.isFocus)) {
+        expect(n.rect.left, greaterThan(focus.rect.left));
+      }
+      for (final s in layout.slots) {
+        expect(s.rect.left, greaterThan(focus.rect.left));
+      }
+    });
+
+    test('collapsing a person hides its ancestors', () {
+      final full = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'adaeze',
+        mode: TreeMode.ancestors,
+      );
+      final collapsed = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'adaeze',
+        mode: TreeMode.ancestors,
+        collapsed: <String>{'adaeze'},
+      );
+      // Collapsing the focus removes all ancestors and slots above it.
+      expect(collapsed.nodes.length, lessThan(full.nodes.length));
+      expect(collapsed.nodes.map((n) => n.person.id), <String>['adaeze']);
+      expect(collapsed.slots, isEmpty);
+    });
+
+    test('descendants places a spouse beside the person, connects children '
+        'below and captions each generation', () {
+      final layout = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'arthur',
+        mode: TreeMode.descendants,
+      );
+
+      // Grace (spouse) sits on the same row as Arthur.
+      final arthur = layout.nodes.firstWhere((n) => n.person.id == 'arthur');
+      final grace = layout.nodes.firstWhere((n) => n.person.id == 'grace');
+      expect(grace.rect.top, arthur.rect.top);
+      expect(grace.rect.left, greaterThan(arthur.rect.left));
+
+      // Captions are generated per generation relative to the focus.
+      final captions = layout.labels.map((l) => l.text).toList();
+      expect(captions, contains("Arthur's children"));
+      expect(captions, contains("Arthur's grandchildren"));
+
+      // Arthur and Emeka both have children, so each gets a collapse toggle.
+      final toggleIds = layout.toggles.map((t) => t.personId).toSet();
+      expect(toggleIds, containsAll(<String>['arthur', 'emeka']));
+      // Ngozi and Adaeze have no children of their own — no toggle for them.
+      expect(toggleIds, isNot(contains('ngozi')));
+      expect(toggleIds, isNot(contains('adaeze')));
+    });
+
+    test('collapsing a person hides its descendants but keeps their toggle', () {
+      final collapsed = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'arthur',
+        mode: TreeMode.descendants,
+        collapsed: <String>{'emeka'},
+      );
+      final ids = collapsed.nodes.map((n) => n.person.id).toSet();
+      expect(ids, containsAll(<String>['arthur', 'grace', 'emeka', 'ngozi']));
+      expect(ids, isNot(contains('adaeze')));
+
+      final emekaToggle =
+          collapsed.toggles.firstWhere((t) => t.personId == 'emeka');
+      expect(emekaToggle.collapsed, isTrue);
+    });
+
+    test('ancestors pedigree also shows the focus\'s spouse beside them and '
+        'children below, alongside the ancestors above', () {
       final layout = TreeLayoutEngine.build(
         persons: persons,
         focusId: 'emeka',
-        mode: TreeMode.pedigree,
+        mode: TreeMode.ancestors,
       );
       final ids = layout.nodes.map((n) => n.person.id).toSet();
-      // Parents (up) and child (down) of Emeka.
-      expect(ids, containsAll(<String>['arthur', 'grace', 'emeka', 'adaeze']));
+      // Ancestors (arthur, grace) and the focus's own spouse + child are all
+      // present in a single view.
+      expect(
+        ids,
+        containsAll(<String>['emeka', 'arthur', 'grace', 'ngozi', 'adaeze']),
+      );
+
+      final emeka = layout.nodes.firstWhere((n) => n.person.id == 'emeka');
+      final ngozi = layout.nodes.firstWhere((n) => n.person.id == 'ngozi');
+      final adaeze = layout.nodes.firstWhere((n) => n.person.id == 'adaeze');
+      final arthur = layout.nodes.firstWhere((n) => n.person.id == 'arthur');
+
+      // Spouse sits beside the focus, same row.
+      expect(ngozi.rect.top, emeka.rect.top);
+      expect(ngozi.rect.left, greaterThan(emeka.rect.left));
+      // Child sits below the couple.
+      expect(adaeze.rect.top, greaterThan(emeka.rect.bottom));
+      // The gap down to the children row is deliberately more generous than
+      // the gap up to the ancestor generations, so it doesn't feel cramped
+      // against the focus card.
+      final double childGap = adaeze.rect.top - emeka.rect.bottom;
+      final double ancestorGap = emeka.rect.top - arthur.rect.bottom;
+      expect(childGap, greaterThan(ancestorGap));
+
+      // Both an ancestors caption and a children caption are present.
+      final captions = layout.labels.map((l) => l.text).toList();
+      expect(captions, contains("Emeka's parents"));
+      expect(captions, contains("Emeka's children"));
+
+      // The child's connector starts at the couple's row-centre height (where
+      // the spouse connector sits) and is horizontally centred between them —
+      // not offset toward Emeka's own card — so there's no visible gap where
+      // the two lines should meet.
+      final childConnector = layout.connectors.firstWhere(
+        (c) => !c.isSpouse && c.points.last == Offset(adaeze.rect.center.dx, adaeze.rect.top),
+      );
+      final Offset start = childConnector.points.first;
+      expect(start.dy, emeka.rect.center.dy);
+      expect(start.dx, (emeka.rect.center.dx + ngozi.rect.center.dx) / 2);
+
+      // A children-toggle exists for the focus, namespaced apart from any
+      // ancestor-collapse toggle so the two don't interfere.
+      final toggleIds = layout.toggles.map((t) => t.personId).toSet();
+      expect(toggleIds, contains('emeka')); // ancestor-collapse toggle
+      expect(toggleIds, contains('children:emeka')); // children-collapse toggle
+
+      // Nothing overlaps, including the new spouse/child cards.
+      for (int i = 0; i < layout.nodes.length; i++) {
+        for (int j = i + 1; j < layout.nodes.length; j++) {
+          final a = layout.nodes[i].rect;
+          final b = layout.nodes[j].rect;
+          expect(a.overlaps(b.deflate(0.5)), isFalse,
+              reason: '${layout.nodes[i].person.id} overlaps '
+                  '${layout.nodes[j].person.id}');
+        }
+      }
+    });
+
+    test('collapsing the focus\'s children hides them but keeps their toggle', () {
+      final layout = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'emeka',
+        mode: TreeMode.ancestors,
+        collapsed: <String>{'children:emeka'},
+      );
+      final ids = layout.nodes.map((n) => n.person.id).toSet();
+      expect(ids, contains('ngozi')); // spouse still shown
+      expect(ids, isNot(contains('adaeze'))); // child hidden
+
+      final toggle =
+          layout.toggles.firstWhere((t) => t.personId == 'children:emeka');
+      expect(toggle.collapsed, isTrue);
+    });
+
+    test('horizontal: child connector meets the spouse connector with no gap', () {
+      final layout = TreeLayoutEngine.build(
+        persons: persons,
+        focusId: 'emeka',
+        mode: TreeMode.ancestors,
+        orientation: TreeOrientation.horizontal,
+      );
+      final emeka = layout.nodes.firstWhere((n) => n.person.id == 'emeka');
+      final ngozi = layout.nodes.firstWhere((n) => n.person.id == 'ngozi');
+      final adaeze = layout.nodes.firstWhere((n) => n.person.id == 'adaeze');
+
+      // In horizontal mode the spouse stacks below the focus (breadth runs
+      // vertically), and their connector is drawn at the shared column's
+      // horizontal centre, not its edge.
+      expect(ngozi.rect.left, emeka.rect.left);
+      expect(ngozi.rect.top, greaterThan(emeka.rect.bottom));
+
+      final childConnector = layout.connectors.firstWhere(
+        (c) => !c.isSpouse && c.points.last == Offset(adaeze.rect.right, adaeze.rect.center.dy),
+      );
+      final Offset start = childConnector.points.first;
+      expect(start.dx, emeka.rect.center.dx);
+      expect(start.dy, (emeka.rect.center.dy + ngozi.rect.center.dy) / 2);
     });
   });
 }

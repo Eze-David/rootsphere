@@ -42,4 +42,20 @@ abstract class AppColors {
   static const Color avatarBlue = Color(0xFFDCE7F5);
   static const Color avatarGreen = Color(0xFFD8EBDD);
   static const Color avatarAmber = Color(0xFFF6E6C8);
+
+  // Tree person-card photo tints, keyed by sex.
+  static const Color maleTint = Color(0xFF6E86A6); // slate blue
+  static const Color femaleTint = Color(0xFFC76A4D); // terracotta
+  static const Color neutralTint = Color(0xFF9A938B); // warm grey
+
+  // Tree canvas backgrounds + connectors (theme-aware; chosen in the widget).
+  static const Color treeCanvasDark = Color(0xFF3A3735);
+  static const Color treeCanvasLight = Color(0xFFF1ECE6);
+  static const Color connectorDark = Color(0xFF6F6A65);
+
+  // African ancestry hero palette.
+  static const Color sunGold = Color(0xFFEAB53E);
+  static const Color sunGoldLight = Color(0xFFF5D47A);
+  static const Color heroCream = Color(0xFFFDF8F0);
+  static const Color heroText = Color(0xFF2A2118);
 }

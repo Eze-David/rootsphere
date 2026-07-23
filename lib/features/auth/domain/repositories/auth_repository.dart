@@ -9,6 +9,13 @@ abstract class AuthRepository {
   /// (sign-in, sign-out, token refresh). Emits `null` when signed out.
   Stream<AppUser?> authStateChanges();
 
+  /// Emits `true` when the user has just landed via a password-reset email
+  /// link (a temporary session meant only for setting a new password), and
+  /// `false` on any other auth change — the router uses this to force
+  /// navigation to the "set new password" screen. See
+  /// docs/auth-email-links.md.
+  Stream<bool> passwordRecoveryEvents();
+
   /// The currently authenticated user, or `null` if signed out.
   AppUser? get currentUser;
 
@@ -18,6 +25,7 @@ abstract class AuthRepository {
   });
 
   Future<void> signUpWithEmail({
+    required String fullName,
     required String email,
     required String password,
   });

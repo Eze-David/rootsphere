@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../domain/entities/edit_history_entry.dart';
 import '../../domain/entities/person.dart';
 import '../../domain/repositories/tree_repository.dart';
 
@@ -130,6 +131,47 @@ class TreeRepositoryLocal implements TreeRepository {
     addSpouse(aId, bId);
     addSpouse(bId, aId);
     await _write(treeId, persons);
+  }
+
+  // ── Edit history ─────────────────────────────────────────────────────────
+
+  String _historyKey(String personId) => 'person_edits_$personId';
+
+  @override
+  Future<void> addEditHistory(EditHistoryEntry entry) async {
+    final List<EditHistoryEntry> entries = await getEditHistory(entry.personId);
+    entries.insert(0, entry);
+    final String encoded =
+        jsonEncode(entries.map((e) => e.toJson()).toList());
+    await _prefs.setString(_historyKey(entry.personId), encoded);
+  }
+
+  @override
+  Future<List<EditHistoryEntry>> getEditHistory(String personId) async {
+    final String? raw = _prefs.getString(_historyKey(personId));
+    if (raw == null || raw.isEmpty) return <EditHistoryEntry>[];
+    try {
+      final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
+      return list
+          .map((e) => EditHistoryEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (_) {
+      return <EditHistoryEntry>[];
+    }
+  }
+
+  @override
+  Future<List<EditHistoryEntry>> getRecentEditHistory(
+    String treeId, {
+    int limit = 20,
+  }) async {
+    final List<Person> persons = _read(treeId);
+    final List<EditHistoryEntry> all = <EditHistoryEntry>[];
+    for (final p in persons) {
+      all.addAll(await getEditHistory(p.id));
+    }
+    all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return all.take(limit).toList();
   }
 
   // ── Seed ───────────────────────────────────────────────────────────────────

@@ -34,6 +34,11 @@ abstract class AppTypography {
         fontWeight: FontWeight.w700,
         color: primary,
       ),
+      headlineSmall: GoogleFonts.playfairDisplay(
+        fontSize: 22,
+        fontWeight: FontWeight.w700,
+        color: primary,
+      ),
       titleLarge: GoogleFonts.dmSans(
         fontSize: 22,
         fontWeight: FontWeight.w700,

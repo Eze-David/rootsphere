@@ -51,5 +51,30 @@
 		<string>Rootsphere needs camera access so you can take photos for family members.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>Rootsphere needs photo library access so you can add photos to family members.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Rootsphere needs microphone access so you can record voice notes for family members.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<!-- Google Sign-In (native flow, see docs/google-apple-sign-in.md):
+			     the reversed form of GOOGLE_IOS_CLIENT_ID from .env. -->
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.24620551446-8nkcrah4jtlcgi2b3oova8hbp6419kss</string>
+				</array>
+			</dict>
+			<!-- Custom scheme so Supabase auth emails (password reset,
+			     confirm signup) link back into the app — see
+			     docs/auth-email-links.md. supabase_flutter already listens
+			     for and processes these automatically (detectSessionInUri,
+			     on by default); this just registers the app as the OS-level
+			     handler for the scheme. -->
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>rootsphere</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

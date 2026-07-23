@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'auth_providers.dart';
 
@@ -18,8 +19,12 @@ class AuthController extends AsyncNotifier<void> {
     return _run(() => _repo.signInWithEmail(email: email, password: password));
   }
 
-  Future<bool> signUp(String email, String password) {
-    return _run(() => _repo.signUpWithEmail(email: email, password: password));
+  Future<bool> signUp(String fullName, String email, String password) {
+    return _run(() => _repo.signUpWithEmail(
+          fullName: fullName,
+          email: email,
+          password: password,
+        ));
   }
 
   Future<bool> signInWithGoogle() => _run(_repo.signInWithGoogle);
@@ -30,7 +35,12 @@ class AuthController extends AsyncNotifier<void> {
     return _run(() => _repo.sendPasswordReset(email));
   }
 
-  Future<bool> signOut() => _run(_repo.signOut);
+  Future<bool> signOut() => _run(() async {
+        await _repo.signOut();
+        // Global (not per-account) device setting — must not leak into
+        // whichever account signs in next. See clearSelectedTreeId.
+        clearSelectedTreeId(ref);
+      });
 
   Future<bool> updatePassword(String newPassword) {
     return _run(() => _repo.updatePassword(newPassword));

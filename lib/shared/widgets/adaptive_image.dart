@@ -23,7 +23,8 @@ class AdaptiveImage extends StatelessWidget {
   final double? height;
   final BoxFit fit;
 
-  bool get _isNetwork => reference.startsWith('http') || reference.startsWith('blob:');
+  bool get _isNetwork =>
+      reference.startsWith('http') || reference.startsWith('blob:');
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +33,10 @@ class AdaptiveImage extends StatelessWidget {
       height: height,
       color: AppColors.surfaceMuted,
       alignment: Alignment.center,
-      child: const Icon(Icons.broken_image_outlined, color: AppColors.textTertiary),
+      child: const Icon(
+        Icons.broken_image_outlined,
+        color: AppColors.textTertiary,
+      ),
     );
 
     if (_isNetwork) {
