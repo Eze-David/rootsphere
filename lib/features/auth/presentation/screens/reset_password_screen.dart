@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/app_text_field.dart';
@@ -10,9 +12,11 @@ import '../providers/auth_controller.dart';
 /// Landed on via the password-reset email link (see docs/auth-email-links.md
 /// and [passwordRecoveryProvider], which the router uses to force navigation
 /// here). The temporary recovery session is only good for setting a new
-/// password — after that succeeds, [AuthChangeEvent.userUpdated] fires,
-/// [passwordRecoveryProvider] flips back to false, and the router releases
-/// the user into the normal signed-in app.
+/// password — once that succeeds we navigate to [AppRoutes.home] ourselves;
+/// the router's redirect guard only *blocks* leaving this screen while
+/// [passwordRecoveryProvider] is true, it doesn't push a new destination once
+/// that flips false, so nothing else would ever move the user off this
+/// screen.
 class ResetPasswordScreen extends ConsumerStatefulWidget {
   const ResetPasswordScreen({super.key});
 
@@ -41,6 +45,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Password updated.')));
+    context.go(AppRoutes.home);
   }
 
   @override

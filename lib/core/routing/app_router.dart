@@ -35,6 +35,15 @@ final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final appRouterProvider = Provider<GoRouter>((ref) {
   final repo = ref.watch(authRepositoryProvider);
 
+  // Subscribe to passwordRecoveryProvider now, before the app processes any
+  // incoming route (e.g. a password-reset deep link). It maps Supabase's
+  // broadcast onAuthStateChange stream, which never replays past events —
+  // if this were first read lazily from inside `redirect` below (triggered
+  // by that same stream via GoRouterRefreshStream), the passwordRecovery
+  // event would already be gone by the time this subscribes, and the
+  // redirect to the reset-password screen would silently never happen.
+  ref.listen(passwordRecoveryProvider, (_, _) {});
+
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: ref.read(lastTabProvider),
