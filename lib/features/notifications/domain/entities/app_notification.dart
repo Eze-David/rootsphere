@@ -10,6 +10,8 @@ enum NotificationType {
   opportunitySubmitted,
   opportunityCompanyApproved,
   opportunityCompanyRejected,
+  supportMessage,
+  supportReply,
   unknown,
 }
 
@@ -37,6 +39,10 @@ NotificationType _typeFromString(String value) {
       return NotificationType.opportunityCompanyApproved;
     case 'opportunity_company_rejected':
       return NotificationType.opportunityCompanyRejected;
+    case 'support_message':
+      return NotificationType.supportMessage;
+    case 'support_reply':
+      return NotificationType.supportReply;
     default:
       return NotificationType.unknown;
   }

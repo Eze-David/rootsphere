@@ -72,6 +72,26 @@ class RecordRepositoryLocal implements RecordRepository {
   }
 
   @override
+  Stream<List<Record>> watchAllRecords() {
+    // No real cross-user roles offline (single-device demo mode) — "all
+    // records" just merges every tree already stored locally.
+    _maybeSeed('okonkwo');
+    final controller = StreamController<List<Record>>.broadcast();
+    scheduleMicrotask(() => controller.add(_readAll()));
+    return controller.stream;
+  }
+
+  List<Record> _readAll() {
+    final List<Record> all = <Record>[
+      for (final String key in _prefs.getKeys())
+        if (key.startsWith('tree_records_'))
+          ..._read(key.substring('tree_records_'.length)),
+    ];
+    _sort(all);
+    return all;
+  }
+
+  @override
   Future<void> upsertRecord(Record record) async {
     final List<Record> records = _read(record.treeId);
     final int idx = records.indexWhere((r) => r.id == record.id);

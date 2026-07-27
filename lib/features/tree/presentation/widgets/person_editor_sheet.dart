@@ -110,6 +110,7 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
   late Sex _sex;
   DateTime? _birthDate;
   DateTime? _deathDate;
+  late bool _isDeceased;
   bool _saving = false;
 
   // Optional in-form linking (top-bar `+` flow).
@@ -150,6 +151,7 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
     _sex = p?.sex ?? widget.defaultSex ?? Sex.unknown;
     _birthDate = p?.birthDate;
     _deathDate = p?.deathDate;
+    _isDeceased = p != null && !p.isLiving;
   }
 
   @override
@@ -235,6 +237,7 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
               sex: _sex,
               birthDate: _birthDate,
               deathDate: _deathDate,
+              isDeceased: _isDeceased,
               birthPlace: _birthPlace.text.trim().isEmpty
                   ? null
                   : _birthPlace.text.trim(),
@@ -322,13 +325,22 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
     if (mounted) Navigator.pop(context, person);
   }
 
+  /// Prefers the account's real name; an account that never got a
+  /// `full_name` in its Supabase metadata falls back to the email's local
+  /// part rather than showing the raw email address (matches the "Guest"
+  /// vs. real-account naming convention in the profile screen's header).
   String? _currentEditorName() {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) return null;
     final meta = user.userMetadata;
-    final String? name = (meta?['full_name'] ?? meta?['name']) as String?;
+    final String? name =
+        (meta?['full_name'] ?? meta?['name'] ?? meta?['display_name'])
+            as String?;
     if (name != null && name.trim().isNotEmpty) return name.trim();
-    return user.email;
+    final String? email = user.email;
+    if (email == null) return null;
+    final int at = email.indexOf('@');
+    return at > 0 ? email.substring(0, at) : email;
   }
 
   /// Computes the human-readable labels of fields that differ between the
@@ -348,6 +360,7 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
     check('Sex', before.sex, after.sex);
     check('Birth date', before.birthDate, after.birthDate);
     check('Death date', before.deathDate, after.deathDate);
+    check('Living status', before.isLiving, after.isLiving);
     check('Birthplace', before.birthPlace, after.birthPlace);
     check('Death place', before.deathPlace, after.deathPlace);
     check('Religion', before.religion, after.religion);
@@ -510,6 +523,11 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
               _SexSelector(
                 value: _sex,
                 onChanged: (s) => setState(() => _sex = s),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              _LivingStatusSelector(
+                isDeceased: _isDeceased,
+                onChanged: (v) => setState(() => _isDeceased = v),
               ),
               const SizedBox(height: AppSpacing.lg),
               Row(
@@ -718,6 +736,38 @@ class _SexSelector extends StatelessWidget {
             ButtonSegment(value: Sex.unknown, label: Text('Unknown')),
           ],
           selected: <Sex>{value},
+          onSelectionChanged: (s) => onChanged(s.first),
+          showSelectedIcon: false,
+        ),
+      ],
+    );
+  }
+}
+
+/// Explicit Living/Dead picker — independent of the Died year field, so
+/// someone can be marked deceased without knowing exactly when.
+class _LivingStatusSelector extends StatelessWidget {
+  const _LivingStatusSelector({
+    required this.isDeceased,
+    required this.onChanged,
+  });
+  final bool isDeceased;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('LIVING STATUS', style: text.labelSmall),
+        const SizedBox(height: AppSpacing.sm),
+        SegmentedButton<bool>(
+          segments: const <ButtonSegment<bool>>[
+            ButtonSegment(value: false, label: Text('Living')),
+            ButtonSegment(value: true, label: Text('Dead')),
+          ],
+          selected: <bool>{isDeceased},
           onSelectionChanged: (s) => onChanged(s.first),
           showSelectedIcon: false,
         ),

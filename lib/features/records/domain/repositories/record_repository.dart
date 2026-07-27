@@ -9,6 +9,13 @@ abstract class RecordRepository {
   /// Streams all records in [treeId], newest first, emitting on every change.
   Stream<List<Record>> watchRecords(String treeId);
 
+  /// Streams records across every tree the caller is allowed to see, newest
+  /// first — for Supabase this is admins and approved Finders/Indexers only
+  /// (enforced server-side by RLS, see
+  /// 20260724000000_records_reviewer_visibility.sql); anyone else's request
+  /// resolves to just their own trees' records.
+  Stream<List<Record>> watchAllRecords();
+
   /// One-shot read of all records in [treeId].
   Future<List<Record>> getRecords(String treeId);
 

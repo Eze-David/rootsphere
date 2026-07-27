@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/config/supabase_config.dart';
 import '../../../../core/storage/preferences_provider.dart';
+import '../../../collab/domain/entities/opportunity.dart';
+import '../../../collab/domain/entities/role_verification.dart';
+import '../../../collab/presentation/providers/role_verification_providers.dart';
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../data/repositories/record_repository_local.dart';
@@ -47,9 +50,31 @@ final globalRecordsServiceProvider = Provider<GlobalRecordsService>(
   (ref) => GlobalRecordsService(),
 );
 
-/// Streams all records in the active tree (newest first).
+/// Whether the signed-in user is an admin or an approved Finder/Indexer —
+/// same roles that already unlock the review queues under `/admin/*` (see
+/// opportunity_actions.dart) — and so should see records across every tree,
+/// not just their own, when browsing the Records library.
+final canSeeAllRecordsProvider = Provider<bool>((ref) {
+  final bool isAdmin = ref.watch(isPlatformAdminProvider).value ?? false;
+  if (isAdmin) return true;
+  final RoleVerification? finder = ref.watch(
+    myVerificationForRoleProvider(CollaborationRole.finder),
+  );
+  final RoleVerification? indexer = ref.watch(
+    myVerificationForRoleProvider(CollaborationRole.indexer),
+  );
+  return finder?.status == VerificationStatus.approved ||
+      indexer?.status == VerificationStatus.approved;
+});
+
+/// Streams the records the signed-in user should see: everyone's, across
+/// every tree, for admins/approved Finders/Indexers (see
+/// [canSeeAllRecordsProvider]); just the active tree's otherwise.
 final recordsProvider = StreamProvider<List<Record>>((ref) {
   final repo = ref.watch(recordRepositoryProvider);
+  if (ref.watch(canSeeAllRecordsProvider)) {
+    return repo.watchAllRecords();
+  }
   final treeId = ref.watch(activeTreeIdProvider);
   return repo.watchRecords(treeId);
 });

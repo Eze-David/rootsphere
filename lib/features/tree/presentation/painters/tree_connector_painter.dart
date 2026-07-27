@@ -39,15 +39,21 @@ class TreeConnectorPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
+    final buttCapPaint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.butt;
+
     final inflated = visibleRect.inflate(64);
 
     for (final c in connectors) {
       if (!c.bounds.overlaps(inflated)) continue; // viewport culling
       if (c.points.length < 2) continue;
-      canvas.drawPath(
-        _roundedPolyline(c.points),
-        c.isSpouse ? spousePaint : parentPaint,
-      );
+      final Paint paint = !c.roundCap
+          ? buttCapPaint
+          : (c.isSpouse ? spousePaint : parentPaint);
+      canvas.drawPath(_roundedPolyline(c.points), paint);
     }
   }
 

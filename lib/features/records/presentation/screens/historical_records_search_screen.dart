@@ -356,59 +356,131 @@ class _HistoricalRecordsSearchScreenState
     return DateTime(int.parse(match.group(1)!));
   }
 
-  String _heroAsset() {
+  /// Types with more than one curated hero photo auto-crossfade between
+  /// them (see [RecordsLibraryHero]) — everything else is a single-element
+  /// list, which the hero renders as a static image.
+  List<String> _heroAssets() {
     switch (widget.type) {
+      case RecordType.birth:
+        return const <String>[
+          'assets/images/records_birth_hero.png',
+          'assets/images/records_birth_hero_2.png',
+        ];
       case RecordType.marriage:
-        return 'assets/images/records_marriage_hero.png';
+        return const <String>[
+          'assets/images/records_marriage_hero.png',
+          'assets/images/records_marriage_hero_2.png',
+          'assets/images/records_marriage_hero_3.png',
+        ];
       case RecordType.death:
-        return 'assets/images/records_death_hero.png';
+        return const <String>[
+          'assets/images/records_death_hero.png',
+          'assets/images/records_death_hero_2.png',
+          'assets/images/records_death_hero_3.png',
+          'assets/images/records_death_hero_4.png',
+          'assets/images/records_death_hero_5.png',
+        ];
       case RecordType.census:
-        return 'assets/images/records_census_hero.png';
+        return const <String>[
+          'assets/images/records_census_hero.png',
+          'assets/images/records_census_hero_2.png',
+          'assets/images/records_census_hero_3.png',
+        ];
       case RecordType.military:
-        return 'assets/images/records_military_hero.png';
+        return const <String>[
+          'assets/images/records_military_hero.png',
+          'assets/images/records_military_hero_2.png',
+        ];
       case RecordType.immigration:
-        return 'assets/images/records_immigration_hero.png';
+        return const <String>[
+          'assets/images/records_immigration_hero.png',
+          'assets/images/records_immigration_hero_2.png',
+          'assets/images/records_immigration_hero_3.png',
+        ];
       case RecordType.baptism:
-        return 'assets/images/records_baptism_hero.png';
+        return const <String>[
+          'assets/images/records_baptism_hero.png',
+          'assets/images/records_baptism_hero_2.png',
+          'assets/images/records_baptism_hero_3.png',
+        ];
       case RecordType.photo:
-        return 'assets/images/records_photo_hero.png';
+        return const <String>[
+          'assets/images/records_photo_hero.png',
+          'assets/images/records_photo_hero_2.png',
+          'assets/images/records_photo_hero_3.png',
+        ];
       case RecordType.newspaper:
-        return 'assets/images/records_newspaper_hero.png';
+        return const <String>[
+          'assets/images/records_newspaper_hero.png',
+          'assets/images/records_newspaper_hero_2.png',
+          'assets/images/records_newspaper_hero_3.png',
+        ];
       case RecordType.community:
-        return 'assets/images/records_community_hero.png';
+        return const <String>['assets/images/records_community_hero.png'];
       case RecordType.cemetery:
-        return 'assets/images/records_cemetery_hero.png';
+        return const <String>['assets/images/records_cemetery_hero.png'];
       case RecordType.school:
-        return 'assets/images/records_school_hero.png';
+        return const <String>['assets/images/records_school_hero.png'];
       case RecordType.exam:
-        return 'assets/images/records_exam_hero.png';
+        return const <String>['assets/images/records_exam_hero.png'];
       case RecordType.church:
-        return 'assets/images/records_baptism_hero.png';
+        return const <String>[
+          'assets/images/records_church_hero.png',
+          'assets/images/records_church_hero_2.png',
+        ];
       case RecordType.transportManifest:
-        return 'assets/images/records_immigration_hero.png';
+        return const <String>[
+          'assets/images/records_transport_manifest_hero.png',
+          'assets/images/records_transport_manifest_hero_2.png',
+          'assets/images/records_transport_manifest_hero_3.png',
+        ];
       case RecordType.library:
-        return 'assets/images/records_library_hero.png';
+        return const <String>['assets/images/records_library_hero.png'];
       case RecordType.museum:
-        return 'assets/images/records_community_hero.png';
+        return const <String>['assets/images/records_museum_hero.png'];
       case RecordType.archive:
-        return 'assets/images/records_newspaper_hero.png';
+        return const <String>['assets/images/records_newspaper_hero.png'];
       case RecordType.landDocument:
-        return 'assets/images/records_cemetery_hero.png';
+        return const <String>[
+          'assets/images/records_land_document_hero.png',
+          'assets/images/records_land_document_hero_2.png',
+          'assets/images/records_land_document_hero_3.png',
+        ];
       case RecordType.will:
-        return 'assets/images/records_exam_hero.png';
+        return const <String>['assets/images/records_will_hero.png'];
       case RecordType.cooperativeAssociation:
-        return 'assets/images/records_community_hero.png';
+        return const <String>['assets/images/records_community_hero.png'];
       case RecordType.politicalPartyRegister:
-        return 'assets/images/records_community_hero.png';
+        return const <String>['assets/images/records_community_hero.png'];
       case RecordType.okadaUnion:
-        return 'assets/images/records_immigration_hero.png';
+        return const <String>['assets/images/records_okada_union_hero.png'];
+      case RecordType.marketAssociation:
+        return const <String>[
+          'assets/images/records_market_association_hero.png',
+        ];
+      case RecordType.hospital:
+        return const <String>[
+          'assets/images/records_hospital_hero.png',
+          'assets/images/records_hospital_hero_2.png',
+          'assets/images/records_hospital_hero_3.png',
+        ];
+      case RecordType.flightManifest:
+        return const <String>[
+          'assets/images/records_flight_manifest_hero.png',
+          'assets/images/records_flight_manifest_hero_2.png',
+          'assets/images/records_flight_manifest_hero_3.png',
+        ];
+      case RecordType.recruitmentAgency:
+        return const <String>['assets/images/records_community_hero.png'];
       default:
-        return 'assets/images/records_search_hero.png';
+        return const <String>['assets/images/records_search_hero.png'];
     }
   }
 
   String _heroTitle() {
     switch (widget.type) {
+      case RecordType.birth:
+        return 'Find birth records';
       case RecordType.marriage:
         return 'Find marriage records';
       case RecordType.death:
@@ -453,6 +525,14 @@ class _HistoricalRecordsSearchScreenState
         return 'Find political party registers';
       case RecordType.okadaUnion:
         return 'Find Okada union records';
+      case RecordType.marketAssociation:
+        return 'Find market association records';
+      case RecordType.hospital:
+        return 'Find hospital records';
+      case RecordType.flightManifest:
+        return 'Find flight manifests';
+      case RecordType.recruitmentAgency:
+        return 'Find recruitment agency records';
       default:
         return 'Find your African ancestors';
     }
@@ -460,6 +540,8 @@ class _HistoricalRecordsSearchScreenState
 
   String _heroSubtitle() {
     switch (widget.type) {
+      case RecordType.birth:
+        return 'Search birth certificates, hospital registers, and vital records.';
       case RecordType.marriage:
         return 'Search marriage registrations, certificates, and family celebrations.';
       case RecordType.death:
@@ -504,6 +586,14 @@ class _HistoricalRecordsSearchScreenState
         return 'Search political party membership rolls and registration records.';
       case RecordType.okadaUnion:
         return 'Search Okada (motorcycle taxi) union membership and registration records.';
+      case RecordType.marketAssociation:
+        return 'Search market/trader association registers, membership, and dues records.';
+      case RecordType.hospital:
+        return 'Search hospital admission logs, birth registers, and medical records.';
+      case RecordType.flightManifest:
+        return 'Search airline passenger manifests and flight boarding records.';
+      case RecordType.recruitmentAgency:
+        return 'Search recruitment and employment agency registers and placement records.';
       default:
         return 'Search for names in African records, family trees, cemeteries, and oral histories.';
     }
@@ -514,60 +604,66 @@ class _HistoricalRecordsSearchScreenState
     final TextTheme text = Theme.of(context).textTheme;
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        title: const Text('Search records'),
-        foregroundColor: Colors.white,
-        titleTextStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      extendBodyBehindAppBar: true,
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: <Widget>[
-            RecordsLibraryHero(
-              asset: _heroAsset(),
-              title: _heroTitle(),
-              subtitle: _heroSubtitle(),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.lg,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xl,
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          // The back button/title sit inside the scrolling hero (not a
+          // persistent Scaffold app bar) so they scroll away with the rest
+          // of the content instead of staying pinned at the top.
+          Stack(
+            children: <Widget>[
+              RecordsLibraryHero(
+                assets: _heroAssets(),
+                title: _heroTitle(),
+                subtitle: _heroSubtitle(),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  _SearchCard(
-                    firstNameController: _firstName,
-                    lastNameController: _lastName,
-                    yearController: _year,
-                    selectedCountry: _country,
-                    selectedBirthPlace: _birthPlace,
-                    onCountryChanged: (v) => setState(() {
-                      _country = v;
-                      _birthPlace = '';
-                    }),
-                    onBirthPlaceChanged: (v) => setState(() => _birthPlace = v),
-                    searching: _searching,
-                    onSearch: _search,
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
-                  ..._buildResults(text),
-                ],
+              SafeArea(
+                bottom: false,
+                child: AppBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  title: const Text('Search records'),
+                  foregroundColor: Colors.white,
+                  titleTextStyle: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
               ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.xl,
+              AppSpacing.lg,
+              AppSpacing.xl,
             ),
-          ],
-        ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _SearchCard(
+                  firstNameController: _firstName,
+                  lastNameController: _lastName,
+                  yearController: _year,
+                  selectedCountry: _country,
+                  selectedBirthPlace: _birthPlace,
+                  onCountryChanged: (v) => setState(() {
+                    _country = v;
+                    _birthPlace = '';
+                  }),
+                  onBirthPlaceChanged: (v) => setState(() => _birthPlace = v),
+                  searching: _searching,
+                  onSearch: _search,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                ..._buildResults(text),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

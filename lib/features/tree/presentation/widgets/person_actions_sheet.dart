@@ -59,7 +59,13 @@ class _ActionsList extends StatelessWidget {
             ListTile(
               leading: CircleAvatar(
                 backgroundColor: AppColors.cream,
-                child: const Icon(Icons.person, color: AppColors.primary),
+                backgroundImage:
+                    (person.photoUrl != null && person.photoUrl!.isNotEmpty)
+                    ? NetworkImage(person.photoUrl!)
+                    : null,
+                child: (person.photoUrl != null && person.photoUrl!.isNotEmpty)
+                    ? null
+                    : const Icon(Icons.person, color: AppColors.primary),
               ),
               title: Text(person.fullName, style: text.titleMedium),
               subtitle: Text(person.lifespan.isEmpty ? '—' : person.lifespan),
@@ -89,18 +95,27 @@ class _ActionsList extends StatelessWidget {
                     _Action(
                       icon: Icons.child_care_outlined,
                       label: 'Add child',
-                      onTap: () => _addRelative(context, _Relation.child),
+                      onTap: () => _addRelative(context, PersonRelation.child),
                     ),
                     _Action(
                       icon: Icons.escalator_warning_outlined,
                       label: 'Add parent',
-                      onTap: () => _addRelative(context, _Relation.parent),
+                      onTap: () =>
+                          _addRelative(context, PersonRelation.parent),
                     ),
                     _Action(
                       icon: Icons.favorite_border,
                       label: 'Add spouse',
-                      onTap: () => _addRelative(context, _Relation.spouse),
+                      onTap: () =>
+                          _addRelative(context, PersonRelation.spouse),
                     ),
+                    if (person.parentIds.isNotEmpty)
+                      _Action(
+                        icon: Icons.people_outline,
+                        label: 'Add sibling',
+                        onTap: () =>
+                            _addRelative(context, PersonRelation.sibling),
+                      ),
                     _Action(
                       icon: Icons.edit_outlined,
                       label: 'Edit',
@@ -130,55 +145,8 @@ class _ActionsList extends StatelessWidget {
     );
   }
 
-  Future<void> _addRelative(BuildContext context, _Relation relation) async {
-    Navigator.pop(context);
-    final created = await showPersonEditorSheet(
-      context,
-      ref,
-      treeId: person.treeId,
-      relationLabel: switch (relation) {
-        _Relation.child => 'Add child',
-        _Relation.parent => 'Add parent',
-        _Relation.spouse => 'Add spouse',
-      },
-      relativeOf: person.fullName,
-      // Children commonly share the parent's surname; pre-fill as a convenience.
-      prefillSurname: relation == _Relation.child ? person.surname : null,
-    );
-    if (created == null) return;
-    final repo = ref.read(treeRepositoryProvider);
-    switch (relation) {
-      case _Relation.child:
-        await repo.linkChild(
-          treeId: person.treeId,
-          parentId: person.id,
-          childId: created.id,
-        );
-        // Also link the spouse as a parent if present.
-        for (final s in person.spouseIds) {
-          await repo.linkChild(
-            treeId: person.treeId,
-            parentId: s,
-            childId: created.id,
-          );
-        }
-        break;
-      case _Relation.parent:
-        await repo.linkChild(
-          treeId: person.treeId,
-          parentId: created.id,
-          childId: person.id,
-        );
-        break;
-      case _Relation.spouse:
-        await repo.linkSpouses(
-          treeId: person.treeId,
-          aId: person.id,
-          bId: created.id,
-        );
-        break;
-    }
-  }
+  Future<void> _addRelative(BuildContext context, PersonRelation relation) =>
+      addNewRelative(context, ref, person, relation);
 
   Future<void> _confirmDelete(BuildContext context) async {
     final bool? ok = await showDialog<bool>(
@@ -214,7 +182,97 @@ class _ActionsList extends StatelessWidget {
   }
 }
 
-enum _Relation { child, parent, spouse }
+enum PersonRelation { child, parent, spouse, sibling }
+
+/// Creates a brand-new relative for [person] via the person editor sheet,
+/// then links the created person as the given [relation]. Shared by the
+/// tree node's "Add child/parent/spouse/sibling" actions and the profile
+/// screen's "Add family member" shortcut.
+Future<void> addNewRelative(
+  BuildContext context,
+  WidgetRef ref,
+  Person person,
+  PersonRelation relation,
+) async {
+  final Person? created = await showPersonEditorSheet(
+    context,
+    ref,
+    treeId: person.treeId,
+    relationLabel: switch (relation) {
+      PersonRelation.child => 'Add child',
+      PersonRelation.parent => 'Add parent',
+      PersonRelation.spouse => 'Add spouse',
+      PersonRelation.sibling => 'Add sibling',
+    },
+    relativeOf: person.fullName,
+    // Children and siblings commonly share the parent's surname; pre-fill
+    // as a convenience.
+    prefillSurname:
+        relation == PersonRelation.child || relation == PersonRelation.sibling
+        ? person.surname
+        : null,
+  );
+  if (created == null) return;
+  await linkExistingRelative(ref, person, created.id, relation);
+}
+
+/// Links an already-existing person as [relation] of [person] — used both
+/// right after creating a brand-new relative above, and when linking a
+/// person found via search instead of creating a duplicate record.
+///
+/// Siblings aren't a stored relationship in their own right — they're
+/// derived from sharing a parent — so linking as a sibling attaches
+/// [relativeId] as another child of every one of [person]'s recorded
+/// parents. If [person] has no parent recorded yet, there's nothing to
+/// attach to and this is a no-op (the UI hides "Add sibling" in that case).
+Future<void> linkExistingRelative(
+  WidgetRef ref,
+  Person person,
+  String relativeId,
+  PersonRelation relation,
+) async {
+  final repo = ref.read(treeRepositoryProvider);
+  switch (relation) {
+    case PersonRelation.child:
+      await repo.linkChild(
+        treeId: person.treeId,
+        parentId: person.id,
+        childId: relativeId,
+      );
+      // Also link the spouse as a parent if present.
+      for (final s in person.spouseIds) {
+        await repo.linkChild(
+          treeId: person.treeId,
+          parentId: s,
+          childId: relativeId,
+        );
+      }
+      break;
+    case PersonRelation.parent:
+      await repo.linkChild(
+        treeId: person.treeId,
+        parentId: relativeId,
+        childId: person.id,
+      );
+      break;
+    case PersonRelation.spouse:
+      await repo.linkSpouses(
+        treeId: person.treeId,
+        aId: person.id,
+        bId: relativeId,
+      );
+      break;
+    case PersonRelation.sibling:
+      for (final parentId in person.parentIds) {
+        await repo.linkChild(
+          treeId: person.treeId,
+          parentId: parentId,
+          childId: relativeId,
+        );
+      }
+      break;
+  }
+}
 
 class _Action extends StatelessWidget {
   const _Action({

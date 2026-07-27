@@ -359,6 +359,20 @@ class _ActivityRow extends StatelessWidget {
   const _ActivityRow({required this.activity});
   final _Activity activity;
 
+  /// "Just now" / "5m ago" / "3h ago" / "2d ago" / a short date beyond that —
+  /// same convention as the notifications list.
+  String get _relativeTime {
+    final Duration diff = DateTime.now().difference(activity.timestamp);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    final DateTime d = activity.timestamp;
+    final String time =
+        '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+    return '${d.day}/${d.month}/${d.year} · $time';
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
@@ -392,6 +406,13 @@ class _ActivityRow extends StatelessWidget {
                     style: text.bodyMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _relativeTime,
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
                   ),
                 ],
               ),

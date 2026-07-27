@@ -34,4 +34,7 @@ abstract class AppRoutes {
   /// Admin-only queue of Finder/Indexer submissions awaiting company review,
   /// pushed over the shell: `/admin/submissions`.
   static const String submissionReview = '/admin/submissions';
+
+  /// Admin-only "Contact us" inbox, pushed over the shell: `/admin/support`.
+  static const String supportMessages = '/admin/support';
 }

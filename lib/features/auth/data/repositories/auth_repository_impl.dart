@@ -127,7 +127,21 @@ class AuthRepositoryImpl implements AuthRepository {
     // native `authenticate()` below depends on; without real credentials
     // configured there's nothing to fall back to except the redirect flow.
     if (kIsWeb || !Env.isGoogleSignInConfigured) {
-      return _guard(() => _client.signInWithOAuth(OAuthProvider.google));
+      // Without an explicit redirectTo, Supabase's /authorize endpoint omits
+      // redirect_to entirely and the OAuth round trip can come back to
+      // whatever origin got cached earlier in the flow (e.g. a dev server
+      // from a previous session) instead of wherever this page is actually
+      // being served from right now. The trailing slash matters: Supabase's
+      // dashboard "Redirect URLs" allow-list entry is a glob pattern
+      // (`https://www.rootsphere.ink/**`), which only matches a path
+      // starting with `/` — a bare origin with no trailing slash doesn't
+      // match, so it'd silently fall back to the Site URL instead.
+      return _guard(
+        () => _client.signInWithOAuth(
+          OAuthProvider.google,
+          redirectTo: kIsWeb ? '${Uri.base.origin}/' : null,
+        ),
+      );
     }
     return _guard(() async {
       try {
@@ -176,7 +190,12 @@ class AuthRepositoryImpl implements AuthRepository {
     // browser-redirect flow. The App Store review requirement to offer Sign
     // in with Apple natively only applies to iOS anyway.
     if (kIsWeb || !(Platform.isIOS || Platform.isMacOS)) {
-      return _guard(() => _client.signInWithOAuth(OAuthProvider.apple));
+      return _guard(
+        () => _client.signInWithOAuth(
+          OAuthProvider.apple,
+          redirectTo: kIsWeb ? '${Uri.base.origin}/' : null,
+        ),
+      );
     }
     return _guard(() async {
       try {

@@ -128,6 +128,79 @@ class CollapseToggleWidget extends StatelessWidget {
   }
 }
 
+/// A small "they have their own family too" badge shown at a spouse card's
+/// corner when that spouse has parents/other marriages not shown in the
+/// current view. Tapping re-roots the tree onto them.
+class SpouseFamilyBadge extends StatelessWidget {
+  const SpouseFamilyBadge({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  /// A pill rather than a circle — a circular container this small clips its
+  /// contents against the curve, squeezing the two avatars together however
+  /// they're spaced inside it.
+  static const double width = 46;
+  static const double height = 28;
+  static const double size = height; // vertical footprint, for layout math
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final BorderRadius radius = BorderRadius.circular(height / 2);
+    return Tooltip(
+      message: "View their family",
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: radius,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: radius,
+          child: Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: radius,
+              border: Border.all(color: theme.dividerColor),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.18),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 8,
+                  backgroundColor: AppColors.maleTint,
+                  child: const Icon(
+                    Icons.person,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                CircleAvatar(
+                  radius: 8,
+                  backgroundColor: AppColors.femaleTint,
+                  child: const Icon(
+                    Icons.person,
+                    size: 10,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Paints a dashed rounded rectangle that fills the available size.
 class _DashedRRectPainter extends CustomPainter {
   _DashedRRectPainter({

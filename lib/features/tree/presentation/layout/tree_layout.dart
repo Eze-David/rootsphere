@@ -32,19 +32,37 @@ class PositionedPerson {
     required this.person,
     required this.rect,
     this.isFocus = false,
+    this.isSpouseCard = false,
   });
 
   final Person person;
   final Rect rect;
   final bool isFocus;
+
+  /// True when this card is placed as somebody else's spouse rather than via
+  /// the blood-line recursion — i.e. their own parents/other marriages are
+  /// never walked into by the layout, so they may have relatives (in-laws)
+  /// that this view doesn't show at all. Drives the "view their family"
+  /// badge in the tree screen.
+  final bool isSpouseCard;
 }
 
 /// A connector drawn between cards. [points] is a polyline (≥2 points).
 class TreeConnector {
-  TreeConnector({required this.points, this.isSpouse = false});
+  TreeConnector({
+    required this.points,
+    this.isSpouse = false,
+    this.roundCap = true,
+  });
 
   final List<Offset> points;
   final bool isSpouse;
+
+  /// Round line caps read fine on the tree's long elbow connectors, but on a
+  /// very short stub (e.g. the spouse-family badge's link to its card) the
+  /// rounded ends visually dominate the segment, making it look like a fat
+  /// little pill instead of a thin line. Short stubs set this to false.
+  final bool roundCap;
 
   Rect get bounds {
     double minX = double.infinity, minY = double.infinity;
@@ -204,6 +222,7 @@ class TreeLayoutEngine {
           person: byId[n.id]!,
           rect: rect,
           isFocus: n.id == focusId,
+          isSpouseCard: n.isSpouse,
         ),
       );
     }
@@ -379,11 +398,15 @@ class TreeLayoutEngine {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Node {
-  _Node(this.id, this.gen, this.x);
+  _Node(this.id, this.gen, this.x, {this.isSpouse = false});
   final String id;
   final int gen;
   double x;
   double y = 0;
+
+  /// True when placed via [_Descendants._spouseOf] rather than the blood-line
+  /// recursion — see [PositionedPerson.isSpouseCard].
+  final bool isSpouse;
 }
 
 /// A pending collapse toggle for a person's children row, recorded in raw
@@ -476,6 +499,7 @@ class _Descendants {
           spouse,
           gen,
           left + TreeMetrics.cardWidth + TreeMetrics.spouseGap,
+          isSpouse: true,
         );
       }
       _cursor = left + coupleSpan + TreeMetrics.hGap;
@@ -511,6 +535,7 @@ class _Descendants {
           spouse,
           gen,
           left + TreeMetrics.cardWidth + TreeMetrics.spouseGap,
+          isSpouse: true,
         );
       }
       final double right = left + coupleSpan;
@@ -531,7 +556,8 @@ class _Descendants {
     return centre;
   }
 
-  void _place(Person p, int gen, double x) => result.add(_Node(p.id, gen, x));
+  void _place(Person p, int gen, double x, {bool isSpouse = false}) =>
+      result.add(_Node(p.id, gen, x, isSpouse: isSpouse));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -579,7 +605,6 @@ class _KinshipLayout {
   final Map<String, _PlacedKinNode> _byKey = <String, _PlacedKinNode>{};
   final Map<String, List<String>> _parentKeysOf = <String, List<String>>{};
   final Set<String> _visited = <String>{};
-  double _cursor = 0;
   int _maxGen = 0;
 
   // The focus's spouse/children ("hourglass waist" below the pedigree — see
@@ -623,27 +648,12 @@ class _KinshipLayout {
     _byKey[n.key] = n;
   }
 
-  /// Places a real [id] (and its ancestors) and returns its centre breadth.
-  double _placeReal(String id, int gen) {
-    if (_visited.contains(id)) {
-      final n = _byKey[id]!;
-      return n.x + _breadthExtent / 2;
-    }
-    _visited.add(id);
-    if (gen > _maxGen) _maxGen = gen;
-
+  /// Resolves the (father, mother) pair for [id] from its known parents —
+  /// by sex first, then by remaining order — leaving either/both null where
+  /// unknown. Shared by [_subtreeWidth] and [_placeReal], which must agree
+  /// on the same resolution.
+  (String?, String?) _resolveParents(String id) {
     final Person p = byId[id]!;
-    final bool expand = !collapsed.contains(id);
-
-    if (!expand) {
-      final double left = _cursor;
-      _add(_PlacedKinNode(key: id, gen: gen, x: left, personId: id));
-      _cursor = left + _breadthExtent + _crossGap;
-      return left + _breadthExtent / 2;
-    }
-
-    // Resolve a father + mother slot from the known parents (by sex, then
-    // by remaining order); fill the gaps with placeholders.
     final List<String> remaining =
         p.parentIds.where(byId.containsKey).toList();
     String? father = _firstWhere(remaining, (x) => byId[x]!.sex == Sex.male);
@@ -652,50 +662,129 @@ class _KinshipLayout {
     if (mother != null) remaining.remove(mother);
     if (father == null && remaining.isNotEmpty) father = remaining.removeAt(0);
     if (mother == null && remaining.isNotEmpty) mother = remaining.removeAt(0);
-
-    final String fatherKey = father ?? _slotKey(id, SlotKind.father);
-    final String motherKey = mother ?? _slotKey(id, SlotKind.mother);
-
-    final int subtreeStart = _nodes.length;
-    final double cf = father != null
-        ? _placeReal(father, gen + 1)
-        : _placeSlot(id, SlotKind.father, gen + 1);
-    final double cm = mother != null
-        ? _placeReal(mother, gen + 1)
-        : _placeSlot(id, SlotKind.mother, gen + 1);
-
-    double centre = (cf + cm) / 2;
-    double left = centre - _breadthExtent / 2;
-    if (left < _cursor) {
-      final double delta = _cursor - left;
-      for (int i = subtreeStart; i < _nodes.length; i++) {
-        _nodes[i].x += delta;
-      }
-      centre += delta;
-      left += delta;
-    }
-    _add(_PlacedKinNode(key: id, gen: gen, x: left, personId: id));
-    final double right = left + _breadthExtent;
-    if (right + _crossGap > _cursor) {
-      _cursor = right + _crossGap;
-    }
-    _parentKeysOf[id] = <String>[fatherKey, motherKey];
-    return centre;
+    return (father, mother);
   }
 
-  double _placeSlot(String childId, SlotKind kind, int gen) {
+  final Map<String, double> _widthCache = <String, double>{};
+
+  /// The total breadth [id]'s own ancestor fan needs — i.e. how much room
+  /// to reserve so it never collides with a cousin branch. A couple (a real
+  /// person plus their known father/mother, real or placeholder) always
+  /// needs `fatherWidth + spouseGap + motherWidth`; that same spouseGap is
+  /// what keeps every direct couple in the pedigree exactly as tight as the
+  /// focus's own spouse, however deep either side's own ancestry goes — see
+  /// [_placeReal].
+  double _subtreeWidth(String id) {
+    final double? cached = _widthCache[id];
+    if (cached != null) return cached;
+    double width;
+    if (collapsed.contains(id)) {
+      width = _breadthExtent;
+    } else {
+      final (String? father, String? mother) = _resolveParents(id);
+      final double fatherW =
+          father != null ? _subtreeWidth(father) : _breadthExtent;
+      final double motherW =
+          mother != null ? _subtreeWidth(mother) : _breadthExtent;
+      width = fatherW + _spouseGap + motherW;
+    }
+    _widthCache[id] = width;
+    return width;
+  }
+
+  /// Places real [id] (and its ancestors) within the breadth range
+  /// `[rangeLeft, rangeLeft + _subtreeWidth(id))` reserved for it by the
+  /// caller. [cardOnRight] puts id's own card at the range's right edge
+  /// (used for the father side of a couple, so his own ancestors fan
+  /// further left, away from the mother) or left edge (the mother side,
+  /// fanning right) — whichever side keeps id's card adjacent to its
+  /// spouse. Every direct couple ends up exactly `spouseGap` apart this
+  /// way, regardless of how much deeper either side's own ancestry goes,
+  /// rather than each of them drifting to the centre of their own
+  /// (possibly much wider) subtree.
+  void _placeReal(String id, int gen, double rangeLeft, bool cardOnRight) {
+    if (_visited.contains(id)) return;
+    _visited.add(id);
     if (gen > _maxGen) _maxGen = gen;
-    final String key = _slotKey(childId, kind);
-    final double left = _cursor;
+
+    final double width = _subtreeWidth(id);
+    final double left =
+        cardOnRight ? rangeLeft + width - _breadthExtent : rangeLeft;
+    _add(_PlacedKinNode(key: id, gen: gen, x: left, personId: id));
+
+    if (collapsed.contains(id)) return;
+
+    final (String? father, String? mother) = _resolveParents(id);
+    final String fatherKey = father ?? _slotKey(id, SlotKind.father);
+    final String motherKey = mother ?? _slotKey(id, SlotKind.mother);
+    final double fatherW =
+        father != null ? _subtreeWidth(father) : _breadthExtent;
+    final double motherRangeLeft = rangeLeft + fatherW + _spouseGap;
+
+    if (father != null) {
+      _placeReal(father, gen + 1, rangeLeft, true);
+    } else {
+      _placeSlotAt(id, SlotKind.father, gen + 1, rangeLeft + fatherW - _breadthExtent);
+    }
+    if (mother != null) {
+      _placeReal(mother, gen + 1, motherRangeLeft, false);
+    } else {
+      _placeSlotAt(id, SlotKind.mother, gen + 1, motherRangeLeft);
+    }
+    _parentKeysOf[id] = <String>[fatherKey, motherKey];
+  }
+
+  /// Places the pedigree's root (the focus person) — unlike [_placeReal],
+  /// centred over its own two parents rather than edge-anchored, since the
+  /// root has no sibling couple of its own to stay tight with (that's what
+  /// [_placeFocusFamily] handles, separately, for the focus's spouse). Its
+  /// own father/mother are still placed via the same tight edge-anchored
+  /// scheme relative to each other.
+  void _placeRoot(String id, int gen) {
+    _visited.add(id);
+    if (gen > _maxGen) _maxGen = gen;
+
+    if (collapsed.contains(id)) {
+      _add(_PlacedKinNode(key: id, gen: gen, x: 0, personId: id));
+      return;
+    }
+
+    final (String? father, String? mother) = _resolveParents(id);
+    final String fatherKey = father ?? _slotKey(id, SlotKind.father);
+    final String motherKey = mother ?? _slotKey(id, SlotKind.mother);
+    final double fatherW =
+        father != null ? _subtreeWidth(father) : _breadthExtent;
+    final double motherRangeLeft = fatherW + _spouseGap;
+
+    if (father != null) {
+      _placeReal(father, gen + 1, 0, true);
+    } else {
+      _placeSlotAt(id, SlotKind.father, gen + 1, fatherW - _breadthExtent);
+    }
+    if (mother != null) {
+      _placeReal(mother, gen + 1, motherRangeLeft, false);
+    } else {
+      _placeSlotAt(id, SlotKind.mother, gen + 1, motherRangeLeft);
+    }
+
+    final double fatherCentre = _byKey[fatherKey]!.x + _breadthExtent / 2;
+    final double motherCentre = _byKey[motherKey]!.x + _breadthExtent / 2;
+    final double centre = (fatherCentre + motherCentre) / 2;
+    _add(
+      _PlacedKinNode(key: id, gen: gen, x: centre - _breadthExtent / 2, personId: id),
+    );
+    _parentKeysOf[id] = <String>[fatherKey, motherKey];
+  }
+
+  void _placeSlotAt(String childId, SlotKind kind, int gen, double x) {
+    if (gen > _maxGen) _maxGen = gen;
     _add(_PlacedKinNode(
-      key: key,
+      key: _slotKey(childId, kind),
       gen: gen,
-      x: left,
+      x: x,
       childId: childId,
       kind: kind,
     ));
-    _cursor = left + _breadthExtent + _crossGap;
-    return left + _breadthExtent / 2;
   }
 
   /// Places the focus's spouse (beside) and immediate children (below, via a
@@ -718,10 +807,20 @@ class _KinshipLayout {
     }
     if (spouse != null) {
       _visited.add(spouse.id);
-      final double sx = coupleRight + _spouseGap;
+      // Male always ends up first along the breadth axis (left in vertical
+      // orientation, top in horizontal) and the other partner second,
+      // regardless of which of the two is currently the tree's focus — so
+      // re-rooting onto a spouse (via the "view their family" badge) never
+      // flips the couple's positions relative to each other.
+      final bool spouseGoesFirst =
+          spouse.sex == Sex.male && focus.sex != Sex.male;
+      final double sx = spouseGoesFirst
+          ? focusNode.x - _spouseGap - _breadthExtent
+          : coupleRight + _spouseGap;
       _add(_PlacedKinNode(key: spouse.id, gen: 0, x: sx, personId: spouse.id, isFocusExtra: true));
       _focusSpouseKey = spouse.id;
-      coupleRight = sx + _breadthExtent;
+      coupleLeft = spouseGoesFirst ? sx : coupleLeft;
+      coupleRight = spouseGoesFirst ? coupleRight : sx + _breadthExtent;
     }
     _focusFamilyCentre = (coupleLeft + coupleRight) / 2;
 
@@ -759,15 +858,23 @@ class _KinshipLayout {
     final Rect? spouseRect =
         _focusSpouseKey == null ? null : rectByKey[_focusSpouseKey];
     if (spouseRect != null) {
+      // Whichever of the two is actually first along the breadth axis (not
+      // necessarily the focus — see _placeFocusFamily's male-first rule),
+      // draw from its trailing edge to the other's leading edge.
+      final bool focusFirst = _horizontal
+          ? focusRect.top <= spouseRect.top
+          : focusRect.left <= spouseRect.left;
+      final Rect first = focusFirst ? focusRect : spouseRect;
+      final Rect second = focusFirst ? spouseRect : focusRect;
       out.add(TreeConnector(
         points: _horizontal
             ? <Offset>[
-                Offset(focusRect.center.dx, focusRect.bottom),
-                Offset(spouseRect.center.dx, spouseRect.top),
+                Offset(first.center.dx, first.bottom),
+                Offset(second.center.dx, second.top),
               ]
             : <Offset>[
-                Offset(focusRect.right, focusRect.center.dy),
-                Offset(spouseRect.left, spouseRect.center.dy),
+                Offset(first.right, first.center.dy),
+                Offset(second.left, second.center.dy),
               ],
         isSpouse: true,
       ));
@@ -857,7 +964,7 @@ class _KinshipLayout {
       );
     }
 
-    _placeReal(focus.id, 0);
+    _placeRoot(focus.id, 0);
     _placeFocusFamily(focus);
 
     double minX = double.infinity, minY = double.infinity;
@@ -895,6 +1002,7 @@ class _KinshipLayout {
           person: byId[n.personId]!,
           rect: rect,
           isFocus: n.personId == focus.id,
+          isSpouseCard: n.key == _focusSpouseKey,
         ));
         // The chevron sits on the connector toward this person's parents.
         // The focus's spouse/children aren't recursed into, so they don't

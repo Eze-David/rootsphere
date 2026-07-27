@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/routing/app_routes.dart';
@@ -14,6 +13,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/screens/legal_document_screen.dart';
 import '../../../collab/presentation/screens/my_donations_screen.dart';
 import '../../../collab/presentation/providers/role_verification_providers.dart';
+import '../../../support/presentation/providers/support_message_providers.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../domain/entities/family_tree.dart';
 import '../providers/family_tree_provider.dart';
@@ -76,6 +76,18 @@ class _UserHeader extends StatelessWidget {
   const _UserHeader({this.user});
   final AppUser? user;
 
+  /// "Guest" should mean "not signed in" — a signed-in account that just
+  /// never got a `full_name` in its Supabase metadata (e.g. an older
+  /// account, or a sign-up path that skipped it) isn't a guest, so fall back
+  /// to the email's local part rather than mislabelling a real account.
+  String get _name {
+    final AppUser? u = user;
+    if (u == null) return 'Guest';
+    if (u.displayName != null) return u.displayName!;
+    final int at = u.email.indexOf('@');
+    return at > 0 ? u.email.substring(0, at) : u.email;
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
@@ -100,7 +112,7 @@ class _UserHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    user?.displayName ?? 'Guest',
+                    _name,
                     style: text.titleMedium,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -581,6 +593,11 @@ class _AccountSection extends ConsumerWidget {
                 label: 'Review submissions',
                 onTap: () => context.push(AppRoutes.submissionReview),
               ),
+              _AccountTile(
+                icon: Icons.mail_outline,
+                label: 'Support messages',
+                onTap: () => context.push(AppRoutes.supportMessages),
+              ),
             ],
             _AccountTile(
               icon: Icons.lock_outline,
@@ -886,11 +903,9 @@ class _SettingsTile extends StatelessWidget {
 // Support
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _SupportSection extends StatelessWidget {
-  static const String _supportEmail = 'Vdst2009@gmail.com';
-
+class _SupportSection extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme text = Theme.of(context).textTheme;
     return Card(
       child: Padding(
@@ -905,6 +920,15 @@ class _SupportSection extends StatelessWidget {
               label: 'Contact us',
               onTap: () => _showContactUsDialog(context),
             ),
+            // Admins already get every message (including their own, if any)
+            // via the "Support messages" tile under Account — this tile is
+            // just for everyone else to see replies to what they sent.
+            if (!(ref.watch(isPlatformAdminProvider).value ?? false))
+              _AccountTile(
+                icon: Icons.forum_outlined,
+                label: 'My messages',
+                onTap: () => context.push(AppRoutes.supportMessages),
+              ),
             _AccountTile(
               icon: Icons.info_outline,
               label: 'About us',
@@ -946,66 +970,8 @@ class _SupportSection extends StatelessWidget {
   void _showContactUsDialog(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Contact us'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const Text(
-                'Have a question or found an issue? Reach out and we\'ll get '
-                'back to you.',
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              InkWell(
-                onTap: () => _emailUs(ctx),
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.email_outlined,
-                        size: 20,
-                        color: AppColors.textSecondary,
-                      ),
-                      SizedBox(width: AppSpacing.md),
-                      Text(_supportEmail),
-                    ],
-                  ),
-                ),
-              ),
-              // Address and phone number are coming soon — kept as their own
-              // rows above so they slot in the same way once available.
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => const _ContactUsDialog(),
     );
-  }
-
-  Future<void> _emailUs(BuildContext context) async {
-    final Uri uri = Uri(
-      scheme: 'mailto',
-      path: _supportEmail,
-      query: 'subject=${Uri.encodeComponent('Rootsphere support')}',
-    );
-    final bool launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
-    if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open your email app.')),
-      );
-    }
   }
 
   void _showAboutUsDialog(BuildContext context) {
@@ -1054,6 +1020,142 @@ class _SupportSection extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// A form so a user can write and submit a support message directly, rather
+/// than only being offered a mailto: link (which often does nothing on web
+/// / desktop without a configured mail client).
+class _ContactUsDialog extends ConsumerStatefulWidget {
+  const _ContactUsDialog();
+
+  static const String _supportEmail = 'contact.us@rootsphere.ink';
+
+  @override
+  ConsumerState<_ContactUsDialog> createState() => _ContactUsDialogState();
+}
+
+class _ContactUsDialogState extends ConsumerState<_ContactUsDialog> {
+  final TextEditingController _controller = TextEditingController();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final String message = _controller.text.trim();
+    if (message.isEmpty) return;
+    final AppUser? user = ref.read(authStateProvider).value;
+    if (user == null) return;
+
+    setState(() => _sending = true);
+    try {
+      await ref
+          .read(supportMessageRepositoryProvider)
+          .send(email: user.email, message: message);
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Message sent — we'll get back to you soon."),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e is Failure ? e.message : 'Could not send your message.',
+          ),
+        ),
+      );
+    }
+  }
+
+  // A mailto: link is unreliable here — on web/desktop without a default
+  // mail client registered, the browser just opens a blank tab with no way
+  // to detect that it failed. Copying the address works everywhere.
+  Future<void> _copyEmail() async {
+    await Clipboard.setData(
+      const ClipboardData(text: _ContactUsDialog._supportEmail),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Email address copied.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Contact us'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            const Text(
+              'Have a question or found an issue? Write your message below '
+              'and we\'ll get back to you.',
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 3,
+              maxLines: 6,
+              enabled: !_sending,
+              decoration: const InputDecoration(
+                hintText: 'Type your message…',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            InkWell(
+              onTap: _sending ? null : _copyEmail,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.copy_outlined,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                    SizedBox(width: AppSpacing.sm),
+                    Text(
+                      'Or copy: ${_ContactUsDialog._supportEmail}',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: _sending ? null : () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _sending ? null : _send,
+          child: _sending
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Send'),
+        ),
+      ],
     );
   }
 }

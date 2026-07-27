@@ -69,6 +69,7 @@ class Person {
     this.sex = Sex.unknown,
     this.birthDate,
     this.deathDate,
+    this.isDeceased,
     this.birthPlace,
     this.deathPlace,
     this.religion,
@@ -109,6 +110,13 @@ class Person {
   final Sex sex;
   final DateTime? birthDate;
   final DateTime? deathDate;
+
+  /// Explicit living/deceased status, independent of whether a death date is
+  /// known — null defers to [deathDate] (the old behaviour, for people
+  /// added before this field existed); true/false is set explicitly via the
+  /// editor's Living/Dead picker, letting someone be marked deceased
+  /// without knowing when.
+  final bool? isDeceased;
   final String? birthPlace;
   final String? deathPlace;
 
@@ -145,7 +153,7 @@ class Person {
   /// Recorded voice-note attachments (audio references).
   final List<String> voiceNotes;
 
-  bool get isLiving => deathDate == null;
+  bool get isLiving => isDeceased != null ? !isDeceased! : deathDate == null;
 
   String get fullName {
     final String core = surname.isEmpty
@@ -226,6 +234,7 @@ class Person {
     Sex? sex,
     Object? birthDate = _sentinel,
     Object? deathDate = _sentinel,
+    Object? isDeceased = _sentinel,
     Object? birthPlace = _sentinel,
     Object? deathPlace = _sentinel,
     Object? religion = _sentinel,
@@ -266,6 +275,9 @@ class Person {
       deathDate: deathDate == _sentinel
           ? this.deathDate
           : deathDate as DateTime?,
+      isDeceased: isDeceased == _sentinel
+          ? this.isDeceased
+          : isDeceased as bool?,
       birthPlace: birthPlace == _sentinel
           ? this.birthPlace
           : birthPlace as String?,
@@ -314,6 +326,7 @@ class Person {
     'sex': sex.name,
     'birthDate': birthDate?.toIso8601String(),
     'deathDate': deathDate?.toIso8601String(),
+    'isDeceased': isDeceased,
     'birthPlace': birthPlace,
     'deathPlace': deathPlace,
     'religion': religion,
@@ -357,6 +370,7 @@ class Person {
       deathDate: json['deathDate'] != null
           ? DateTime.tryParse(json['deathDate'] as String)
           : null,
+      isDeceased: json['isDeceased'] as bool?,
       birthPlace: json['birthPlace'] as String?,
       deathPlace: json['deathPlace'] as String?,
       religion: json['religion'] as String?,

@@ -100,6 +100,9 @@ class NotificationsScreen extends ConsumerWidget {
         );
       case NotificationType.treeMemberJoined:
         context.go(AppRoutes.profile);
+      case NotificationType.supportMessage:
+      case NotificationType.supportReply:
+        context.push(AppRoutes.supportMessages);
       case NotificationType.unknown:
         break;
     }
@@ -122,6 +125,8 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.opportunitySubmitted => Icons.fact_check_outlined,
     NotificationType.opportunityCompanyApproved => Icons.thumb_up_outlined,
     NotificationType.opportunityCompanyRejected => Icons.error_outline,
+    NotificationType.supportMessage => Icons.mail_outline,
+    NotificationType.supportReply => Icons.reply_outlined,
     NotificationType.unknown => Icons.notifications_none,
   };
 

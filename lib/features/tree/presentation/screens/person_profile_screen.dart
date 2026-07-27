@@ -19,6 +19,7 @@ import '../../domain/entities/timeline_event.dart';
 import '../providers/tree_providers.dart';
 import '../widgets/audio_player_sheet.dart';
 import '../widgets/osm_attribution.dart';
+import '../widgets/person_actions_sheet.dart';
 import '../widgets/person_editor_sheet.dart';
 import 'tree_map_screen.dart';
 import '../widgets/photo_actions.dart';
@@ -28,9 +29,12 @@ import '../widgets/voice_recorder_sheet.dart';
 
 /// Full-screen profile for a person: header, timeline, photo gallery, notes.
 class PersonProfileScreen extends ConsumerWidget {
-  const PersonProfileScreen({super.key, required this.personId});
+  PersonProfileScreen({super.key, required this.personId});
 
   final String personId;
+
+  final GlobalKey _familyKey = GlobalKey();
+  final GlobalKey _mediaKey = GlobalKey();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -46,10 +50,26 @@ class PersonProfileScreen extends ConsumerWidget {
     final TextTheme text = Theme.of(context).textTheme;
     final events = _personTimeline(person);
     final relatives = _relatives(ref, person);
+    final int mediaCount =
+        person.photoGallery.length +
+        person.videoGallery.length +
+        person.voiceNotes.length;
+    final int recordCount = ref
+        .watch(recordsForPersonProvider(person.id))
+        .length;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('Profile'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        foregroundColor: AppColors.onPrimary,
+        title: const Text(
+          'Profile',
+          style: TextStyle(color: AppColors.onPrimary),
+        ),
         actions: <Widget>[
           IconButton(
             icon: const Icon(Icons.edit_outlined),
@@ -60,115 +80,599 @@ class PersonProfileScreen extends ConsumerWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+        padding: EdgeInsets.zero,
         children: <Widget>[
-          _Header(person: person),
-          const SizedBox(height: AppSpacing.xl),
-          if (relatives.isNotEmpty) ...<Widget>[
-            _SectionLabel('FAMILY'),
-            const SizedBox(height: AppSpacing.sm),
-            _RelativesWrap(
-              relatives: relatives,
-              onTap: (p) => context.push('/person/${p.id}'),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-          ],
-          if (_hasDetails(person)) ...<Widget>[
-            _SectionLabel('DETAILS'),
-            const SizedBox(height: AppSpacing.sm),
-            _DetailsSection(person: person),
-            const SizedBox(height: AppSpacing.xl),
-          ],
-          _SectionLabel('AI RESEARCH ASSISTANT'),
-          const SizedBox(height: AppSpacing.sm),
-          _ResearchAssistantSection(person: person, relatives: relatives),
-          const SizedBox(height: AppSpacing.xl),
-          Row(
-            children: <Widget>[
-              Expanded(child: _SectionLabel('TIMELINE')),
-              TextButton.icon(
-                onPressed: () =>
-                    showTimelineEventEditorSheet(context, ref, person),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add event'),
-              ),
-            ],
+          _HeroHeader(
+            person: person,
+            familyCount: relatives.length,
+            recordCount: recordCount,
+            mediaCount: mediaCount,
+            onFamilyTap: relatives.isEmpty
+                ? null
+                : () => _scrollToSection(_familyKey),
+            onRecordsTap: () => _showPersonRecordsSheet(context, ref, person),
+            onMediaTap: () => _scrollToSection(_mediaKey),
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (events.isEmpty)
-            Text('No dated events yet.', style: text.bodyMedium)
-          else
-            _Timeline(
-              events: events,
-              onTapEvent: (event) {
-                // Only custom events are editable; birth/death derive from the
-                // structured fields (edit those via the person editor).
-                if (event.id == '_birth' || event.id == '_death') {
-                  showPersonEditorSheet(context, ref, existing: person);
-                } else {
-                  showTimelineEventEditorSheet(
-                    context,
-                    ref,
-                    person,
-                    existing: event,
-                  );
-                }
-              },
-            ),
-          const SizedBox(height: AppSpacing.xl),
-          if (_hasResearch(person)) ...<Widget>[
-            _SectionLabel('RESEARCH'),
-            const SizedBox(height: AppSpacing.sm),
-            _ResearchSection(person: person),
-            const SizedBox(height: AppSpacing.xl),
-          ],
-          if (person.location.isNotEmpty) ...<Widget>[
-            _SectionLabel('MAP'),
-            const SizedBox(height: AppSpacing.sm),
-            _LocationMapCard(location: person.location, personId: person.id),
-            const SizedBox(height: AppSpacing.xl),
-          ],
-          _SectionLabel('MEDIA'),
-          const SizedBox(height: AppSpacing.sm),
-          _MediaGallery(person: person),
-          const SizedBox(height: AppSpacing.xl),
-          _SectionLabel('NOTES'),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            (person.notes?.trim().isNotEmpty ?? false)
-                ? person.notes!
-                : 'No notes yet. Tap edit to add some.',
-            style: text.bodyLarge?.copyWith(
-              color: (person.notes?.trim().isNotEmpty ?? false)
-                  ? AppColors.textPrimary
-                  : AppColors.textTertiary,
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                _SectionCard(
+                  key: _familyKey,
+                  icon: Icons.diversity_3_outlined,
+                  title: 'FAMILY',
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      IconButton(
+                        tooltip: 'Find existing person',
+                        icon: const Icon(Icons.search, size: 20),
+                        onPressed: () =>
+                            _showFindPersonSheet(context, ref, person),
+                      ),
+                      IconButton(
+                        tooltip: 'Add family member',
+                        icon: const Icon(
+                          Icons.person_add_alt_outlined,
+                          size: 20,
+                        ),
+                        onPressed: () =>
+                            _showAddRelativeSheet(context, ref, person),
+                      ),
+                    ],
+                  ),
+                  child: relatives.isEmpty
+                      ? Text(
+                          'No family linked yet.',
+                          style: text.bodyLarge?.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                        )
+                      : _RelativesWrap(
+                          relatives: relatives,
+                          onTap: (p) => context.push('/person/${p.id}'),
+                        ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                if (_hasDetails(person)) ...<Widget>[
+                  _SectionCard(
+                    icon: Icons.badge_outlined,
+                    title: 'DETAILS',
+                    child: _DetailsSection(person: person),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                _SectionCard(
+                  icon: Icons.auto_awesome_outlined,
+                  title: 'AI RESEARCH ASSISTANT',
+                  child: _ResearchAssistantSection(
+                    person: person,
+                    relatives: relatives,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _SectionCard(
+                  icon: Icons.timeline_outlined,
+                  title: 'TIMELINE',
+                  trailing: TextButton.icon(
+                    onPressed: () =>
+                        showTimelineEventEditorSheet(context, ref, person),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add event'),
+                  ),
+                  child: events.isEmpty
+                      ? Text('No dated events yet.', style: text.bodyMedium)
+                      : _Timeline(
+                          events: events,
+                          onTapEvent: (event) {
+                            // Only custom events are editable; birth/death
+                            // derive from the structured fields (edit those
+                            // via the person editor).
+                            if (event.id == '_birth' ||
+                                event.id == '_death') {
+                              showPersonEditorSheet(
+                                context,
+                                ref,
+                                existing: person,
+                              );
+                            } else {
+                              showTimelineEventEditorSheet(
+                                context,
+                                ref,
+                                person,
+                                existing: event,
+                              );
+                            }
+                          },
+                        ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                if (_hasResearch(person)) ...<Widget>[
+                  _SectionCard(
+                    icon: Icons.travel_explore_outlined,
+                    title: 'RESEARCH',
+                    child: _ResearchSection(person: person),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                if (person.location.isNotEmpty) ...<Widget>[
+                  _SectionCard(
+                    icon: Icons.map_outlined,
+                    title: 'MAP',
+                    child: _LocationMapCard(
+                      location: person.location,
+                      personId: person.id,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                ],
+                _SectionCard(
+                  key: _mediaKey,
+                  icon: Icons.perm_media_outlined,
+                  title: 'MEDIA',
+                  child: _MediaGallery(person: person),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _SectionCard(
+                  icon: Icons.sticky_note_2_outlined,
+                  title: 'NOTES',
+                  child: Text(
+                    (person.notes?.trim().isNotEmpty ?? false)
+                        ? person.notes!
+                        : 'No notes yet. Tap edit to add some.',
+                    style: text.bodyLarge?.copyWith(
+                      color: (person.notes?.trim().isNotEmpty ?? false)
+                          ? AppColors.textPrimary
+                          : AppColors.textTertiary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                _SectionCard(
+                  icon: Icons.history,
+                  title: 'EDIT HISTORY',
+                  child: _EditHistory(personId: person.id),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
             ),
           ),
-          const SizedBox(height: AppSpacing.xl),
-          _SectionLabel('EDIT HISTORY'),
-          const SizedBox(height: AppSpacing.sm),
-          _EditHistory(personId: person.id),
-          const SizedBox(height: AppSpacing.xxl),
         ],
       ),
     );
   }
 
+  /// Walks the whole ancestor and descendant chain generation by generation
+  /// (grandparents, great-grandparents, ... and grandchildren,
+  /// great-grandchildren, ...), not just direct parents/children, labelling
+  /// each with the standard genealogical term for how many generations
+  /// removed they are.
   List<_Relative> _relatives(WidgetRef ref, Person p) {
     final map = ref.watch(personMapProvider);
     final out = <_Relative>[];
-    for (final id in p.parentIds) {
-      final r = map[id];
-      if (r != null) out.add(_Relative(r, 'Parent'));
+    final Set<String> visited = <String>{p.id};
+
+    List<String> ancestorGen = p.parentIds;
+    int depth = 1;
+    while (ancestorGen.isNotEmpty) {
+      final List<String> nextGen = <String>[];
+      for (final id in ancestorGen) {
+        if (!visited.add(id)) continue;
+        final Person? r = map[id];
+        if (r == null) continue;
+        out.add(_Relative(r, _ancestorLabel(depth, r.sex)));
+        nextGen.addAll(r.parentIds);
+      }
+      ancestorGen = nextGen;
+      depth++;
     }
+
+    for (final s in map.values.where(
+      (s) => s.parentIds.any(p.parentIds.contains),
+    )) {
+      if (!visited.add(s.id)) continue;
+      out.add(
+        _Relative(
+          s,
+          switch (s.sex) {
+            Sex.male => 'Brother',
+            Sex.female => 'Sister',
+            Sex.unknown => 'Sibling',
+          },
+        ),
+      );
+    }
+
     for (final id in p.spouseIds) {
-      final r = map[id];
-      if (r != null) out.add(_Relative(r, 'Spouse'));
+      final Person? r = map[id];
+      if (r != null) {
+        out.add(
+          _Relative(
+            r,
+            switch (r.sex) {
+              Sex.male => 'Husband',
+              Sex.female => 'Wife',
+              Sex.unknown => 'Spouse',
+            },
+          ),
+        );
+      }
     }
-    for (final c in map.values.where((c) => c.parentIds.contains(p.id))) {
-      out.add(_Relative(c, 'Child'));
+
+    List<String> descendantGen = map.values
+        .where((c) => c.parentIds.contains(p.id))
+        .map((c) => c.id)
+        .toList();
+    depth = 1;
+    while (descendantGen.isNotEmpty) {
+      final List<String> nextGen = <String>[];
+      for (final id in descendantGen) {
+        if (!visited.add(id)) continue;
+        final Person? r = map[id];
+        if (r == null) continue;
+        out.add(_Relative(r, _descendantLabel(depth, r.sex)));
+        nextGen.addAll(
+          map.values.where((c) => c.parentIds.contains(id)).map((c) => c.id),
+        );
+      }
+      descendantGen = nextGen;
+      depth++;
     }
+
     return out;
+  }
+
+  String _ancestorLabel(int depth, Sex sex) => _generationalLabel(
+    depth: depth,
+    male: 'father',
+    female: 'mother',
+    neutral: 'parent',
+    sex: sex,
+  );
+
+  String _descendantLabel(int depth, Sex sex) => _generationalLabel(
+    depth: depth,
+    male: 'son',
+    female: 'daughter',
+    neutral: 'child',
+    sex: sex,
+  );
+
+  /// depth 1 → "Father"/"Son"; depth 2 → "Grandfather"/"Grandson"; depth 3+
+  /// → "Great-grandfather"/"Great-great-grandfather"/etc, following standard
+  /// genealogical naming.
+  String _generationalLabel({
+    required int depth,
+    required String male,
+    required String female,
+    required String neutral,
+    required Sex sex,
+  }) {
+    final String noun = switch (sex) {
+      Sex.male => male,
+      Sex.female => female,
+      Sex.unknown => neutral,
+    };
+    final String label = depth <= 1
+        ? noun
+        : '${List.filled(depth - 2, 'great-').join()}grand$noun';
+    return label[0].toUpperCase() + label.substring(1);
+  }
+
+  /// Scrolls the page so the given section (Family/Media, tapped from the
+  /// hero stat row) comes into view — both sections already live further
+  /// down this same page, so "opening" them means jumping to them.
+  void _scrollToSection(GlobalKey key) {
+    final BuildContext? ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.08,
+    );
+  }
+
+  /// Records don't have their own section on this page, so the "Records"
+  /// stat opens a bottom sheet listing everything citing this person,
+  /// each tapping through to its full detail screen.
+  void _showPersonRecordsSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Person person,
+  ) {
+    final List<Record> records = ref.read(
+      recordsForPersonProvider(person.id),
+    );
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.3,
+        maxChildSize: 0.9,
+        builder: (ctx, scrollController) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Records for ${person.fullName}',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                Expanded(
+                  child: records.isEmpty
+                      ? Text(
+                          'No records linked to this person yet.',
+                          style: Theme.of(ctx).textTheme.bodyMedium,
+                        )
+                      : ListView.separated(
+                          controller: scrollController,
+                          itemCount: records.length,
+                          separatorBuilder: (_, _) =>
+                              const Divider(height: AppSpacing.lg),
+                          itemBuilder: (_, i) {
+                            final Record r = records[i];
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(r.type.icon),
+                              title: Text(r.title),
+                              subtitle: Text(r.type.label),
+                              trailing: const Icon(Icons.chevron_right),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                context.push('/record/${r.id}');
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Quick-add menu for the FAMILY section: creates a brand-new relative
+  /// (via the person editor) and links it straight away.
+  void _showAddRelativeSheet(BuildContext context, WidgetRef ref, Person person) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.radiusLg),
+        ),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: AppSpacing.md),
+            ListTile(
+              leading: const Icon(Icons.escalator_warning_outlined),
+              title: const Text('Add parent'),
+              onTap: () {
+                Navigator.pop(ctx);
+                addNewRelative(context, ref, person, PersonRelation.parent);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.favorite_border),
+              title: const Text('Add spouse'),
+              onTap: () {
+                Navigator.pop(ctx);
+                addNewRelative(context, ref, person, PersonRelation.spouse);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.child_care_outlined),
+              title: const Text('Add child'),
+              onTap: () {
+                Navigator.pop(ctx);
+                addNewRelative(context, ref, person, PersonRelation.child);
+              },
+            ),
+            if (person.parentIds.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.people_outline),
+                title: const Text('Add sibling'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  addNewRelative(context, ref, person, PersonRelation.sibling);
+                },
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Finds an already-existing person in the tree and links them as a
+  /// relative — avoids creating a duplicate record for someone who's
+  /// already elsewhere in the tree.
+  Future<void> _showFindPersonSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Person person,
+  ) async {
+    final List<Person> persons = (ref.read(personsProvider).value ??
+            const <Person>[])
+        .where((p) => p.id != person.id)
+        .toList();
+    final Person? found = await showDialog<Person>(
+      context: context,
+      builder: (ctx) => _FindPersonDialog(persons: persons),
+    );
+    if (found == null || !context.mounted) return;
+
+    final PersonRelation? relation = await showModalBottomSheet<PersonRelation>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.radiusLg),
+        ),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: AppSpacing.md),
+            ListTile(
+              leading: const Icon(Icons.escalator_warning_outlined),
+              title: Text('Link ${found.fullName} as parent'),
+              onTap: () => Navigator.pop(ctx, PersonRelation.parent),
+            ),
+            ListTile(
+              leading: const Icon(Icons.favorite_border),
+              title: Text('Link ${found.fullName} as spouse'),
+              onTap: () => Navigator.pop(ctx, PersonRelation.spouse),
+            ),
+            ListTile(
+              leading: const Icon(Icons.child_care_outlined),
+              title: Text('Link ${found.fullName} as child'),
+              onTap: () => Navigator.pop(ctx, PersonRelation.child),
+            ),
+            if (person.parentIds.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.people_outline),
+                title: Text('Link ${found.fullName} as sibling'),
+                onTap: () => Navigator.pop(ctx, PersonRelation.sibling),
+              ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+    if (relation == null) return;
+    await linkExistingRelative(ref, person, found.id, relation);
+  }
+}
+
+/// Search dialog for finding an existing person to link as a relative
+/// (mirrors the tree screen's "Search people" dialog).
+class _FindPersonDialog extends StatefulWidget {
+  const _FindPersonDialog({required this.persons});
+  final List<Person> persons;
+
+  @override
+  State<_FindPersonDialog> createState() => _FindPersonDialogState();
+}
+
+class _FindPersonDialogState extends State<_FindPersonDialog> {
+  final TextEditingController _controller = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  List<Person> get _results {
+    final String q = _query.trim().toLowerCase();
+    if (q.isEmpty) return widget.persons;
+    return widget.persons
+        .where((p) => p.fullName.toLowerCase().contains(q))
+        .toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Dialog(
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xxl,
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 480),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Text('Find a person', style: text.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.md),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                onChanged: (v) => setState(() => _query = v),
+                textInputAction: TextInputAction.search,
+                decoration: InputDecoration(
+                  hintText: 'Search by name…',
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    color: AppColors.textTertiary,
+                  ),
+                  suffixIcon: _query.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.close, size: 18),
+                          onPressed: () {
+                            _controller.clear();
+                            setState(() => _query = '');
+                          },
+                        ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Flexible(
+                child: _results.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.lg,
+                        ),
+                        child: Text(
+                          'No matches.',
+                          style: text.bodyMedium?.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _results.length,
+                        itemBuilder: (_, i) {
+                          final Person p = _results[i];
+                          return ListTile(
+                            leading: AdaptiveAvatar(
+                              reference: p.photoUrl,
+                              radius: 18,
+                            ),
+                            title: Text(p.fullName),
+                            subtitle: p.birthDate != null
+                                ? Text(
+                                    '${p.birthDate!.year}',
+                                    style: text.bodySmall,
+                                  )
+                                : null,
+                            onTap: () => Navigator.of(context).pop(p),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -216,6 +720,8 @@ class _Relative {
 }
 
 bool _hasDetails(Person p) =>
+    (p.nickname ?? '').trim().isNotEmpty ||
+    (p.otherNames ?? '').trim().isNotEmpty ||
     (p.religion ?? '').trim().isNotEmpty ||
     (p.deathPlace ?? '').trim().isNotEmpty ||
     (p.occupation ?? '').trim().isNotEmpty ||
@@ -432,6 +938,8 @@ class _DetailsSection extends StatelessWidget {
       );
     }
 
+    add(Icons.badge_outlined, 'Nickname', person.nickname);
+    add(Icons.text_fields_outlined, 'Other names', person.otherNames);
     add(Icons.place_outlined, 'Death place', person.deathPlace);
     add(Icons.church_outlined, 'Religion', person.religion);
     add(Icons.work_outline, 'Occupation', person.occupation);
@@ -794,6 +1302,16 @@ class _EditHistory extends ConsumerWidget {
   }
 }
 
+/// Older rows can have a raw email baked into `editor_name` (from before
+/// the editor-name fallback preferred the email's local part) — strip the
+/// domain at display time so history never shows a full email address.
+String _displayEditorName(String? editorName) {
+  final String trimmed = editorName?.trim() ?? '';
+  if (trimmed.isEmpty) return 'Someone';
+  final int at = trimmed.indexOf('@');
+  return at > 0 ? trimmed.substring(0, at) : trimmed;
+}
+
 class _EditHistoryTile extends StatelessWidget {
   const _EditHistoryTile({required this.entry});
   final EditHistoryEntry entry;
@@ -802,9 +1320,7 @@ class _EditHistoryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final String when = Person.fmtDate(entry.createdAt);
-    final String who = (entry.editorName?.trim().isNotEmpty ?? false)
-        ? entry.editorName!.trim()
-        : 'Someone';
+    final String who = _displayEditorName(entry.editorName);
     return Container(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -842,48 +1358,119 @@ class _EditHistoryTile extends StatelessWidget {
   }
 }
 
-class _Header extends ConsumerWidget {
-  const _Header({required this.person});
+/// Cover-banner header: gradient banner behind the app bar, an avatar
+/// overlapping its bottom edge, and a quick-stat row (family/records/media)
+/// beneath the name — replaces the old plain centered header.
+class _HeroHeader extends ConsumerWidget {
+  const _HeroHeader({
+    required this.person,
+    required this.familyCount,
+    required this.recordCount,
+    required this.mediaCount,
+    this.onFamilyTap,
+    this.onRecordsTap,
+    this.onMediaTap,
+  });
+
   final Person person;
+  final int familyCount;
+  final int recordCount;
+  final int mediaCount;
+  final VoidCallback? onFamilyTap;
+  final VoidCallback? onRecordsTap;
+  final VoidCallback? onMediaTap;
+
+  static const double _avatarRadius = 48;
+  static const double _bannerContentHeight = 96;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme text = Theme.of(context).textTheme;
     final bool hasPhoto =
         person.photoUrl != null && person.photoUrl!.isNotEmpty;
+    final double topInset =
+        MediaQuery.of(context).padding.top + kToolbarHeight;
+    final double bannerHeight = topInset + _bannerContentHeight;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        Stack(
-          children: <Widget>[
-            AdaptiveAvatar(reference: person.photoUrl, radius: 44),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: Material(
-                color: AppColors.primary,
-                shape: const CircleBorder(),
-                child: InkWell(
-                  customBorder: const CircleBorder(),
-                  onTap: () => hasPhoto
-                      ? _showAvatarMenu(context, ref)
-                      : PhotoActions.setProfilePhoto(context, ref, person),
-                  child: const Padding(
-                    padding: EdgeInsets.all(6),
-                    child: Icon(
-                      Icons.camera_alt_outlined,
-                      size: 16,
-                      color: AppColors.onPrimary,
-                    ),
+        SizedBox(
+          height: bannerHeight + _avatarRadius,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: <Widget>[
+              Container(
+                height: bannerHeight,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: <Color>[
+                      AppColors.primary,
+                      AppColors.primaryHover,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(AppSpacing.radiusXl),
                   ),
                 ),
               ),
-            ),
-          ],
+              Positioned(
+                top: bannerHeight - _avatarRadius,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Stack(
+                    children: <Widget>[
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.background,
+                          shape: BoxShape.circle,
+                        ),
+                        child: AdaptiveAvatar(
+                          reference: person.photoUrl,
+                          radius: _avatarRadius,
+                        ),
+                      ),
+                      Positioned(
+                        right: 0,
+                        bottom: 0,
+                        child: Material(
+                          color: AppColors.primary,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: () => hasPhoto
+                                ? _showAvatarMenu(context, ref)
+                                : PhotoActions.setProfilePhoto(
+                                    context,
+                                    ref,
+                                    person,
+                                  ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(
+                                Icons.camera_alt_outlined,
+                                size: 16,
+                                color: AppColors.onPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: AppSpacing.md),
+        const SizedBox(height: AppSpacing.sm),
         Text(
           person.fullName,
-          style: text.headlineMedium,
+          style: text.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
           textAlign: TextAlign.center,
         ),
         if (person.lifespan.isNotEmpty) ...<Widget>[
@@ -910,40 +1497,51 @@ class _Header extends ConsumerWidget {
         ],
         if ((person.code ?? '').isNotEmpty) ...<Widget>[
           const SizedBox(height: AppSpacing.sm),
-          Material(
-            color: AppColors.surfaceMuted,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            child: InkWell(
+          Center(
+            child: Material(
+              color: AppColors.surfaceMuted,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              onTap: () => _copyCode(context, person.code!),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Text(
-                      person.code!,
-                      style: text.labelMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                        letterSpacing: 1,
-                        fontWeight: FontWeight.w600,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                onTap: () => _copyCode(context, person.code!),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Text(
+                        person.code!,
+                        style: text.labelMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          letterSpacing: 1,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.copy_outlined,
-                      size: 14,
-                      color: AppColors.textTertiary,
-                    ),
-                  ],
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.copy_outlined,
+                        size: 14,
+                        color: AppColors.textTertiary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
         ],
+        const SizedBox(height: AppSpacing.lg),
+        _HeroStats(
+          familyCount: familyCount,
+          recordCount: recordCount,
+          mediaCount: mediaCount,
+          onFamilyTap: onFamilyTap,
+          onRecordsTap: onRecordsTap,
+          onMediaTap: onMediaTap,
+        ),
       ],
     );
   }
@@ -996,13 +1594,175 @@ class _Header extends ConsumerWidget {
   }
 }
 
-class _SectionLabel extends StatelessWidget {
-  const _SectionLabel(this.label);
-  final String label;
+/// Family/Records/Media quick-stat row shown under the hero header.
+class _HeroStats extends StatelessWidget {
+  const _HeroStats({
+    required this.familyCount,
+    required this.recordCount,
+    required this.mediaCount,
+    this.onFamilyTap,
+    this.onRecordsTap,
+    this.onMediaTap,
+  });
+
+  final int familyCount;
+  final int recordCount;
+  final int mediaCount;
+  final VoidCallback? onFamilyTap;
+  final VoidCallback? onRecordsTap;
+  final VoidCallback? onMediaTap;
 
   @override
   Widget build(BuildContext context) {
-    return Text(label, style: Theme.of(context).textTheme.labelSmall);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        _StatItem(
+          icon: Icons.diversity_3_outlined,
+          value: familyCount,
+          label: 'Family',
+          onTap: onFamilyTap,
+        ),
+        _StatDivider(),
+        _StatItem(
+          icon: Icons.description_outlined,
+          value: recordCount,
+          label: 'Records',
+          onTap: onRecordsTap,
+        ),
+        _StatDivider(),
+        _StatItem(
+          icon: Icons.perm_media_outlined,
+          value: mediaCount,
+          label: 'Media',
+          onTap: onMediaTap,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatItem extends StatelessWidget {
+  const _StatItem({
+    required this.icon,
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final int value;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 4,
+          ),
+          child: Column(
+            children: <Widget>[
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(height: 2),
+              Text(
+                '$value',
+                style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                label,
+                style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+    width: 1,
+    height: 32,
+    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+    color: AppColors.border,
+  );
+}
+
+/// Elevated rounded card used to wrap every section on the profile screen
+/// (Family, Details, Timeline, etc.) with a consistent icon + title header.
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    super.key,
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: AppColors.border),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                ),
+                child: Icon(icon, size: 16, color: AppColors.primary),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  title,
+                  style: text.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          child,
+        ],
+      ),
+    );
   }
 }
 
@@ -1019,13 +1779,48 @@ class _RelativesWrap extends StatelessWidget {
       runSpacing: AppSpacing.sm,
       children: <Widget>[
         for (final r in relatives)
-          ActionChip(
-            avatar: const Icon(Icons.person_outline, size: 18),
-            label: Text(
-              '${r.person.fullName} · ${r.relation}',
-              style: text.bodyMedium,
+          Material(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              onTap: () => onTap(r.person),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.sm,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    AdaptiveAvatar(reference: r.person.photoUrl, radius: 14),
+                    const SizedBox(width: AppSpacing.sm),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        Text(
+                          r.person.fullName,
+                          style: text.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          r.relation,
+                          style: text.bodySmall?.copyWith(
+                            color: AppColors.textTertiary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
-            onPressed: () => onTap(r.person),
           ),
       ],
     );

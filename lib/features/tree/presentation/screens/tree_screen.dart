@@ -60,10 +60,20 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     return Rect.fromPoints(topLeft, bottomRight);
   }
 
+  /// The zoom level every fresh focus (a new branch, a search result, the
+  /// "reset zoom" button) starts at. Every call site that reaches
+  /// [_centerOnFocus] represents switching to a different layout — never a
+  /// same-layout resize — so there's no "current zoom" worth preserving;
+  /// carrying over whatever scale a pinch-zoom left on the *previous*
+  /// branch made the same 1.5px connector stroke width render at visibly
+  /// different sizes depending on which branch you'd zoomed on last (e.g.
+  /// a spouse's ancestors looking thicker than the main line's).
+  static const double _defaultFocusScale = 1.0;
+
   void _centerOnFocus(TreeLayout layout) {
     if (_viewport == Size.zero) return;
     final Rect f = layout.focusRect;
-    final double scale = _controller.value.getMaxScaleOnAxis().clamp(0.1, 4.0);
+    const double scale = _defaultFocusScale;
     final bool horizontal =
         ref.read(treeOrientationProvider) == TreeOrientation.horizontal;
     // Vertical: focus near the bottom (ancestors above). Horizontal: focus
@@ -291,6 +301,42 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
               .where((s) => s.rect.overlaps(cullRect))
               .toList();
 
+          // Which spouse cards have relatives (parents/other marriages) this
+          // view doesn't show at all — see PositionedPerson.isSpouseCard.
+          final Set<String> renderedIds = layout.nodes
+              .map((n) => n.person.id)
+              .toSet();
+          bool hasHiddenFamily(Person p) =>
+              p.parentIds.any((id) => !renderedIds.contains(id)) ||
+              p.spouseIds.any((id) => !renderedIds.contains(id));
+
+          final List<PositionedPerson> badgeNodes = visibleNodes
+              .where((n) => n.isSpouseCard && hasHiddenFamily(n.person))
+              .toList();
+          // Each badge sits just above its card's top-left corner, joined to
+          // it by a short stub drawn through the same painter (and so the
+          // same line style) as every other connector in the tree.
+          final Map<String, Offset> badgeCenters = <String, Offset>{
+            for (final n in badgeNodes)
+              n.person.id: Offset(
+                n.rect.left + 20,
+                n.rect.top - SpouseFamilyBadge.size / 2 - 6,
+              ),
+          };
+          final List<TreeConnector> badgeConnectors = <TreeConnector>[
+            for (final n in badgeNodes)
+              TreeConnector(
+                points: <Offset>[
+                  Offset(
+                    badgeCenters[n.person.id]!.dx,
+                    badgeCenters[n.person.id]!.dy + SpouseFamilyBadge.size / 2,
+                  ),
+                  Offset(n.rect.left + 20, n.rect.top),
+                ],
+                roundCap: false,
+              ),
+          ];
+
           return InteractiveViewer(
             transformationController: _controller,
             minScale: 0.2,
@@ -305,7 +351,10 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                   Positioned.fill(
                     child: CustomPaint(
                       painter: TreeConnectorPainter(
-                        connectors: layout.connectors,
+                        connectors: <TreeConnector>[
+                          ...layout.connectors,
+                          ...badgeConnectors,
+                        ],
                         visibleRect: visible,
                         lineColor: connectorColor,
                         spouseColor: connectorColor,
@@ -325,19 +374,21 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                         onTap: () => _onSlotTap(slot),
                       ),
                     ),
-                  for (final node in visibleNodes)
+                  for (final node in visibleNodes) ...<Widget>[
                     Positioned(
                       left: node.rect.left,
                       top: node.rect.top,
                       width: node.rect.width,
-                      // The focus card reserves extra height for its inline
-                      // "Add relative" footer, overflowing below its base rect.
-                      // Skipped in horizontal orientation: there, the focus's
-                      // spouse sits directly below it (breadth runs
-                      // vertically there), close enough that this overflow
-                      // would overlap the spouse's card. Tapping the card
-                      // itself opens the same actions either way.
-                      height: (node.isFocus && !horizontal)
+                      // The focus card (and its spouse, kept the same height
+                      // for visual parity) reserves extra height for an
+                      // inline "Add relative" footer, overflowing below its
+                      // base rect. Skipped in horizontal orientation: there,
+                      // the focus's spouse sits directly below it (breadth
+                      // runs vertically there), close enough that this
+                      // overflow would overlap the spouse's card. Tapping the
+                      // card itself opens the same actions either way.
+                      height:
+                          ((node.isFocus || node.isSpouseCard) && !horizontal)
                           ? node.rect.height + TreeMetrics.focusFooter
                           : node.rect.height,
                       child: PersonCardWidget(
@@ -345,11 +396,23 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                         isFocus: node.isFocus,
                         horizontal: horizontal,
                         onTap: () => _onCardTap(node.person),
-                        onAddRelative: (node.isFocus && !horizontal)
+                        onAddRelative:
+                            ((node.isFocus || node.isSpouseCard) && !horizontal)
                             ? () => _onCardTap(node.person)
                             : null,
                       ),
                     ),
+                    if (badgeCenters[node.person.id] case final Offset c)
+                      Positioned(
+                        left: c.dx - SpouseFamilyBadge.width / 2,
+                        top: c.dy - SpouseFamilyBadge.height / 2,
+                        width: SpouseFamilyBadge.width,
+                        height: SpouseFamilyBadge.height,
+                        child: SpouseFamilyBadge(
+                          onTap: () => _openSpouseTree(node.person),
+                        ),
+                      ),
+                  ],
                   for (final toggle in layout.toggles)
                     Positioned(
                       left: toggle.center.dx - CollapseToggleWidget.size / 2,
@@ -421,6 +484,21 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
 
   void _onCardTap(Person person) {
     showPersonActionsSheet(context, ref, person);
+  }
+
+  /// Re-roots the tree onto [spouse] (see [SpouseFamilyBadge]) — their own
+  /// parents/other marriages, invisible in the current view since a spouse's
+  /// ancestry is never recursed into, become the pedigree once they're the
+  /// focus. Mirrors [_showSearch]'s re-focus + re-pan sequence.
+  void _openSpouseTree(Person spouse) {
+    setFocusPerson(ref, spouse.id);
+    final TreeLayout? newLayout = ref.read(treeLayoutProvider);
+    if (newLayout == null) return;
+    _didInitialFit = false;
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _centerOnFocus(newLayout),
+    );
   }
 
   Future<void> _addRootPerson(BuildContext context, String treeId) async {

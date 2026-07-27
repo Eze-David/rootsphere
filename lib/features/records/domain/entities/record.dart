@@ -26,6 +26,10 @@ enum RecordType {
   cooperativeAssociation,
   politicalPartyRegister,
   okadaUnion,
+  marketAssociation,
+  hospital,
+  flightManifest,
+  recruitmentAgency,
   other,
 }
 
@@ -79,6 +83,14 @@ extension RecordTypeX on RecordType {
         return 'Political party register';
       case RecordType.okadaUnion:
         return 'Okada union';
+      case RecordType.marketAssociation:
+        return 'Market association';
+      case RecordType.hospital:
+        return 'Hospital';
+      case RecordType.flightManifest:
+        return 'Flight manifest';
+      case RecordType.recruitmentAgency:
+        return 'Recruitment agency';
       case RecordType.other:
         return 'Other';
     }
@@ -133,6 +145,14 @@ extension RecordTypeX on RecordType {
         return 'Political party register';
       case RecordType.okadaUnion:
         return 'Okada union record';
+      case RecordType.marketAssociation:
+        return 'Market association record';
+      case RecordType.hospital:
+        return 'Hospital record';
+      case RecordType.flightManifest:
+        return 'Flight manifest';
+      case RecordType.recruitmentAgency:
+        return 'Recruitment agency record';
       case RecordType.other:
         return 'Record';
     }
@@ -186,6 +206,14 @@ extension RecordTypeX on RecordType {
         return Icons.how_to_vote_outlined;
       case RecordType.okadaUnion:
         return Icons.two_wheeler_outlined;
+      case RecordType.marketAssociation:
+        return Icons.storefront_outlined;
+      case RecordType.hospital:
+        return Icons.local_hospital_outlined;
+      case RecordType.flightManifest:
+        return Icons.flight_outlined;
+      case RecordType.recruitmentAgency:
+        return Icons.work_outline;
       case RecordType.other:
         return Icons.article_outlined;
     }

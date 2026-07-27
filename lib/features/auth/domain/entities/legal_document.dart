@@ -16,7 +16,7 @@ class LegalSection {
 abstract class LegalDocuments {
   LegalDocuments._();
 
-  static const String lastUpdated = '21 July 2026';
+  static const String lastUpdated = '24 July 2026';
 
   static const String termsOfServiceIntro =
       'These Terms of Service ("Terms") govern your use of Rootsphere '
@@ -81,7 +81,14 @@ abstract class LegalDocuments {
           '("Opportunities") lets members ask the community for research '
           'help and lets others claim and submit that work — submissions '
           'are visible to the person who posted the request so they can '
-          'verify them.',
+          'verify them.\n\n'
+          'Finder and Indexer are qualified roles: applying requires '
+          'submitting verification information (including a '
+          'government-issued ID) for review by Rootsphere admins, and only '
+          'approved applicants can claim opportunities requiring that '
+          'role. To support that review, and platform moderation '
+          'generally, Rootsphere admins and users approved as a Finder or '
+          'Indexer can see records across every tree, not just their own.',
     ),
     LegalSection(
       '6. AI Research Assistant',
@@ -96,10 +103,11 @@ abstract class LegalDocuments {
       '7. Donations',
       'Donations are one-time payments to support another user\'s research '
           'request, processed by Paystack. Rootsphere does not store your '
-          'card details. Donations are voluntary contributions to another '
-          'user\'s research effort, not a purchase of goods or services, and '
-          'are non-refundable except as required by law or at our '
-          'discretion.',
+          'card details. Your name (or "Anonymous", if you choose) is shown '
+          'publicly alongside the research request you support. Donations '
+          'are voluntary contributions to another user\'s research effort, '
+          'not a purchase of goods or services, and are non-refundable '
+          'except as required by law or at our discretion.',
     ),
     LegalSection(
       '8. Acceptable Use',
@@ -133,7 +141,7 @@ abstract class LegalDocuments {
     ),
     LegalSection(
       '12. Contact',
-      'Questions about these Terms: Vdst2009@gmail.com.',
+      'Questions about these Terms: contact.us@rootsphere.ink.',
     ),
   ];
 
@@ -156,14 +164,19 @@ abstract class LegalDocuments {
           'work (e.g. edit history, collaboration board activity).\n'
           '• Payment data: if you make a donation, Paystack processes your '
           'payment details directly — Rootsphere receives only the '
-          'transaction result (amount, status), never your card number.',
+          'transaction result (amount, status), never your card number.\n'
+          '• Role verification data: if you apply to become a Finder or '
+          'Indexer, we collect your name, email, phone number, a '
+          'government-issued ID, and any supporting certificates you '
+          'choose to attach, for Rootsphere admins to review.',
     ),
     LegalSection(
       '2. How We Use Information',
       'To operate the App\'s core features: building your tree, storing and '
           'displaying your records and media, generating AI research '
-          'suggestions, running searches, processing donations, and '
-          'enabling collaboration between members of a shared tree.',
+          'suggestions, running searches, processing donations, reviewing '
+          'Finder/Indexer applications, and enabling collaboration between '
+          'members of a shared tree.',
     ),
     LegalSection(
       '3. What Other Users Can See',
@@ -178,7 +191,14 @@ abstract class LegalDocuments {
           'uploaded it is not shown.\n'
           '• Donation and collaboration-board activity you choose to post '
           '(e.g. a research request, a submitted result) is visible to '
-          'other members as part of that feature working.',
+          'other members as part of that feature working.\n'
+          '• A completed donation shows your name (or "Anonymous", if you '
+          'choose) publicly alongside the research request it supports.\n'
+          '• Rootsphere admins can see Finder/Indexer applications, '
+          'including submitted ID and supporting documents, to review and '
+          'approve them. Admins and users approved as a Finder or Indexer '
+          'can also see records across every tree on Rootsphere, not just '
+          'their own, so they can find and work on opportunities.',
     ),
     LegalSection(
       '4. Third-Party Service Providers',
@@ -202,7 +222,9 @@ abstract class LegalDocuments {
           'account (Profile ▸ Account ▸ Delete account) removes your '
           'personal profile and credentials; content you contributed to a '
           'tree shared with other members may remain if they still rely on '
-          'it, consistent with the Terms of Service.',
+          'it, consistent with the Terms of Service. Role-verification '
+          'documents (including any government ID) are deleted if your '
+          'application is withdrawn or your account is deleted.',
     ),
     LegalSection(
       '7. Your Rights and Choices',
@@ -221,7 +243,10 @@ abstract class LegalDocuments {
       '9. Security',
       'We use industry-standard measures (encryption in transit, '
           'row-level access controls on your data) to protect your '
-          'information, but no system is 100% secure.',
+          'information, but no system is 100% secure. Government ID '
+          'documents submitted for role verification are stored in '
+          'access-controlled storage and used only for verification '
+          'purposes.',
     ),
     LegalSection(
       '10. Changes to This Policy',
@@ -230,7 +255,7 @@ abstract class LegalDocuments {
     ),
     LegalSection(
       '11. Contact',
-      'Questions about this Policy or your data: Vdst2009@gmail.com.',
+      'Questions about this Policy or your data: contact.us@rootsphere.ink.',
     ),
   ];
 }

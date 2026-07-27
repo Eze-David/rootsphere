@@ -22,6 +22,7 @@ class RecordsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final AsyncValue<List<Record>> recordsAsync = ref.watch(recordsProvider);
     final List<Record> filtered = ref.watch(filteredRecordsProvider);
+    final bool seesAllRecords = ref.watch(canSeeAllRecordsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -48,11 +49,16 @@ class RecordsScreen extends ConsumerWidget {
       extendBodyBehindAppBar: true,
       body: Column(
         children: <Widget>[
-          const RecordsLibraryHero(
-            asset: 'assets/images/records_library_hero.png',
-            title: 'Your records',
-            subtitle:
-                'Birth certificates, marriage registrations, census records, and other official documents — all in one place.',
+          RecordsLibraryHero(
+            assets: const <String>[
+              'assets/images/records_library_hero.png',
+              'assets/images/records_library_hero_2.png',
+              'assets/images/records_library_hero_3.png',
+            ],
+            title: seesAllRecords ? 'All records' : 'Your records',
+            subtitle: seesAllRecords
+                ? 'Every record uploaded across Rootsphere — birth certificates, marriage registrations, census records, and more.'
+                : 'Birth certificates, marriage registrations, census records, and other official documents — all in one place.',
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -98,7 +104,10 @@ class RecordsScreen extends ConsumerWidget {
                   final bool isFiltering =
                       ref.watch(recordSearchProvider).trim().isNotEmpty ||
                       ref.watch(recordTypeFilterProvider) != null;
-                  return _EmptyState(isFiltering: isFiltering);
+                  return _EmptyState(
+                    isFiltering: isFiltering,
+                    seesAllRecords: seesAllRecords,
+                  );
                 }
                 return ListView.builder(
                   padding: const EdgeInsets.fromLTRB(
@@ -243,6 +252,10 @@ class _OtherChip extends StatelessWidget {
     RecordType.cooperativeAssociation,
     RecordType.politicalPartyRegister,
     RecordType.okadaUnion,
+    RecordType.marketAssociation,
+    RecordType.hospital,
+    RecordType.flightManifest,
+    RecordType.recruitmentAgency,
   };
 
   static const List<({RecordType type, String label})> _options =
@@ -267,6 +280,10 @@ class _OtherChip extends StatelessWidget {
           label: 'Political party registers',
         ),
         (type: RecordType.okadaUnion, label: 'Okada union'),
+        (type: RecordType.marketAssociation, label: 'Market associations'),
+        (type: RecordType.hospital, label: 'Hospitals'),
+        (type: RecordType.flightManifest, label: 'Flight manifests'),
+        (type: RecordType.recruitmentAgency, label: 'Recruitment agencies'),
       ];
 
   void _openMenu(BuildContext context) {
@@ -434,11 +451,15 @@ class _Chip extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState({required this.isFiltering});
+  const _EmptyState({required this.isFiltering, required this.seesAllRecords});
 
   /// True when a search query or type filter is active (so no results is a
   /// filtering outcome rather than an empty library).
   final bool isFiltering;
+
+  /// True for admins/approved Finders/Indexers browsing everyone's records —
+  /// "tap upload to add your first document" doesn't fit that view.
+  final bool seesAllRecords;
 
   @override
   Widget build(BuildContext context) {
@@ -447,6 +468,8 @@ class _EmptyState extends StatelessWidget {
       title: isFiltering ? 'No matching records' : 'No records yet',
       subtitle: isFiltering
           ? 'Try a different search or filter.'
+          : seesAllRecords
+          ? 'No records have been uploaded across Rootsphere yet.'
           : 'Tap the upload button to add your first document.',
     );
   }

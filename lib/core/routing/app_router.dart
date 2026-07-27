@@ -12,6 +12,7 @@ import '../../features/collab/presentation/screens/opportunities_screen.dart';
 import '../../features/collab/presentation/screens/company_requests_screen.dart';
 import '../../features/collab/presentation/screens/role_verification_review_screen.dart';
 import '../../features/collab/presentation/screens/submission_review_screen.dart';
+import '../../features/support/presentation/screens/support_messages_screen.dart';
 import '../../features/hints/presentation/screens/hints_screen.dart';
 import '../../features/notifications/presentation/screens/notifications_screen.dart';
 import '../../features/onboarding/presentation/providers/onboarding_provider.dart';
@@ -147,6 +148,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => SubmissionReviewScreen(
           openOpportunityId: state.uri.queryParameters['openId'],
         ),
+      ),
+      GoRoute(
+        path: AppRoutes.supportMessages,
+        name: 'support-messages',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, _) => const SupportMessagesScreen(),
       ),
       GoRoute(
         path: '${AppRoutes.records}/search/:type',

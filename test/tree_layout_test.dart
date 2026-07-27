@@ -296,5 +296,142 @@ void main() {
       expect(start.dx, emeka.rect.center.dx);
       expect(start.dy, (emeka.rect.center.dy + ngozi.rect.center.dy) / 2);
     });
+
+    test(
+      'a couple stays as tight as the focus\'s own spouse gap even when one '
+      'side has far more recorded ancestors than the other',
+      () {
+        // Arthur has two more known generations behind him; Grace has none —
+        // a deliberately asymmetric subtree, same shape as a real user's tree
+        // (one parent's line is well documented, the other isn't).
+        final asymmetric = <Person>[
+          ...persons,
+          const Person(
+            id: 'arthur_dad',
+            treeId: 't',
+            givenName: 'ArthurDad',
+            spouseIds: <String>['arthur_mom'],
+          ),
+          const Person(
+            id: 'arthur_mom',
+            treeId: 't',
+            givenName: 'ArthurMom',
+            spouseIds: <String>['arthur_dad'],
+          ),
+          const Person(
+            id: 'arthur_gdad',
+            treeId: 't',
+            givenName: 'ArthurGDad',
+            spouseIds: <String>['arthur_gmom'],
+          ),
+          const Person(
+            id: 'arthur_gmom',
+            treeId: 't',
+            givenName: 'ArthurGMom',
+            spouseIds: <String>['arthur_gdad'],
+          ),
+        ];
+        final withDeepArthurLine = <Person>[
+          for (final p in asymmetric)
+            if (p.id == 'arthur')
+              Person(
+                id: p.id,
+                treeId: p.treeId,
+                givenName: p.givenName,
+                spouseIds: p.spouseIds,
+                parentIds: const <String>['arthur_dad', 'arthur_mom'],
+              )
+            else if (p.id == 'arthur_dad')
+              Person(
+                id: p.id,
+                treeId: p.treeId,
+                givenName: p.givenName,
+                spouseIds: p.spouseIds,
+                parentIds: const <String>['arthur_gdad', 'arthur_gmom'],
+              )
+            else
+              p,
+        ];
+
+        final layout = TreeLayoutEngine.build(
+          persons: withDeepArthurLine,
+          focusId: 'emeka',
+          mode: TreeMode.ancestors,
+        );
+        final arthur = layout.nodes.firstWhere((n) => n.person.id == 'arthur');
+        final grace = layout.nodes.firstWhere((n) => n.person.id == 'grace');
+        final emeka = layout.nodes.firstWhere((n) => n.person.id == 'emeka');
+        final ngozi = layout.nodes.firstWhere((n) => n.person.id == 'ngozi');
+
+        // Arthur+Grace (a couple with lopsided ancestry) sit exactly as
+        // tight as Emeka+Ngozi (the focus's own spouse pairing).
+        final double ancestorCoupleGap = grace.rect.left - arthur.rect.right;
+        final double focusCoupleGap = ngozi.rect.left - emeka.rect.right;
+        expect(ancestorCoupleGap, closeTo(focusCoupleGap, 0.01));
+        expect(ancestorCoupleGap, closeTo(TreeMetrics.spouseGap, 0.01));
+
+        // Nothing overlaps despite Arthur's much wider subtree.
+        for (int i = 0; i < layout.nodes.length; i++) {
+          for (int j = i + 1; j < layout.nodes.length; j++) {
+            final a = layout.nodes[i].rect;
+            final b = layout.nodes[j].rect;
+            expect(
+              a.overlaps(b.deflate(0.5)),
+              isFalse,
+              reason: '${layout.nodes[i].person.id} overlaps '
+                  '${layout.nodes[j].person.id}',
+            );
+          }
+        }
+      },
+    );
+
+    test(
+      'the male half of the focus\'s couple always ends up first along the '
+      'breadth axis, whichever of the two is currently the focus',
+      () {
+        final withSexes = <Person>[
+          const Person(
+            id: 'drcar',
+            treeId: 't',
+            givenName: 'DrCar',
+            sex: Sex.male,
+            spouseIds: <String>['venza'],
+          ),
+          const Person(
+            id: 'venza',
+            treeId: 't',
+            givenName: 'Venza',
+            sex: Sex.female,
+            spouseIds: <String>['drcar'],
+          ),
+        ];
+
+        final rootedOnMale = TreeLayoutEngine.build(
+          persons: withSexes,
+          focusId: 'drcar',
+          mode: TreeMode.ancestors,
+        );
+        final rootedOnFemale = TreeLayoutEngine.build(
+          persons: withSexes,
+          focusId: 'venza',
+          mode: TreeMode.ancestors,
+        );
+
+        for (final layout in <TreeLayout>[rootedOnMale, rootedOnFemale]) {
+          final male = layout.nodes.firstWhere((n) => n.person.id == 'drcar');
+          final female = layout.nodes.firstWhere(
+            (n) => n.person.id == 'venza',
+          );
+          expect(
+            male.rect.left,
+            lessThan(female.rect.left),
+            reason:
+                'male should be left of female regardless of who is focus '
+                '(focus here: ${layout.nodes.firstWhere((n) => n.isFocus).person.id})',
+          );
+        }
+      },
+    );
   });
 }
