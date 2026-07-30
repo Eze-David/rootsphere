@@ -365,6 +365,7 @@ class _HistoricalRecordsSearchScreenState
         return const <String>[
           'assets/images/records_birth_hero.png',
           'assets/images/records_birth_hero_2.png',
+          'assets/images/records_birth_hero_3.jpeg',
         ];
       case RecordType.marriage:
         return const <String>[
@@ -385,17 +386,21 @@ class _HistoricalRecordsSearchScreenState
           'assets/images/records_census_hero.png',
           'assets/images/records_census_hero_2.png',
           'assets/images/records_census_hero_3.png',
+          'assets/images/records_census_hero_4.jpeg',
         ];
       case RecordType.military:
         return const <String>[
           'assets/images/records_military_hero.png',
           'assets/images/records_military_hero_2.png',
+          'assets/images/records_military_hero_3.jpeg',
+          'assets/images/records_military_hero_4.jpeg',
         ];
       case RecordType.immigration:
         return const <String>[
           'assets/images/records_immigration_hero.png',
           'assets/images/records_immigration_hero_2.png',
           'assets/images/records_immigration_hero_3.png',
+          'assets/images/records_immigration_hero_4.jpeg',
         ];
       case RecordType.baptism:
         return const <String>[
@@ -408,6 +413,7 @@ class _HistoricalRecordsSearchScreenState
           'assets/images/records_photo_hero.png',
           'assets/images/records_photo_hero_2.png',
           'assets/images/records_photo_hero_3.png',
+          'assets/images/records_photo_hero_4.jpeg',
         ];
       case RecordType.newspaper:
         return const <String>[
@@ -416,17 +422,30 @@ class _HistoricalRecordsSearchScreenState
           'assets/images/records_newspaper_hero_3.png',
         ];
       case RecordType.community:
-        return const <String>['assets/images/records_community_hero.png'];
+        return const <String>[
+          'assets/images/records_community_hero.png',
+          'assets/images/records_community_hero_2.png',
+        ];
       case RecordType.cemetery:
-        return const <String>['assets/images/records_cemetery_hero.png'];
+        return const <String>[
+          'assets/images/records_cemetery_hero.png',
+          'assets/images/records_cemetery_hero_2.png',
+        ];
       case RecordType.school:
-        return const <String>['assets/images/records_school_hero.png'];
+        return const <String>[
+          'assets/images/records_school_hero.png',
+          'assets/images/records_school_hero_2.png',
+        ];
       case RecordType.exam:
-        return const <String>['assets/images/records_exam_hero.png'];
+        return const <String>[
+          'assets/images/records_exam_hero.png',
+          'assets/images/records_exam_hero_2.jpeg',
+        ];
       case RecordType.church:
         return const <String>[
           'assets/images/records_church_hero.png',
           'assets/images/records_church_hero_2.png',
+          'assets/images/records_church_hero_3.jpeg',
         ];
       case RecordType.transportManifest:
         return const <String>[
@@ -437,9 +456,16 @@ class _HistoricalRecordsSearchScreenState
       case RecordType.library:
         return const <String>['assets/images/records_library_hero.png'];
       case RecordType.museum:
-        return const <String>['assets/images/records_museum_hero.png'];
+        return const <String>[
+          'assets/images/records_museum_hero.png',
+          'assets/images/records_museum_hero_2.jpeg',
+        ];
       case RecordType.archive:
-        return const <String>['assets/images/records_newspaper_hero.png'];
+        return const <String>[
+          'assets/images/records_archive_hero.jpeg',
+          'assets/images/records_archive_hero_2.jpeg',
+          'assets/images/records_archive_hero_3.jpeg',
+        ];
       case RecordType.landDocument:
         return const <String>[
           'assets/images/records_land_document_hero.png',
@@ -451,12 +477,16 @@ class _HistoricalRecordsSearchScreenState
       case RecordType.cooperativeAssociation:
         return const <String>['assets/images/records_community_hero.png'];
       case RecordType.politicalPartyRegister:
-        return const <String>['assets/images/records_community_hero.png'];
+        return const <String>[
+          'assets/images/records_political_party_hero.jpeg',
+        ];
       case RecordType.okadaUnion:
         return const <String>['assets/images/records_okada_union_hero.png'];
       case RecordType.marketAssociation:
         return const <String>[
           'assets/images/records_market_association_hero.png',
+          'assets/images/records_market_association_hero_2.jpeg',
+          'assets/images/records_market_association_hero_3.jpeg',
         ];
       case RecordType.hospital:
         return const <String>[
@@ -469,6 +499,7 @@ class _HistoricalRecordsSearchScreenState
           'assets/images/records_flight_manifest_hero.png',
           'assets/images/records_flight_manifest_hero_2.png',
           'assets/images/records_flight_manifest_hero_3.png',
+          'assets/images/records_flight_manifest_hero_4.jpeg',
         ];
       case RecordType.recruitmentAgency:
         return const <String>['assets/images/records_community_hero.png'];
