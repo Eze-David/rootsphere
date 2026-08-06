@@ -27,10 +27,13 @@ class DonationCheckoutResult {
 class DonationCheckoutService {
   DonationCheckoutService();
 
+  /// [opportunityId]/[opportunityTitle]/[treeId] are omitted for a general
+  /// donation to Rootsphere itself, not tied to any specific research
+  /// opportunity — either all three are provided, or none are.
   Future<DonationCheckoutResult> createCheckout({
-    required String opportunityId,
-    required String opportunityTitle,
-    required String treeId,
+    String? opportunityId,
+    String? opportunityTitle,
+    String? treeId,
     required int amountCents,
     required String donorEmail,
     String currency = 'ngn',

@@ -2,16 +2,19 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
-import '../../../../shared/widgets/app_text_field.dart';
 import '../../../../shared/widgets/oauth_button.dart';
 import '../providers/auth_controller.dart';
+import '../providers/auth_mode_provider.dart';
 import 'legal_document_screen.dart';
 
-/// Combined sign-up / sign-in screen (brief §5.1, mockup "SIGN UP / LOGIN").
+/// Combined sign-up / sign-in screen: a dark gradient header (brand espresso
+/// colour) behind a floating rounded card with underline-style fields.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -28,6 +31,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   final _confirmPasswordController = TextEditingController();
   bool _isSignUp = true;
   bool _agreedToTerms = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Set once from whichever entry point sent the user here (the landing
+    // page's "Get started" vs "Sign in" buttons) — read via ref.read since
+    // this is a one-time initial value, not something this screen should
+    // keep reacting to afterwards.
+    _isSignUp = ref.read(authInitialModeProvider);
+  }
 
   @override
   void dispose() {
@@ -96,6 +109,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
     final AsyncValue<void> state = ref.watch(authControllerProvider);
     final bool loading = state.isLoading;
     final bool blockedBySignUpAgreement = _isSignUp && !_agreedToTerms;
@@ -107,39 +121,71 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     });
 
+    final Color headerTop = Color.lerp(scheme.primary, Colors.white, 0.12)!;
+    final Color headerBottom = Color.lerp(scheme.primary, Colors.black, 0.55)!;
+
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.asset(
-              'assets/images/onboarding -image.png',
-              fit: BoxFit.cover,
-            ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: <Color>[
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.black.withValues(alpha: 0.15),
-                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[headerTop, headerBottom],
                 ),
+              ),
+            ),
+            Positioned(
+              top: -40,
+              right: -30,
+              child: _DecorativeCircle(
+                diameter: 140,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            Positioned(
+              top: 160,
+              left: -50,
+              child: _DecorativeCircle(
+                diameter: 110,
+                color: Colors.white.withValues(alpha: 0.06),
               ),
             ),
             SafeArea(
               child: Column(
                 children: <Widget>[
+                  Row(
+                    children: <Widget>[
+                      IconButton(
+                        onPressed: () => context.go(AppRoutes.onboarding),
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.lg,
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      AppSpacing.sm,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
                     ),
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 96,
-                      fit: BoxFit.contain,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        _isSignUp ? 'Create Your\nAccount' : 'Welcome\nBack',
+                        style: text.headlineMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                        ),
+                      ),
                     ),
                   ),
                   Expanded(
@@ -156,83 +202,59 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(AppSpacing.xl),
                             decoration: BoxDecoration(
-                              color: AppColors.background,
+                              color: scheme.surface,
                               borderRadius: BorderRadius.circular(
-                                AppSpacing.radiusXl,
+                                AppSpacing.radiusXl + 8,
                               ),
                               boxShadow: <BoxShadow>[
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.15),
-                                  blurRadius: 24,
-                                  offset: const Offset(0, 8),
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 32,
+                                  offset: const Offset(0, 12),
                                 ),
                               ],
                             ),
                             child: Form(
                               key: _formKey,
                               child: Column(
-                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: <Widget>[
-                                  Text(
-                                    'Discover, document and grow\nyour family history',
-                                    textAlign: TextAlign.center,
-                                    style: text.bodyLarge?.copyWith(
-                                      color: AppColors.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: AppSpacing.xxl),
                                   if (_isSignUp) ...<Widget>[
-                                    Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: <Widget>[
-                                        Expanded(
-                                          child: AppTextField(
-                                            label: 'First name',
-                                            hint: 'e.g. Adaeze',
-                                            icon: Icons.person_outline,
-                                            controller: _firstNameController,
-                                            textCapitalization:
-                                                TextCapitalization.words,
-                                            textInputAction:
-                                                TextInputAction.next,
-                                            validator: _validateFirstName,
-                                          ),
-                                        ),
-                                        const SizedBox(width: AppSpacing.md),
-                                        Expanded(
-                                          child: AppTextField(
-                                            label: 'Last name',
-                                            hint: 'e.g. Okonkwo',
-                                            icon: Icons.person_outline,
-                                            controller: _lastNameController,
-                                            textCapitalization:
-                                                TextCapitalization.words,
-                                            textInputAction:
-                                                TextInputAction.next,
-                                            validator: _validateLastName,
-                                          ),
-                                        ),
-                                      ],
+                                    _AuthField(
+                                      label: 'First Name',
+                                      hint: 'e.g. John',
+                                      controller: _firstNameController,
+                                      textCapitalization:
+                                          TextCapitalization.words,
+                                      textInputAction: TextInputAction.next,
+                                      validator: _validateFirstName,
+                                    ),
+                                    AppSpacing.gapLg,
+                                    _AuthField(
+                                      label: 'Last Name',
+                                      hint: 'e.g. Smith',
+                                      controller: _lastNameController,
+                                      textCapitalization:
+                                          TextCapitalization.words,
+                                      textInputAction: TextInputAction.next,
+                                      validator: _validateLastName,
                                     ),
                                     AppSpacing.gapLg,
                                   ],
-                                  AppTextField(
+                                  _AuthField(
                                     label: 'Email',
                                     hint: 'you@example.com',
-                                    icon: Icons.mail_outline,
                                     controller: _emailController,
                                     keyboardType: TextInputType.emailAddress,
                                     textInputAction: TextInputAction.next,
                                     validator: _validateEmail,
                                   ),
                                   AppSpacing.gapLg,
-                                  AppTextField(
+                                  _AuthField(
                                     label: 'Password',
                                     hint: '••••••••',
-                                    icon: Icons.lock_outline,
                                     controller: _passwordController,
-                                    obscureText: true,
+                                    isPassword: true,
                                     textInputAction: _isSignUp
                                         ? TextInputAction.next
                                         : TextInputAction.done,
@@ -243,12 +265,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                   ),
                                   if (_isSignUp) ...<Widget>[
                                     AppSpacing.gapLg,
-                                    AppTextField(
-                                      label: 'Confirm password',
+                                    _AuthField(
+                                      label: 'Confirm Password',
                                       hint: '••••••••',
-                                      icon: Icons.lock_outline,
                                       controller: _confirmPasswordController,
-                                      obscureText: true,
+                                      isPassword: true,
                                       textInputAction: TextInputAction.done,
                                       validator: _validateConfirmPassword,
                                       onSubmitted: (_) => _submit(),
@@ -273,26 +294,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                                         child: const Text('Forgot password?'),
                                       ),
                                     ),
-                                  const SizedBox(height: AppSpacing.lg),
-                                  ElevatedButton(
+                                  const SizedBox(height: AppSpacing.xl),
+                                  _GradientSubmitButton(
+                                    label: _isSignUp ? 'SIGN UP' : 'SIGN IN',
+                                    loading: loading,
                                     onPressed:
                                         loading || blockedBySignUpAgreement
                                         ? null
                                         : _submit,
-                                    child: loading
-                                        ? const SizedBox(
-                                            height: 22,
-                                            width: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: AppColors.onPrimary,
-                                            ),
-                                          )
-                                        : Text(
-                                            _isSignUp
-                                                ? 'Create account'
-                                                : 'Sign in',
-                                          ),
                                   ),
                                   const SizedBox(height: AppSpacing.xl),
                                   _DividerLabel(label: 'or continue with'),
@@ -380,6 +389,201 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 }
 
+/// Soft translucent circle used to decorate the header, matching the
+/// mockup's overflowing background shapes.
+class _DecorativeCircle extends StatelessWidget {
+  const _DecorativeCircle({required this.diameter, required this.color});
+  final double diameter;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: diameter,
+      height: diameter,
+      decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+    );
+  }
+}
+
+/// Labelled underline field matching the new auth mockup: a bold brand-
+/// coloured caption above an underlined input, with a trailing checkmark
+/// once the value is valid (or a show/hide toggle for password fields).
+class _AuthField extends StatefulWidget {
+  const _AuthField({
+    required this.label,
+    required this.hint,
+    required this.controller,
+    this.isPassword = false,
+    this.keyboardType,
+    this.textInputAction,
+    this.textCapitalization = TextCapitalization.none,
+    this.validator,
+    this.onSubmitted,
+  });
+
+  final String label;
+  final String hint;
+  final TextEditingController controller;
+  final bool isPassword;
+  final TextInputType? keyboardType;
+  final TextInputAction? textInputAction;
+  final TextCapitalization textCapitalization;
+  final String? Function(String?)? validator;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  State<_AuthField> createState() => _AuthFieldState();
+}
+
+class _AuthFieldState extends State<_AuthField> {
+  bool _obscured = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final TextTheme text = Theme.of(context).textTheme;
+    final Color dividerColor = Theme.of(context).dividerColor;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          widget.label,
+          style: text.labelMedium?.copyWith(
+            color: scheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: widget.controller,
+          builder: (context, value, _) {
+            final bool showCheck =
+                !widget.isPassword &&
+                value.text.isNotEmpty &&
+                (widget.validator == null ||
+                    widget.validator!(value.text) == null);
+            return TextFormField(
+              controller: widget.controller,
+              obscureText: widget.isPassword && _obscured,
+              keyboardType: widget.keyboardType,
+              textInputAction: widget.textInputAction,
+              textCapitalization: widget.textCapitalization,
+              validator: widget.validator,
+              onFieldSubmitted: widget.onSubmitted,
+              style: text.bodyLarge,
+              decoration: InputDecoration(
+                hintText: widget.hint,
+                isDense: true,
+                filled: false,
+                contentPadding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                border: UnderlineInputBorder(
+                  borderSide: BorderSide(color: dividerColor),
+                ),
+                enabledBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: dividerColor),
+                ),
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: scheme.primary, width: 1.5),
+                ),
+                errorBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: scheme.error),
+                ),
+                focusedErrorBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: scheme.error, width: 1.5),
+                ),
+                suffixIcon: widget.isPassword
+                    ? IconButton(
+                        icon: Icon(
+                          _obscured
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 20,
+                          color: text.bodyMedium?.color,
+                        ),
+                        onPressed: () =>
+                            setState(() => _obscured = !_obscured),
+                      )
+                    : (showCheck
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: AppColors.success,
+                              size: 20,
+                            )
+                          : null),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Full-width gradient pill button (brand espresso colour) used for the
+/// primary sign up / sign in action, matching the mockup's pill CTA.
+class _GradientSubmitButton extends StatelessWidget {
+  const _GradientSubmitButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final bool enabled = onPressed != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28),
+          onTap: onPressed,
+          child: Ink(
+            height: 54,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: <Color>[
+                  Color.lerp(scheme.primary, Colors.white, 0.15)!,
+                  Color.lerp(scheme.primary, Colors.black, 0.35)!,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(28),
+            ),
+            child: Center(
+              child: loading
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onPrimary,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: AppColors.onPrimary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Required-before-sign-up agreement checkbox with tappable links to the full
 /// Terms of Service / Privacy Policy — the standard pattern most apps use
 /// ahead of account creation.
@@ -396,7 +600,7 @@ class _TermsAgreement extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     final TextStyle? linkStyle = text.bodyMedium?.copyWith(
-      color: AppColors.textPrimary,
+      color: text.bodyLarge?.color,
       fontWeight: FontWeight.w600,
       decoration: TextDecoration.underline,
     );
@@ -451,23 +655,31 @@ class _DividerLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Color dividerColor = Theme.of(context).dividerColor;
     return Row(
       children: <Widget>[
-        const Expanded(child: Divider(color: AppColors.border)),
+        Expanded(child: Divider(color: dividerColor)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
         ),
-        const Expanded(child: Divider(color: AppColors.border)),
+        Expanded(child: Divider(color: dividerColor)),
       ],
     );
   }
 }
 
-class _ToggleAuthMode extends StatelessWidget {
+class _ToggleAuthMode extends StatefulWidget {
   const _ToggleAuthMode({required this.isSignUp, required this.onToggle});
   final bool isSignUp;
   final VoidCallback? onToggle;
+
+  @override
+  State<_ToggleAuthMode> createState() => _ToggleAuthModeState();
+}
+
+class _ToggleAuthModeState extends State<_ToggleAuthMode> {
+  bool _hovering = false;
 
   @override
   Widget build(BuildContext context) {
@@ -477,14 +689,26 @@ class _ToggleAuthMode extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: <Widget>[
         Text(
-          isSignUp ? 'Already have an account? ' : "Don't have an account? ",
+          widget.isSignUp
+              ? 'Already have an account? '
+              : "Don't have an account? ",
           style: text.bodyMedium,
         ),
-        GestureDetector(
-          onTap: onToggle,
-          child: Text(
-            isSignUp ? 'Sign in' : 'Sign up',
-            style: text.labelLarge?.copyWith(color: AppColors.textPrimary),
+        MouseRegion(
+          cursor: SystemMouseCursors.click,
+          onEnter: (_) => setState(() => _hovering = true),
+          onExit: (_) => setState(() => _hovering = false),
+          child: GestureDetector(
+            onTap: widget.onToggle,
+            child: Text(
+              widget.isSignUp ? 'Sign in' : 'Sign up',
+              style: text.labelLarge?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+                fontWeight: FontWeight.w700,
+                decoration: _hovering ? TextDecoration.underline : null,
+                decorationColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
           ),
         ),
       ],

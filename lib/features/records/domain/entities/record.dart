@@ -249,6 +249,7 @@ class Record {
     this.aiTranslation,
     this.aiTranslationLang,
     this.aiLocations = const <String>[],
+    this.ownerId,
   });
 
   final String id;
@@ -284,6 +285,11 @@ class Record {
   final String? aiTranslation;
   final String? aiTranslationLang;
   final List<String> aiLocations;
+
+  /// Who uploaded this record — used to scope "your" activity/uploads apart
+  /// from records merely visible to you (e.g. cross-tree, as an approved
+  /// reviewer). Not writable by the client; set server-side on insert.
+  final String? ownerId;
 
   int? get year => date?.year;
 
@@ -374,6 +380,7 @@ class Record {
     Object? aiTranslation = _sentinel,
     Object? aiTranslationLang = _sentinel,
     List<String>? aiLocations,
+    String? ownerId,
   }) {
     return Record(
       id: id,
@@ -399,6 +406,7 @@ class Record {
           ? this.aiTranslationLang
           : aiTranslationLang as String?,
       aiLocations: aiLocations ?? this.aiLocations,
+      ownerId: ownerId ?? this.ownerId,
     );
   }
 
@@ -420,6 +428,7 @@ class Record {
     'aiTranslation': aiTranslation,
     'aiTranslationLang': aiTranslationLang,
     'aiLocations': aiLocations,
+    'ownerId': ownerId,
   };
 
   factory Record.fromJson(Map<String, dynamic> json) {
@@ -450,6 +459,7 @@ class Record {
           .map((e) => e.toString())
           .toList(),
       createdAt: parse(json['createdAt']),
+      ownerId: json['ownerId'] as String?,
     );
   }
 

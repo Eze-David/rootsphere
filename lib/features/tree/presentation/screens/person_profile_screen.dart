@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
@@ -92,6 +93,10 @@ class PersonProfileScreen extends ConsumerWidget {
                 : () => _scrollToSection(_familyKey),
             onRecordsTap: () => _showPersonRecordsSheet(context, ref, person),
             onMediaTap: () => _scrollToSection(_mediaKey),
+            onTreeTap: () {
+              setFocusPerson(ref, person.id);
+              context.go(AppRoutes.tree);
+            },
           ),
           Padding(
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -579,8 +584,24 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
     final String q = _query.trim().toLowerCase();
     if (q.isEmpty) return widget.persons;
     return widget.persons
-        .where((p) => p.fullName.toLowerCase().contains(q))
+        .where(
+          (p) =>
+              p.fullName.toLowerCase().contains(q) ||
+              (p.code?.toLowerCase().contains(q) ?? false),
+        )
         .toList();
+  }
+
+  /// Shows the birth year and/or ID code so a matching search result can be
+  /// visually confirmed — most useful when several people share a name.
+  Widget? _resultSubtitle(Person p, TextTheme text) {
+    final String? code = p.code;
+    final String year = p.birthDate != null ? '${p.birthDate!.year}' : '';
+    final String label = <String>[
+      if (year.isNotEmpty) year,
+      if (code != null && code.isNotEmpty) code,
+    ].join(' · ');
+    return label.isEmpty ? null : Text(label, style: text.bodySmall);
   }
 
   @override
@@ -616,7 +637,7 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
                 onChanged: (v) => setState(() => _query = v),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search by name…',
+                  hintText: 'Search by name or ID…',
                   prefixIcon: const Icon(
                     Icons.search,
                     color: AppColors.textTertiary,
@@ -657,12 +678,7 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
                               radius: 18,
                             ),
                             title: Text(p.fullName),
-                            subtitle: p.birthDate != null
-                                ? Text(
-                                    '${p.birthDate!.year}',
-                                    style: text.bodySmall,
-                                  )
-                                : null,
+                            subtitle: _resultSubtitle(p, text),
                             onTap: () => Navigator.of(context).pop(p),
                           );
                         },
@@ -1370,6 +1386,7 @@ class _HeroHeader extends ConsumerWidget {
     this.onFamilyTap,
     this.onRecordsTap,
     this.onMediaTap,
+    this.onTreeTap,
   });
 
   final Person person;
@@ -1379,6 +1396,7 @@ class _HeroHeader extends ConsumerWidget {
   final VoidCallback? onFamilyTap;
   final VoidCallback? onRecordsTap;
   final VoidCallback? onMediaTap;
+  final VoidCallback? onTreeTap;
 
   static const double _avatarRadius = 48;
   static const double _bannerContentHeight = 96;
@@ -1541,6 +1559,7 @@ class _HeroHeader extends ConsumerWidget {
           onFamilyTap: onFamilyTap,
           onRecordsTap: onRecordsTap,
           onMediaTap: onMediaTap,
+          onTreeTap: onTreeTap,
         ),
       ],
     );
@@ -1603,6 +1622,7 @@ class _HeroStats extends StatelessWidget {
     this.onFamilyTap,
     this.onRecordsTap,
     this.onMediaTap,
+    this.onTreeTap,
   });
 
   final int familyCount;
@@ -1611,6 +1631,7 @@ class _HeroStats extends StatelessWidget {
   final VoidCallback? onFamilyTap;
   final VoidCallback? onRecordsTap;
   final VoidCallback? onMediaTap;
+  final VoidCallback? onTreeTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1637,6 +1658,13 @@ class _HeroStats extends StatelessWidget {
           label: 'Media',
           onTap: onMediaTap,
         ),
+        _StatDivider(),
+        _StatItem(
+          icon: Icons.account_tree_outlined,
+          value: null,
+          label: 'Tree',
+          onTap: onTreeTap,
+        ),
       ],
     );
   }
@@ -1651,7 +1679,7 @@ class _StatItem extends StatelessWidget {
   });
 
   final IconData icon;
-  final int value;
+  final int? value;
   final String label;
   final VoidCallback? onTap;
 
@@ -1672,10 +1700,13 @@ class _StatItem extends StatelessWidget {
             children: <Widget>[
               Icon(icon, size: 18, color: AppColors.primary),
               const SizedBox(height: 2),
-              Text(
-                '$value',
-                style: text.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-              ),
+              if (value != null)
+                Text(
+                  '$value',
+                  style: text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               Text(
                 label,
                 style: text.bodySmall?.copyWith(color: AppColors.textTertiary),

@@ -39,4 +39,33 @@ class GlobalPeopleService {
       return const <GlobalPersonMatch>[];
     }
   }
+
+  /// Free-text variant for a single search box (e.g. the main records
+  /// library) that has one term rather than separate first/last/place
+  /// fields — matches if [query] shows up in any of a person's name or
+  /// place fields, via `search_persons_global_freetext`, instead of
+  /// requiring every structured field to match at once.
+  Future<List<GlobalPersonMatch>> searchFreeText(
+    String query, {
+    int? year,
+  }) async {
+    if (!SupabaseConfig.isReady) return const <GlobalPersonMatch>[];
+    try {
+      final dynamic data = await SupabaseConfig.client.rpc(
+        'search_persons_global_freetext',
+        params: <String, dynamic>{'p_query': query.trim(), 'p_year': year},
+      );
+      final List<dynamic> rows = data as List<dynamic>? ?? const <dynamic>[];
+      return rows
+          .map(
+            (e) =>
+                GlobalPersonMatch.fromRow(Map<String, dynamic>.from(e as Map)),
+          )
+          .toList();
+    } on PostgrestException {
+      return const <GlobalPersonMatch>[];
+    } catch (_) {
+      return const <GlobalPersonMatch>[];
+    }
+  }
 }

@@ -8,6 +8,9 @@ import '../../../../core/data/african_locations.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../widgets/global_person_card.dart';
+import '../widgets/global_record_card.dart';
+import '../widgets/historical_result_card.dart';
 import '../widgets/records_library_hero.dart';
 import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../../tree/domain/entities/person.dart';
@@ -247,14 +250,27 @@ class _HistoricalRecordsSearchScreenState
     return <Record>[for (final l in lists) ...l];
   }
 
-  /// Opens a person/record that may live in a different tree: switch the active
-  /// tree first so the detail screens (which read the active tree) resolve it.
-  void _openLocal(String treeId, String route) {
-    if (ref.read(activeTreeIdProvider) != treeId) {
+  /// Opens a person/record that may live in a different tree: switch the
+  /// active tree first so the detail screens (which read the active tree)
+  /// resolve it, then switch back once that screen is closed.
+  ///
+  /// This override is otherwise permanent and persisted to disk (see
+  /// [setSelectedTreeId]) — without restoring it here, browsing someone
+  /// else's record from this cross-tree view would silently leave the
+  /// viewer's own uploads/edits targeting that other tree from then on,
+  /// which then fail row-level security if they aren't actually a member of
+  /// it (e.g. an admin/reviewer who can see but not write to it).
+  Future<void> _openLocal(String treeId, String route) async {
+    final String? previous = ref.read(selectedTreeIdProvider);
+    final bool switching = ref.read(activeTreeIdProvider) != treeId;
+    if (switching) {
       setSelectedTreeId(ref, treeId);
       ref.read(focusPersonIdProvider.notifier).state = null;
     }
-    context.push(route);
+    await context.push(route);
+    if (switching && mounted) {
+      setSelectedTreeId(ref, previous);
+    }
   }
 
   String _treeLabel(String treeId) {
@@ -300,30 +316,48 @@ class _HistoricalRecordsSearchScreenState
 
   /// Records in the active tree matching the query.
   /// Records across all trees matching the query.
+  /// Ranks by closeness rather than requiring every field to match — a
+  /// document you couldn't title properly (e.g. a photographed certificate)
+  /// is still findable as long as the searched name/place/year shows up
+  /// anywhere in it, including its OCR'd text, not just the title/notes.
+  /// Records matching more of the search's terms rank above ones matching
+  /// only one, instead of an all-or-nothing filter.
   List<Record> _matchRecords(
     RecordSearchQuery q,
     List<Record> records,
     Map<String, Person> people,
   ) {
-    final String name = <String>[
+    final List<String> terms = <String>[
       q.firstName.trim(),
       q.lastName.trim(),
-    ].where((s) => s.isNotEmpty).join(' ').toLowerCase();
-    final String place = q.place.trim().toLowerCase();
+      q.place.trim(),
+      if (q.year != null) '${q.year}',
+    ].where((s) => s.isNotEmpty).map((s) => s.toLowerCase()).toList();
+    if (terms.isEmpty) return const <Record>[];
 
-    return records.where((r) {
-      if (q.type != null && r.type != q.type) return false;
+    final List<(Record, int)> scored = <(Record, int)>[];
+    for (final r in records) {
+      if (q.type != null && r.type != q.type) continue;
       final String haystack = <String>[
         r.title,
         r.repository,
         r.notes ?? '',
+        r.ocrText ?? '',
         for (final id in r.personIds) people[id]?.fullName ?? '',
       ].join(' ').toLowerCase();
-      if (name.isNotEmpty && !haystack.contains(name)) return false;
-      if (place.isNotEmpty && !haystack.contains(place)) return false;
-      if (q.year != null && r.year != q.year) return false;
-      return name.isNotEmpty || place.isNotEmpty || q.year != null;
-    }).toList();
+
+      int score = 0;
+      for (final term in terms) {
+        if (haystack.contains(term)) score++;
+      }
+      // The record's own structured date field matching the searched year
+      // is a stronger signal than that year merely appearing somewhere in
+      // free text, so it's weighted extra.
+      if (q.year != null && r.year == q.year) score++;
+      if (score > 0) scored.add((r, score));
+    }
+    scored.sort((a, b) => b.$2.compareTo(a.$2));
+    return <Record>[for (final (r, _) in scored) r];
   }
 
   Future<void> _save(HistoricalRecord hit) async {
@@ -363,101 +397,101 @@ class _HistoricalRecordsSearchScreenState
     switch (widget.type) {
       case RecordType.birth:
         return const <String>[
-          'assets/images/records_birth_hero.png',
-          'assets/images/records_birth_hero_2.png',
+          'assets/images/records_birth_hero.jpg',
+          'assets/images/records_birth_hero_2.jpg',
           'assets/images/records_birth_hero_3.jpeg',
         ];
       case RecordType.marriage:
         return const <String>[
-          'assets/images/records_marriage_hero.png',
-          'assets/images/records_marriage_hero_2.png',
-          'assets/images/records_marriage_hero_3.png',
+          'assets/images/records_marriage_hero.jpg',
+          'assets/images/records_marriage_hero_2.jpg',
+          'assets/images/records_marriage_hero_3.jpg',
         ];
       case RecordType.death:
         return const <String>[
-          'assets/images/records_death_hero.png',
-          'assets/images/records_death_hero_2.png',
-          'assets/images/records_death_hero_3.png',
-          'assets/images/records_death_hero_4.png',
-          'assets/images/records_death_hero_5.png',
+          'assets/images/records_death_hero.jpg',
+          'assets/images/records_death_hero_2.jpg',
+          'assets/images/records_death_hero_3.jpg',
+          'assets/images/records_death_hero_4.jpg',
+          'assets/images/records_death_hero_5.jpg',
         ];
       case RecordType.census:
         return const <String>[
-          'assets/images/records_census_hero.png',
-          'assets/images/records_census_hero_2.png',
-          'assets/images/records_census_hero_3.png',
+          'assets/images/records_census_hero.jpg',
+          'assets/images/records_census_hero_2.jpg',
+          'assets/images/records_census_hero_3.jpg',
           'assets/images/records_census_hero_4.jpeg',
         ];
       case RecordType.military:
         return const <String>[
-          'assets/images/records_military_hero.png',
-          'assets/images/records_military_hero_2.png',
+          'assets/images/records_military_hero.jpg',
+          'assets/images/records_military_hero_2.jpg',
           'assets/images/records_military_hero_3.jpeg',
           'assets/images/records_military_hero_4.jpeg',
         ];
       case RecordType.immigration:
         return const <String>[
-          'assets/images/records_immigration_hero.png',
-          'assets/images/records_immigration_hero_2.png',
-          'assets/images/records_immigration_hero_3.png',
+          'assets/images/records_immigration_hero.jpg',
+          'assets/images/records_immigration_hero_2.jpg',
+          'assets/images/records_immigration_hero_3.jpg',
           'assets/images/records_immigration_hero_4.jpeg',
         ];
       case RecordType.baptism:
         return const <String>[
-          'assets/images/records_baptism_hero.png',
-          'assets/images/records_baptism_hero_2.png',
-          'assets/images/records_baptism_hero_3.png',
+          'assets/images/records_baptism_hero.jpg',
+          'assets/images/records_baptism_hero_2.jpg',
+          'assets/images/records_baptism_hero_3.jpg',
         ];
       case RecordType.photo:
         return const <String>[
-          'assets/images/records_photo_hero.png',
-          'assets/images/records_photo_hero_2.png',
-          'assets/images/records_photo_hero_3.png',
+          'assets/images/records_photo_hero.jpg',
+          'assets/images/records_photo_hero_2.jpg',
+          'assets/images/records_photo_hero_3.jpg',
           'assets/images/records_photo_hero_4.jpeg',
         ];
       case RecordType.newspaper:
         return const <String>[
-          'assets/images/records_newspaper_hero.png',
-          'assets/images/records_newspaper_hero_2.png',
-          'assets/images/records_newspaper_hero_3.png',
+          'assets/images/records_newspaper_hero.jpg',
+          'assets/images/records_newspaper_hero_2.jpg',
+          'assets/images/records_newspaper_hero_3.jpg',
         ];
       case RecordType.community:
         return const <String>[
-          'assets/images/records_community_hero.png',
-          'assets/images/records_community_hero_2.png',
+          'assets/images/records_community_hero.jpg',
+          'assets/images/records_community_hero_2.jpg',
         ];
       case RecordType.cemetery:
         return const <String>[
-          'assets/images/records_cemetery_hero.png',
-          'assets/images/records_cemetery_hero_2.png',
+          'assets/images/records_cemetery_hero.jpg',
+          'assets/images/records_cemetery_hero_2.jpg',
         ];
       case RecordType.school:
         return const <String>[
-          'assets/images/records_school_hero.png',
-          'assets/images/records_school_hero_2.png',
+          'assets/images/records_school_hero.jpg',
+          'assets/images/records_school_hero_2.jpg',
         ];
       case RecordType.exam:
         return const <String>[
-          'assets/images/records_exam_hero.png',
+          'assets/images/records_exam_hero.jpg',
           'assets/images/records_exam_hero_2.jpeg',
         ];
       case RecordType.church:
         return const <String>[
-          'assets/images/records_church_hero.png',
-          'assets/images/records_church_hero_2.png',
+          'assets/images/records_church_hero.jpg',
+          'assets/images/records_church_hero_2.jpg',
           'assets/images/records_church_hero_3.jpeg',
         ];
       case RecordType.transportManifest:
         return const <String>[
-          'assets/images/records_transport_manifest_hero.png',
-          'assets/images/records_transport_manifest_hero_2.png',
-          'assets/images/records_transport_manifest_hero_3.png',
+          'assets/images/records_transport_manifest_hero.jpg',
+          'assets/images/records_transport_manifest_hero_2.jpg',
+          'assets/images/records_transport_manifest_hero_3.jpg',
         ];
       case RecordType.library:
-        return const <String>['assets/images/records_library_hero.png'];
+        return const <String>['assets/images/records_library_hero.jpg'];
       case RecordType.museum:
         return const <String>[
-          'assets/images/records_museum_hero.png',
+          'assets/images/records_museum_hero.jpg',
           'assets/images/records_museum_hero_2.jpeg',
         ];
       case RecordType.archive:
@@ -468,43 +502,43 @@ class _HistoricalRecordsSearchScreenState
         ];
       case RecordType.landDocument:
         return const <String>[
-          'assets/images/records_land_document_hero.png',
-          'assets/images/records_land_document_hero_2.png',
-          'assets/images/records_land_document_hero_3.png',
+          'assets/images/records_land_document_hero.jpg',
+          'assets/images/records_land_document_hero_2.jpg',
+          'assets/images/records_land_document_hero_3.jpg',
         ];
       case RecordType.will:
-        return const <String>['assets/images/records_will_hero.png'];
+        return const <String>['assets/images/records_will_hero.jpg'];
       case RecordType.cooperativeAssociation:
-        return const <String>['assets/images/records_community_hero.png'];
+        return const <String>['assets/images/records_community_hero.jpg'];
       case RecordType.politicalPartyRegister:
         return const <String>[
           'assets/images/records_political_party_hero.jpeg',
         ];
       case RecordType.okadaUnion:
-        return const <String>['assets/images/records_okada_union_hero.png'];
+        return const <String>['assets/images/records_okada_union_hero.jpg'];
       case RecordType.marketAssociation:
         return const <String>[
-          'assets/images/records_market_association_hero.png',
+          'assets/images/records_market_association_hero.jpg',
           'assets/images/records_market_association_hero_2.jpeg',
           'assets/images/records_market_association_hero_3.jpeg',
         ];
       case RecordType.hospital:
         return const <String>[
-          'assets/images/records_hospital_hero.png',
-          'assets/images/records_hospital_hero_2.png',
-          'assets/images/records_hospital_hero_3.png',
+          'assets/images/records_hospital_hero.jpg',
+          'assets/images/records_hospital_hero_2.jpg',
+          'assets/images/records_hospital_hero_3.jpg',
         ];
       case RecordType.flightManifest:
         return const <String>[
-          'assets/images/records_flight_manifest_hero.png',
-          'assets/images/records_flight_manifest_hero_2.png',
-          'assets/images/records_flight_manifest_hero_3.png',
+          'assets/images/records_flight_manifest_hero.jpg',
+          'assets/images/records_flight_manifest_hero_2.jpg',
+          'assets/images/records_flight_manifest_hero_3.jpg',
           'assets/images/records_flight_manifest_hero_4.jpeg',
         ];
       case RecordType.recruitmentAgency:
-        return const <String>['assets/images/records_community_hero.png'];
+        return const <String>['assets/images/records_community_hero.jpg'];
       default:
-        return const <String>['assets/images/records_search_hero.png'];
+        return const <String>['assets/images/records_search_hero.jpg'];
     }
   }
 
@@ -634,7 +668,7 @@ class _HistoricalRecordsSearchScreenState
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ListView(
         padding: EdgeInsets.zero,
         children: <Widget>[
@@ -712,7 +746,7 @@ class _HistoricalRecordsSearchScreenState
       out.add(
         Text(
           'No matches in your trees.',
-          style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: text.bodyMedium,
         ),
       );
     } else {
@@ -755,13 +789,13 @@ class _HistoricalRecordsSearchScreenState
       out.add(
         Text(
           'No matches in other trees.',
-          style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: text.bodyMedium,
         ),
       );
     } else {
       for (final m in _globalMatches) {
         out.add(
-          _GlobalCard(
+          GlobalPersonCard(
             match: m,
             joining: _joining.contains(m.treeId),
             onJoin: () => _join(m),
@@ -778,13 +812,13 @@ class _HistoricalRecordsSearchScreenState
       out.add(
         Text(
           'No community-uploaded records match.',
-          style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: text.bodyMedium,
         ),
       );
     } else {
       for (final m in _globalRecordMatches) {
         out.add(
-          _GlobalRecordCard(
+          GlobalRecordCard(
             match: m,
             saved: _savedGlobalRecords.contains(m.id),
             onSave: () => _saveGlobalRecord(m),
@@ -819,7 +853,7 @@ class _HistoricalRecordsSearchScreenState
     } else {
       for (final hit in _result.records) {
         out.add(
-          _ResultCard(
+          HistoricalResultCard(
             hit: hit,
             saved: _saved.contains(hit.id),
             onSave: () => _save(hit),
@@ -868,12 +902,13 @@ class _SearchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: theme.dividerColor),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: AppColors.primary.withValues(alpha: 0.06),
@@ -1052,7 +1087,8 @@ class _LocalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    final ThemeData theme = Theme.of(context);
+    final TextTheme text = theme.textTheme;
     return Card(
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
@@ -1066,11 +1102,11 @@ class _LocalCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: AppColors.cream,
+                  color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: AppColors.primary, size: 20),
+                child: Icon(icon, color: theme.colorScheme.primary, size: 20),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
@@ -1092,7 +1128,7 @@ class _LocalCard extends StatelessWidget {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceMuted,
+                  color: theme.colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(badge, style: text.labelSmall),
@@ -1100,265 +1136,6 @@ class _LocalCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// A privacy-safe match from another member's tree. No deep-link (the user
-/// isn't a member); instead offers to join that tree.
-class _GlobalCard extends StatelessWidget {
-  const _GlobalCard({
-    required this.match,
-    required this.joining,
-    required this.onJoin,
-  });
-
-  final GlobalPersonMatch match;
-  final bool joining;
-  final VoidCallback onJoin;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.travel_explore,
-                color: AppColors.primary,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(match.fullName, style: text.titleMedium),
-                  if (match.subtitle.isNotEmpty) ...<Widget>[
-                    const SizedBox(height: 2),
-                    Text(match.subtitle, style: text.bodySmall),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            TextButton(
-              onPressed: joining ? null : onJoin,
-              child: joining
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Join tree'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// An unattached record anybody has uploaded — no owning tree to deep-link
-/// into (see search_records_global's privacy-safe projection), so this only
-/// offers to view the file and/or copy it into the searcher's own records.
-class _GlobalRecordCard extends StatelessWidget {
-  const _GlobalRecordCard({
-    required this.match,
-    required this.saved,
-    required this.onSave,
-    required this.onOpen,
-  });
-
-  final GlobalRecordMatch match;
-  final bool saved;
-  final VoidCallback onSave;
-  final VoidCallback? onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    match.type.icon,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(match.displayTitle, style: text.titleMedium),
-                      if (match.subtitle.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(match.subtitle, style: text.bodySmall),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: <Widget>[
-                const Spacer(),
-                if (onOpen != null)
-                  TextButton.icon(
-                    onPressed: onOpen,
-                    icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('View'),
-                  ),
-                const SizedBox(width: AppSpacing.sm),
-                TextButton.icon(
-                  onPressed: saved ? null : onSave,
-                  icon: Icon(saved ? Icons.check : Icons.add, size: 16),
-                  label: Text(saved ? 'Saved' : 'Save to my records'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({
-    required this.hit,
-    required this.saved,
-    required this.onSave,
-    required this.onOpen,
-  });
-
-  final HistoricalRecord hit;
-  final bool saved;
-  final VoidCallback onSave;
-  final VoidCallback? onOpen;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Card(
-      margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceMuted,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    hit.type.icon,
-                    color: AppColors.primary,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(hit.name, style: text.titleMedium),
-                      if (hit.subtitle.isNotEmpty) ...<Widget>[
-                        const SizedBox(height: 2),
-                        Text(hit.subtitle, style: text.bodySmall),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Row(
-              children: <Widget>[
-                if ((hit.source ?? '').isNotEmpty) _SourceBadge(hit.source!),
-                const Spacer(),
-                if (onOpen != null)
-                  TextButton.icon(
-                    onPressed: onOpen,
-                    icon: const Icon(Icons.open_in_new, size: 16),
-                    label: const Text('View'),
-                  ),
-                const SizedBox(width: AppSpacing.sm),
-                TextButton.icon(
-                  onPressed: saved ? null : onSave,
-                  icon: Icon(saved ? Icons.check : Icons.add, size: 16),
-                  label: Text(saved ? 'Saved' : 'Save to tree'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// A small pill showing which provider a result came from.
-class _SourceBadge extends StatelessWidget {
-  const _SourceBadge(this.source);
-  final String source;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.sm,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: AppColors.cream,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          const Icon(Icons.public, size: 12, color: AppColors.textSecondary),
-          const SizedBox(width: 4),
-          Text(source, style: text.labelSmall),
-        ],
       ),
     );
   }
@@ -1382,7 +1159,7 @@ class _Notice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
       child: Column(
         children: <Widget>[
-          Icon(icon, size: 44, color: AppColors.textTertiary),
+          Icon(icon, size: 44, color: text.bodySmall?.color),
           const SizedBox(height: AppSpacing.sm),
           Text(title, style: text.titleMedium),
           const SizedBox(height: AppSpacing.xs),

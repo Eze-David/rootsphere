@@ -12,8 +12,16 @@ abstract class AppTypography {
   AppTypography._();
 
   static TextTheme textTheme(Brightness brightness) {
-    final Color primary = AppColors.textPrimary;
-    final Color secondary = AppColors.textSecondary;
+    final bool dark = brightness == Brightness.dark;
+    final Color primary = dark
+        ? AppColors.textPrimaryDark
+        : AppColors.textPrimary;
+    final Color secondary = dark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondary;
+    final Color tertiary = dark
+        ? AppColors.textTertiaryDark
+        : AppColors.textTertiary;
 
     return TextTheme(
       // Display — Playfair Display.
@@ -65,7 +73,7 @@ abstract class AppTypography {
       bodySmall: GoogleFonts.dmSans(
         fontSize: 12,
         fontWeight: FontWeight.w400,
-        color: AppColors.textTertiary,
+        color: tertiary,
       ),
       labelLarge: GoogleFonts.dmSans(
         fontSize: 14,
@@ -77,7 +85,7 @@ abstract class AppTypography {
         fontSize: 12,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,
-        color: AppColors.textTertiary,
+        color: tertiary,
       ),
     );
   }

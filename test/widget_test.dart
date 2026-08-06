@@ -84,37 +84,28 @@ void main() {
 
     await _pumpApp(tester, prefs);
 
-    // First of 3 onboarding slides.
+    // New marketing landing page: hero with logo/title and CTAs.
     expect(find.text('Rootsphere'), findsOneWidget);
-    expect(find.text('Skip'), findsOneWidget);
-    expect(find.text('Next'), findsOneWidget);
-
-    // Swiping to the final slide reveals "Get started".
-    await tester.fling(find.text('Rootsphere'), const Offset(-400, 0), 1000);
-    await tester.pumpAndSettle();
-    await tester.fling(
-      find.text('Trace your roots'),
-      const Offset(-400, 0),
-      1000,
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Get started'), findsOneWidget);
+    expect(find.text('Get started'), findsWidgets);
+    expect(find.text('Sign in'), findsWidgets);
   });
 
-  testWidgets('Returning (onboarded) users see the auth screen', (
-    WidgetTester tester,
-  ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{
-      'onboarding_complete': true,
-    });
-    final prefs = await SharedPreferences.getInstance();
+  testWidgets(
+    'Returning (onboarded) signed-out users see the landing page again',
+    (WidgetTester tester) async {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'onboarding_complete': true,
+      });
+      final prefs = await SharedPreferences.getInstance();
 
-    await _pumpApp(tester, prefs);
+      await _pumpApp(tester, prefs);
 
-    expect(find.text('Create account'), findsOneWidget);
-    expect(find.text('or continue with'), findsOneWidget);
-  });
+      // Signed-out users always land on the marketing page (e.g. right
+      // after logout), not straight on the auth form.
+      expect(find.text('Rootsphere'), findsOneWidget);
+      expect(find.text('Get started'), findsWidgets);
+    },
+  );
 
   testWidgets(
     'Signed-in users resume on the last bottom-nav tab they were on',

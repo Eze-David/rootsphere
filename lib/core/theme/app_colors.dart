@@ -19,10 +19,17 @@ abstract class AppColors {
   static const Color surfaceMuted = Color(0xFFF3EEE9);
   static const Color cream = Color(0xFFF7F1EA);
 
-  // Text.
+  // Text (light mode — dark, readable against the cream/white surfaces above).
   static const Color textPrimary = Color(0xFF1C1917);
   static const Color textSecondary = Color(0xFF6B6660);
   static const Color textTertiary = Color(0xFF9C968E);
+
+  // Text (dark mode — light, readable against dark theme's near-black
+  // surfaces). See AppTypography.textTheme, which picks between these and
+  // the light-mode set above based on Brightness.
+  static const Color textPrimaryDark = Color(0xFFF3EFEA);
+  static const Color textSecondaryDark = Color(0xFFB9B2A9);
+  static const Color textTertiaryDark = Color(0xFF8A8279);
 
   // Borders & dividers.
   static const Color border = Color(0xFFE7E1DA);

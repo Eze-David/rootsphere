@@ -44,21 +44,40 @@ class TreePdfService {
     final doc = pw.Document();
 
     const double headerHeight = 30;
-    final double availW = format.availableWidth;
-    final double availH = format.availableHeight - headerHeight;
+    const double margin = 24;
+    // A tree with many generations/siblings used to always get squeezed onto
+    // one fixed-size page, shrinking card text down to an unreadable ~1pt on
+    // anything but a small tree. Instead, render every card at its natural
+    // size (fit = 1) and size the PDF page itself to match — like a poster
+    // print — so names/dates/IDs stay legible regardless of tree size.
+    // "Save as PDF" (the common destination) has no physical paper limit;
+    // only genuinely enormous trees are shrunk, to stay within what PDF
+    // readers can reliably handle as a single page.
+    const double maxPdfDimension = 14000;
     final double sceneW = layout.size.width;
     final double sceneH = layout.size.height;
-    final double fit = sceneW <= 0 || sceneH <= 0
+    final double fit = (sceneW <= maxPdfDimension && sceneH <= maxPdfDimension)
         ? 1.0
-        : <double>[availW / sceneW, availH / sceneH, 1.0]
+        : <double>[maxPdfDimension / sceneW, maxPdfDimension / sceneH]
             .reduce((a, b) => a < b ? a : b);
+
+    final double pageW = _maxD(sceneW * fit + margin * 2, format.width);
+    final double pageH = _maxD(
+      sceneH * fit + margin * 2 + headerHeight,
+      format.height,
+    );
+    final PdfPageFormat pageFormat = PdfPageFormat(
+      pageW,
+      pageH,
+      marginAll: margin,
+    );
 
     final bool wideCards = layout.nodes.isNotEmpty &&
         layout.nodes.first.rect.width > layout.nodes.first.rect.height;
 
     doc.addPage(
       pw.Page(
-        pageFormat: format,
+        pageFormat: pageFormat,
         build: (context) => pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: <pw.Widget>[
@@ -122,7 +141,7 @@ class TreePdfService {
                                 style: pw.TextStyle(
                                   font: body,
                                   fontFallback: fallback,
-                                  fontSize: _scaled(7, fit, min: 3),
+                                  fontSize: _scaled(11, fit, min: 3),
                                   color: _muted,
                                 ),
                               ),
@@ -135,7 +154,10 @@ class TreePdfService {
                           top: node.rect.top * fit,
                           child: pw.SizedBox(
                             width: node.rect.width * fit,
-                            height: node.rect.height * fit,
+                            height: node.rect.height * fit +
+                                (wideCards
+                                    ? 0
+                                    : _detailExtraHeight(node.person, fit)),
                             child: wideCards
                                 ? _wideCard(node, body, bodyBold, fallback, fit)
                                 : _tallCard(node, body, bodyBold, fallback, fit),
@@ -176,6 +198,43 @@ class TreePdfService {
     return '$birth–$death';
   }
 
+  static const double _detailLineFont = 8;
+  static const double _detailLineGap = 1.5;
+
+  /// One "Label: value" line per populated field from the profile's DETAILS
+  /// section, in the same order it's shown there — printed under the name
+  /// on a portrait card so the printout carries everything the on-screen
+  /// card does, plus these.
+  static List<String> _detailLines(Person p) {
+    String? clean(String? s) => (s ?? '').trim().isEmpty ? null : s!.trim();
+    final List<MapEntry<String, String?>> fields = <MapEntry<String, String?>>[
+      MapEntry('Nickname', clean(p.nickname)),
+      MapEntry('Other names', clean(p.otherNames)),
+      MapEntry('Religion', clean(p.religion)),
+      MapEntry('Occupation', clean(p.occupation)),
+      MapEntry('Education', clean(p.education)),
+      MapEntry('Language', clean(p.language)),
+      MapEntry('Location', p.location.isEmpty ? null : p.location),
+      MapEntry('Death place', clean(p.deathPlace)),
+    ];
+    return <String>[
+      for (final MapEntry<String, String?> f in fields)
+        if (f.value != null) '${f.key}: ${f.value}',
+    ];
+  }
+
+  /// Extra card height a portrait card needs to fit its detail lines below
+  /// the existing name/lifespan/ID block — grows down into the generous gap
+  /// between generation rows (104px, vs. only 28px between siblings in
+  /// landscape orientation), so this is only safe for portrait cards; see
+  /// [_wideCard].
+  static double _detailExtraHeight(Person p, double fit) {
+    final List<String> lines = _detailLines(p);
+    if (lines.isEmpty) return 0;
+    final double lineH = _scaled(_detailLineFont, fit) + _detailLineGap * fit;
+    return lines.length * lineH + 2 * fit;
+  }
+
   static pw.BoxDecoration _cardDecoration(bool isFocus) => pw.BoxDecoration(
         color: _paper,
         borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
@@ -195,6 +254,8 @@ class TreePdfService {
   /// extreme case may clip slightly as a result.
   static double _scaled(double base, double fit, {double min = 2.5}) =>
       (base * fit).clamp(min, base);
+
+  static double _maxD(double a, double b) => a > b ? a : b;
 
   /// Portrait-style card: tinted "photo" block on top, name + years below.
   /// Mirrors the vertical-orientation `PersonCardWidget`.
@@ -230,7 +291,7 @@ class TreePdfService {
                 style: pw.TextStyle(
                   font: bodyBold,
                   fontFallback: fallback,
-                  fontSize: _scaled(13, fit),
+                  fontSize: _scaled(20, fit),
                   color: _paper,
                 ),
               ),
@@ -249,7 +310,7 @@ class TreePdfService {
                   style: pw.TextStyle(
                     font: bodyBold,
                     fontFallback: fallback,
-                    fontSize: _scaled(7.5, fit),
+                    fontSize: _scaled(12, fit),
                     color: _ink,
                   ),
                 ),
@@ -261,10 +322,39 @@ class TreePdfService {
                   style: pw.TextStyle(
                     font: body,
                     fontFallback: fallback,
-                    fontSize: _scaled(6.5, fit),
+                    fontSize: _scaled(10, fit),
                     color: _muted,
                   ),
                 ),
+                if ((p.code ?? '').isNotEmpty)
+                  pw.Text(
+                    p.code!,
+                    textAlign: pw.TextAlign.center,
+                    maxLines: 1,
+                    overflow: pw.TextOverflow.clip,
+                    style: pw.TextStyle(
+                      font: body,
+                      fontFallback: fallback,
+                      fontSize: _scaled(8.5, fit),
+                      color: _muted,
+                    ),
+                  ),
+                for (final line in _detailLines(p))
+                  pw.Padding(
+                    padding: pw.EdgeInsets.only(top: _detailLineGap * fit),
+                    child: pw.Text(
+                      line,
+                      textAlign: pw.TextAlign.center,
+                      maxLines: 1,
+                      overflow: pw.TextOverflow.clip,
+                      style: pw.TextStyle(
+                        font: body,
+                        fontFallback: fallback,
+                        fontSize: _scaled(_detailLineFont, fit),
+                        color: _muted,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -307,7 +397,7 @@ class TreePdfService {
               style: pw.TextStyle(
                 font: bodyBold,
                 fontFallback: fallback,
-                fontSize: _scaled(8, fit),
+                fontSize: _scaled(13, fit),
                 color: _paper,
               ),
             ),
@@ -325,7 +415,7 @@ class TreePdfService {
                   style: pw.TextStyle(
                     font: bodyBold,
                     fontFallback: fallback,
-                    fontSize: _scaled(7.5, fit),
+                    fontSize: _scaled(11, fit),
                     color: _ink,
                   ),
                 ),
@@ -336,10 +426,22 @@ class TreePdfService {
                   style: pw.TextStyle(
                     font: body,
                     fontFallback: fallback,
-                    fontSize: _scaled(6.5, fit),
+                    fontSize: _scaled(9.5, fit),
                     color: _muted,
                   ),
                 ),
+                if ((p.code ?? '').isNotEmpty)
+                  pw.Text(
+                    p.code!,
+                    maxLines: 1,
+                    overflow: pw.TextOverflow.clip,
+                    style: pw.TextStyle(
+                      font: body,
+                      fontFallback: fallback,
+                      fontSize: _scaled(8, fit),
+                      color: _muted,
+                    ),
+                  ),
               ],
             ),
           ),

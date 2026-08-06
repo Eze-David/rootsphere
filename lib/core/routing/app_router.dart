@@ -63,8 +63,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // First-launch: force onboarding until completed.
       if (!onboarded) return onOnboarding ? null : AppRoutes.onboarding;
 
-      // Onboarded but signed out: only the auth route is allowed.
-      if (!signedIn) return onAuthRoute ? null : AppRoutes.auth;
+      // Signed out (including right after logout): show the marketing
+      // landing page by default — it's how users get to the auth screen via
+      // its own "Get started"/"Sign in" buttons — but still allow a direct
+      // link straight to /auth.
+      if (!signedIn) {
+        return (onOnboarding || onAuthRoute) ? null : AppRoutes.onboarding;
+      }
 
       // A password-reset email link grants a temporary session for exactly
       // one purpose — setting a new password — so it overrides the normal

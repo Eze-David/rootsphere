@@ -138,6 +138,7 @@ class RecordRepositorySupabase implements RecordRepository {
           .map((e) => e.toString())
           .toList(),
       createdAt: parse(row['created_at']),
+      ownerId: row['owner_id'] as String?,
     );
   }
 }

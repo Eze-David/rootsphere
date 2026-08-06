@@ -5,6 +5,12 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Required for recording voice notes. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <!-- Without this, the RECORD_AUDIO permission above makes Android
+         implicitly require a microphone (required="true"), which excludes
+         devices without one — TVs and many tablets — from the Play Store
+         listing entirely. Voice notes are an optional feature, not a
+         hard requirement, so mark it as such. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false"/>
     <application
         android:label="Rootsphere"
         android:name="${applicationName}"

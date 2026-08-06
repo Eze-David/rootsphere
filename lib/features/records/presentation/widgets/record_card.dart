@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
 import '../../domain/entities/record.dart';
@@ -17,12 +16,10 @@ class RecordCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
     return Card(
-      color: AppColors.background,
+      // No explicit color/border — Card already picks up the theme's
+      // cardTheme (correctly dark in dark mode); overriding it here with a
+      // fixed light color was the bug.
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        side: const BorderSide(color: AppColors.border),
-      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -38,9 +35,7 @@ class RecordCard extends StatelessWidget {
                   children: <Widget>[
                     Text(
                       record.displayTitle,
-                      style: text.titleMedium?.copyWith(
-                        color: AppColors.heroText,
-                      ),
+                      style: text.titleMedium,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -81,16 +76,17 @@ class _Thumbnail extends StatelessWidget {
         ),
       );
     }
+    final ThemeData theme = Theme.of(context);
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: theme.dividerColor),
       ),
       alignment: Alignment.center,
-      child: Icon(record.type.icon, color: AppColors.primary, size: 24),
+      child: Icon(record.type.icon, color: theme.colorScheme.primary, size: 24),
     );
   }
 }

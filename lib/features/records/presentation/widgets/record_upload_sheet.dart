@@ -10,11 +10,16 @@ import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../domain/entities/record.dart';
 import '../providers/record_providers.dart';
 
-/// Opens the upload / edit sheet. Pass [existing] to edit a record's metadata.
+/// Opens the upload / edit sheet. Pass [existing] to edit a record's
+/// metadata, or [initialType] to pre-select a category for a new record
+/// (e.g. whichever type filter chip is currently active on the records
+/// library, so uploading while viewing "Military" defaults to Military
+/// instead of always Birth).
 Future<void> showRecordUploadSheet(
   BuildContext context,
   WidgetRef ref, {
   Record? existing,
+  RecordType? initialType,
 }) {
   return showModalBottomSheet<void>(
     context: context,
@@ -27,13 +32,15 @@ Future<void> showRecordUploadSheet(
         top: Radius.circular(AppSpacing.radiusLg),
       ),
     ),
-    builder: (_) => _RecordUploadSheet(existing: existing),
+    builder: (_) =>
+        _RecordUploadSheet(existing: existing, initialType: initialType),
   );
 }
 
 class _RecordUploadSheet extends ConsumerStatefulWidget {
-  const _RecordUploadSheet({this.existing});
+  const _RecordUploadSheet({this.existing, this.initialType});
   final Record? existing;
+  final RecordType? initialType;
 
   @override
   ConsumerState<_RecordUploadSheet> createState() => _RecordUploadSheetState();
@@ -60,7 +67,7 @@ class _RecordUploadSheetState extends ConsumerState<_RecordUploadSheet> {
     final Record? e = widget.existing;
     _title = TextEditingController(text: e?.title ?? '');
     _repository = TextEditingController(text: e?.repository ?? '');
-    _type = e?.type ?? RecordType.birth;
+    _type = e?.type ?? widget.initialType ?? RecordType.birth;
     _date = e?.date;
     _linkedIds = <String>{...?e?.personIds};
   }

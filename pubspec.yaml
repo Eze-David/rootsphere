@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.0.0+4
 
 environment:
   sdk: ^3.10.0
@@ -91,16 +91,19 @@ flutter:
     - assets/images/
 
 # App launcher icons (run: dart run flutter_launcher_icons)
+# Source images live in icon_source/, not assets/images/, since they're only
+# ever read by this generator at codegen time — never loaded by the app at
+# runtime — so they shouldn't be bundled into the shipped app.
 flutter_launcher_icons:
-  image_path: "assets/images/icon.png"
+  image_path: "icon_source/icon.png"
   android: true
   ios: true
   remove_alpha_ios: true
   adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/icon_foreground.png"
+  adaptive_icon_foreground: "icon_source/icon_foreground.png"
   web:
     generate: true
-    image_path: "assets/images/icon.png"
+    image_path: "icon_source/icon.png"
     background_color: "#FFFFFF"
     theme_color: "#3B2A20"
 
@@ -109,7 +112,7 @@ flutter_native_splash:
   color: "#FFFFFF"
   image: assets/images/logo.png
   android_12:
-    image: assets/images/icon_foreground.png
+    image: icon_source/icon_foreground.png
     color: "#FFFFFF"
 
   # To add assets to your application, add an assets section, like this:

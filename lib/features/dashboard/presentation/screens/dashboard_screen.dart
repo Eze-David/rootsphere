@@ -16,6 +16,7 @@ import '../../../records/presentation/providers/record_providers.dart';
 import '../../../tree/domain/entities/edit_history_entry.dart';
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
+import '../widgets/what_to_watch_section.dart';
 
 /// Home dashboard (brief §Phase 4 mockup): greeting, key stats, recent activity
 /// and a surfaced opportunity. The Hints stat and activity feed are the entry
@@ -56,6 +57,8 @@ class DashboardScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.xl),
             const _RecentActivity(),
+            const SizedBox(height: AppSpacing.xl),
+            const WhatToWatchSection(),
             const SizedBox(height: AppSpacing.xl),
             const _NearbyOpportunity(),
           ],
@@ -220,17 +223,21 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    final ThemeData theme = Theme.of(context);
+    final TextTheme text = theme.textTheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          // Theme-aware (not a fixed light cream) — a hardcoded light
+          // background left this card's now-light dark-mode text
+          // unreadable against it.
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
           border: Border.all(
-            color: highlight ? AppColors.primary : AppColors.border,
+            color: highlight ? theme.colorScheme.primary : theme.dividerColor,
           ),
         ),
         child: Column(
@@ -290,9 +297,14 @@ class _RecentActivity extends ConsumerWidget {
       );
     }
 
-    // Records added.
-    final List<Record> records =
-        ref.watch(recordsProvider).value ?? const <Record>[];
+    // Records *this account* uploaded — recordsProvider can include records
+    // across every tree for admins/approved Finders/Indexers (see
+    // canSeeAllRecordsProvider), which isn't "your" recent activity.
+    final String? uid = ref.watch(authStateProvider).value?.id;
+    final List<Record> records = (ref.watch(recordsProvider).value ??
+            const <Record>[])
+        .where((r) => r.ownerId == uid)
+        .toList();
     for (final r in records) {
       out.add(
         _Activity(

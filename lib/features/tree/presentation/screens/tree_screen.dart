@@ -5,6 +5,7 @@ import 'package:printing/printing.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/adaptive_image.dart';
 import '../../data/services/tree_pdf_service.dart';
 import '../../domain/entities/person.dart';
 import '../layout/tree_layout.dart';
@@ -18,6 +19,11 @@ import '../../../../shared/widgets/zoom_controls.dart';
 
 /// The Phase 2 centrepiece: an interactive, pan/zoom family-tree renderer with
 /// Ancestors / Descendants / Pedigree modes.
+/// The three mutually-exclusive options in the app-bar "view" menu — the
+/// first two select [TreeViewMode.graph] plus a [TreeOrientation], the third
+/// selects [TreeViewMode.list] (which has no orientation of its own).
+enum _TreeViewOption { vertical, horizontal, list }
+
 class TreeScreen extends ConsumerStatefulWidget {
   const TreeScreen({super.key});
 
@@ -141,6 +147,7 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     final AsyncValue<List<Person>> personsAsync = ref.watch(personsProvider);
     final TreeMode mode = ref.watch(treeModeProvider);
     final TreeOrientation orientation = ref.watch(treeOrientationProvider);
+    final TreeViewMode viewMode = ref.watch(treeViewModeProvider);
     final TreeLayout? layout = ref.watch(treeLayoutProvider);
     final int generations = layout?.generations ?? 0;
     final treeId = ref.watch(activeTreeIdProvider);
@@ -173,25 +180,51 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
         // rather than throwing a visible overflow error. They're a floating
         // cluster over the canvas instead (see _buildCanvas below).
         actions: <Widget>[
-          PopupMenuButton<TreeOrientation>(
+          PopupMenuButton<_TreeViewOption>(
             tooltip: 'View',
             icon: Icon(
-              orientation == TreeOrientation.vertical
+              viewMode == TreeViewMode.list
+                  ? Icons.view_list_outlined
+                  : orientation == TreeOrientation.vertical
                   ? Icons.account_tree_outlined
                   : Icons.account_tree,
             ),
-            onSelected: (o) =>
-                ref.read(treeOrientationProvider.notifier).state = o,
-            itemBuilder: (context) => <PopupMenuEntry<TreeOrientation>>[
-              CheckedPopupMenuItem<TreeOrientation>(
-                value: TreeOrientation.vertical,
-                checked: orientation == TreeOrientation.vertical,
+            onSelected: (o) {
+              switch (o) {
+                case _TreeViewOption.vertical:
+                  ref.read(treeViewModeProvider.notifier).state =
+                      TreeViewMode.graph;
+                  ref.read(treeOrientationProvider.notifier).state =
+                      TreeOrientation.vertical;
+                case _TreeViewOption.horizontal:
+                  ref.read(treeViewModeProvider.notifier).state =
+                      TreeViewMode.graph;
+                  ref.read(treeOrientationProvider.notifier).state =
+                      TreeOrientation.horizontal;
+                case _TreeViewOption.list:
+                  ref.read(treeViewModeProvider.notifier).state =
+                      TreeViewMode.list;
+              }
+            },
+            itemBuilder: (context) => <PopupMenuEntry<_TreeViewOption>>[
+              CheckedPopupMenuItem<_TreeViewOption>(
+                value: _TreeViewOption.vertical,
+                checked:
+                    viewMode == TreeViewMode.graph &&
+                    orientation == TreeOrientation.vertical,
                 child: const Text('Vertical'),
               ),
-              CheckedPopupMenuItem<TreeOrientation>(
-                value: TreeOrientation.horizontal,
-                checked: orientation == TreeOrientation.horizontal,
+              CheckedPopupMenuItem<_TreeViewOption>(
+                value: _TreeViewOption.horizontal,
+                checked:
+                    viewMode == TreeViewMode.graph &&
+                    orientation == TreeOrientation.horizontal,
                 child: const Text('Horizontal'),
+              ),
+              CheckedPopupMenuItem<_TreeViewOption>(
+                value: _TreeViewOption.list,
+                checked: viewMode == TreeViewMode.list,
+                child: const Text('List'),
               ),
             ],
           ),
@@ -204,19 +237,20 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                     ref.read(personsProvider).value ?? const <Person>[],
                   ),
           ),
-          IconButton(
-            tooltip: 'Print family tree',
-            icon: _printing
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.print_outlined),
-            onPressed: layout == null || _printing
-                ? null
-                : () => _printTree(layout, treeId),
-          ),
+          if (viewMode == TreeViewMode.graph)
+            IconButton(
+              tooltip: 'Print family tree',
+              icon: _printing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.print_outlined),
+              onPressed: layout == null || _printing
+                  ? null
+                  : () => _printTree(layout, treeId),
+            ),
           IconButton(
             tooltip: 'Add person',
             icon: const Icon(Icons.add),
@@ -229,7 +263,16 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Failed to load tree: $e')),
         data: (persons) {
-          if (persons.isEmpty || layout == null) {
+          if (persons.isEmpty) {
+            return _EmptyTree(onAdd: () => _addRootPerson(context, treeId));
+          }
+          if (viewMode == TreeViewMode.list) {
+            return _PersonListView(
+              persons: persons,
+              onTap: (p) => showPersonActionsSheet(context, ref, p),
+            );
+          }
+          if (layout == null) {
             return _EmptyTree(onAdd: () => _addRootPerson(context, treeId));
           }
           return Column(
@@ -651,6 +694,49 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
+/// Flat, alphabetically-sorted list of every person in the tree — an
+/// alternative to the graph for quickly scanning or picking someone out of a
+/// large tree without panning/zooming. Tapping a row opens the same actions
+/// sheet as tapping a card on the graph.
+class _PersonListView extends StatelessWidget {
+  const _PersonListView({required this.persons, required this.onTap});
+
+  final List<Person> persons;
+  final ValueChanged<Person> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final List<Person> sorted = <Person>[...persons]
+      ..sort(
+        (a, b) =>
+            a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+      );
+    return ListView.separated(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
+      itemCount: sorted.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (_, i) {
+        final Person p = sorted[i];
+        final String subtitle = <String>[
+          if (p.lifespan.isNotEmpty) p.lifespan,
+          if ((p.code ?? '').isNotEmpty) p.code!,
+        ].join(' · ');
+        return ListTile(
+          leading: AdaptiveAvatar(reference: p.photoUrl, radius: 20),
+          title: Text(p.fullName),
+          subtitle: subtitle.isEmpty ? null : Text(subtitle, style: text.bodySmall),
+          trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+          onTap: () => onTap(p),
+        );
+      },
+    );
+  }
+}
+
 class _EmptyTree extends StatelessWidget {
   const _EmptyTree({required this.onAdd});
   final VoidCallback onAdd;
@@ -722,8 +808,24 @@ class _TreeSearchDialogState extends State<_TreeSearchDialog> {
     final String q = _query.trim().toLowerCase();
     if (q.isEmpty) return widget.persons;
     return widget.persons
-        .where((p) => p.fullName.toLowerCase().contains(q))
+        .where(
+          (p) =>
+              p.fullName.toLowerCase().contains(q) ||
+              (p.code?.toLowerCase().contains(q) ?? false),
+        )
         .toList();
+  }
+
+  /// Shows the birth year and/or ID code so a matching search result can be
+  /// visually confirmed — most useful when several people share a name.
+  Widget? _resultSubtitle(Person p, TextTheme text) {
+    final String? code = p.code;
+    final String year = p.birthDate != null ? '${p.birthDate!.year}' : '';
+    final String label = <String>[
+      if (year.isNotEmpty) year,
+      if (code != null && code.isNotEmpty) code,
+    ].join(' · ');
+    return label.isEmpty ? null : Text(label, style: text.bodySmall);
   }
 
   @override
@@ -759,7 +861,7 @@ class _TreeSearchDialogState extends State<_TreeSearchDialog> {
                 onChanged: (v) => setState(() => _query = v),
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
-                  hintText: 'Search by name…',
+                  hintText: 'Search by name or ID…',
                   prefixIcon: const Icon(
                     Icons.search,
                     color: AppColors.textTertiary,
@@ -793,9 +895,7 @@ class _TreeSearchDialogState extends State<_TreeSearchDialog> {
                         ),
                       ),
                       title: Text(p.fullName),
-                      subtitle: p.birthDate != null
-                          ? Text('${p.birthDate!.year}', style: text.bodySmall)
-                          : null,
+                      subtitle: _resultSubtitle(p, text),
                       onTap: () => Navigator.of(context).pop(p),
                     );
                   },

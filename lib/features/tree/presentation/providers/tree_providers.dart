@@ -143,6 +143,15 @@ final collapsedAncestorsProvider =
 final treeOrientationProvider =
     StateProvider<TreeOrientation>((ref) => TreeOrientation.vertical);
 
+/// Graph (the interactive pan/zoom canvas) vs. a flat alphabetical list of
+/// everyone in the tree — an alternative to the graph for quickly scanning
+/// or searching a large tree. Independent of [treeOrientationProvider],
+/// which only matters once back in graph mode.
+enum TreeViewMode { graph, list }
+
+final treeViewModeProvider =
+    StateProvider<TreeViewMode>((ref) => TreeViewMode.graph);
+
 /// Streams all persons in the active tree.
 final personsProvider = StreamProvider<List<Person>>((ref) {
   final repo = ref.watch(treeRepositoryProvider);

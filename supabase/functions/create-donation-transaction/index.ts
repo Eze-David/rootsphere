@@ -124,9 +124,13 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const opportunityId = body.opportunityId?.trim() ?? "";
-  const opportunityTitle = body.opportunityTitle?.trim() || "this research";
-  const treeId = body.treeId?.trim() ?? "";
+  // Both blank together means a general "support Rootsphere" donation, not
+  // tied to any specific research opportunity — e.g. someone donating from
+  // the sign-in screen without an account. Exactly one being blank would be
+  // a malformed request, so that's still rejected.
+  const opportunityId = body.opportunityId?.trim() || null;
+  const opportunityTitle = body.opportunityTitle?.trim() || "Rootsphere";
+  const treeId = body.treeId?.trim() || null;
   const amountCents = Math.round(body.amountCents ?? 0);
   const currency = (body.currency?.trim() || "ngn").toLowerCase();
   const donorName = body.donorName?.trim() || "Anonymous";
@@ -134,7 +138,7 @@ Deno.serve(async (req: Request) => {
   const message = body.message?.trim() ?? "";
   const donorId = body.donorId?.trim() ?? "";
 
-  if (!opportunityId || !treeId) {
+  if (Boolean(opportunityId) !== Boolean(treeId)) {
     return json({ available: false, message: "Missing opportunity." }, 200);
   }
   if (!donorEmail || !donorEmail.includes("@")) {

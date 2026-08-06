@@ -16,15 +16,20 @@ const List<int> _presetAmountsCents = <int>[
   1000000,
 ];
 
-/// Shows the "Support this research" flow for [opportunity]: pick an amount,
-/// enter an email (Paystack requires one) and optionally a name/message, then
-/// opens the Paystack payment page in the browser. The donation is only ever
-/// marked complete by the `paystack-webhook` function — this just starts it.
+/// Shows the "Support this research" flow: pick an amount, enter an email
+/// (Paystack requires one) and optionally a name/message, then opens the
+/// Paystack payment page in the browser. The donation is only ever marked
+/// complete by the `paystack-webhook` function — this just starts it.
+///
+/// When [opportunity] is omitted, this is a general donation to Rootsphere
+/// itself rather than a specific research opportunity — e.g. from the
+/// sign-in screen, for someone who doesn't want to create an account just
+/// to donate.
 Future<void> showDonateDialog(
   BuildContext context,
-  WidgetRef ref,
-  CollaborationOpportunity opportunity,
-) async {
+  WidgetRef ref, [
+  CollaborationOpportunity? opportunity,
+]) async {
   int? selectedCents = _presetAmountsCents[1];
   final TextEditingController customController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -64,9 +69,9 @@ Future<void> showDonateDialog(
           final result = await ref
               .read(donationCheckoutServiceProvider)
               .createCheckout(
-                opportunityId: opportunity.id,
-                opportunityTitle: opportunity.title,
-                treeId: opportunity.treeId,
+                opportunityId: opportunity?.id,
+                opportunityTitle: opportunity?.title,
+                treeId: opportunity?.treeId,
                 amountCents: cents,
                 donorEmail: email,
                 donorName: nameController.text.trim().isEmpty
@@ -106,12 +111,15 @@ Future<void> showDonateDialog(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'Support this research',
+                  opportunity == null
+                      ? 'Support Rootsphere'
+                      : 'Support this research',
                   style: Theme.of(ctx).textTheme.titleLarge,
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  opportunity.title,
+                  opportunity?.title ??
+                      'Help us build and maintain the platform.',
                   style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
                     color: AppColors.textSecondary,
                   ),

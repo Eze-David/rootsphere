@@ -15,6 +15,9 @@ import '../../data/services/global_records_service.dart';
 import '../../data/services/historical_records_service.dart';
 import '../../data/services/ocr_service.dart';
 import '../../data/services/record_storage_service.dart';
+import '../../domain/entities/global_person_match.dart';
+import '../../domain/entities/global_record_match.dart';
+import '../../domain/entities/historical_record.dart';
 import '../../domain/entities/record.dart';
 import '../../domain/repositories/record_repository.dart';
 
@@ -108,6 +111,74 @@ final filteredRecordsProvider = Provider<List<Record>>((ref) {
     return haystack.contains(query);
   }).toList();
 });
+
+/// Community (cross-tree, unattached) records matching the same free-text
+/// search box on the "All records" screen — the same source (and the same
+/// title/repository/OCR-text matching) the per-category search screens use
+/// for their "COMMUNITY RECORDS" section, so the main library search reaches
+/// just as far, not only the signed-in user's own visible records.
+final communityRecordSearchProvider = FutureProvider.family<
+  List<GlobalRecordMatch>,
+  String
+>((ref, query) async {
+  final String q = query.trim();
+  if (q.isEmpty) return const <GlobalRecordMatch>[];
+  return ref
+      .read(globalRecordsServiceProvider)
+      .search(RecordSearchQuery(firstName: q));
+});
+
+/// Cross-tree people matching the same free-text search box, via the OR-based
+/// `search_persons_global_freetext` RPC (see [GlobalPeopleService.searchFreeText])
+/// rather than the structured first/last/place form the per-category search
+/// screens use.
+final communityPeopleSearchProvider =
+    FutureProvider.family<List<GlobalPersonMatch>, String>((ref, query) async {
+      final String q = query.trim();
+      if (q.isEmpty) return const <GlobalPersonMatch>[];
+      return ref.read(globalPeopleServiceProvider).searchFreeText(q);
+    });
+
+/// External (FamilySearch-style) historical records matching the same
+/// free-text search box. That provider expects a real first/last name pair,
+/// so the single search term is split heuristically — see
+/// [splitFreeTextName] — rather than crammed whole into one field.
+final externalRecordSearchProvider =
+    FutureProvider.family<RecordSearchResult, String>((ref, query) async {
+      final String q = query.trim();
+      if (q.isEmpty) return const RecordSearchResult();
+      final (String first, String last, int? year) = splitFreeTextName(q);
+      return ref
+          .read(historicalRecordsServiceProvider)
+          .search(
+            RecordSearchQuery(firstName: first, lastName: last, year: year),
+          );
+    });
+
+/// Splits a single free-text search term into a first/last name pair (plus
+/// a standalone 4-digit year, if present) for providers that expect
+/// structured name fields — e.g. "John Smith 1920" → ("John", "Smith", 1920).
+/// A single word is treated as a first name only.
+(String, String, int?) splitFreeTextName(String query) {
+  final List<String> tokens = query
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((s) => s.isNotEmpty)
+      .toList();
+  int? year;
+  final List<String> nameTokens = <String>[];
+  for (final String t in tokens) {
+    final int? y = int.tryParse(t);
+    if (year == null && y != null && t.length == 4) {
+      year = y;
+    } else {
+      nameTokens.add(t);
+    }
+  }
+  if (nameTokens.isEmpty) return ('', '', year);
+  if (nameTokens.length == 1) return (nameTokens.first, '', year);
+  return (nameTokens.first, nameTokens.sublist(1).join(' '), year);
+}
 
 /// Single record lookup by id (from the active tree's stream).
 final recordByIdProvider = Provider.family<Record?, String>((ref, id) {

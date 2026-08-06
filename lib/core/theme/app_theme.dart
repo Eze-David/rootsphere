@@ -90,7 +90,11 @@ abstract class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primaryHover,
+          // The light-mode espresso-brown foreground below has almost no
+          // contrast against dark theme's own brown-tinted elevated
+          // surfaces (e.g. an AlertDialog's "Cancel"/"Sign out" actions) —
+          // needs a light, on-brand colour instead.
+          foregroundColor: AppColors.sunGoldLight,
           overlayColor: _hoverOverlay,
         ),
       ),

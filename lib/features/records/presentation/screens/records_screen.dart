@@ -1,31 +1,127 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'package:flutter/gestures.dart';
 
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../profile/presentation/providers/family_tree_provider.dart';
+import '../../../tree/presentation/providers/tree_providers.dart';
+import '../widgets/global_person_card.dart';
+import '../widgets/global_record_card.dart';
+import '../widgets/historical_result_card.dart';
 import '../widgets/record_card.dart';
 import '../widgets/record_upload_sheet.dart';
 import '../widgets/records_library_hero.dart';
+import '../../domain/entities/global_person_match.dart';
+import '../../domain/entities/global_record_match.dart';
+import '../../domain/entities/historical_record.dart';
 import '../../domain/entities/record.dart';
 import '../providers/record_providers.dart';
 
 /// Records library (brief §Phase 3): searchable, type-filterable list of source
 /// documents with an upload entry point. Matches the "Records library" mockup.
-class RecordsScreen extends ConsumerWidget {
+class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecordsScreen> createState() => _RecordsScreenState();
+}
+
+class _RecordsScreenState extends ConsumerState<RecordsScreen> {
+  final Set<String> _savedCommunityIds = <String>{};
+  final Set<String> _savedExternalIds = <String>{};
+  final Set<String> _joiningTreeIds = <String>{};
+
+  Future<void> _saveCommunityRecord(GlobalRecordMatch match) async {
+    final String treeId = ref.read(activeTreeIdProvider);
+    final Record record = Record(
+      id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
+      treeId: treeId,
+      type: match.type,
+      title: match.title,
+      repository: match.repository,
+      date: match.eventDate,
+      fileUrl: match.fileUrl,
+      fileName: match.fileName,
+      ocrText: match.ocrText,
+      createdAt: DateTime.now(),
+    );
+    await ref.read(recordRepositoryProvider).upsertRecord(record);
+    if (mounted) {
+      setState(() => _savedCommunityIds.add(match.id));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Saved "${match.displayTitle}" to your records.'),
+        ),
+      );
+    }
+  }
+
+  Future<void> _saveExternalRecord(HistoricalRecord hit) async {
+    final String treeId = ref.read(activeTreeIdProvider);
+    final Record record = Record(
+      id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
+      treeId: treeId,
+      type: hit.type,
+      title: hit.name,
+      repository: hit.collection ?? 'FamilySearch',
+      date: _parseYear(hit.eventDate),
+      notes: hit.subtitle,
+      citationOverride: hit.sourceUrl,
+      createdAt: DateTime.now(),
+    );
+    await ref.read(recordRepositoryProvider).upsertRecord(record);
+    if (mounted) {
+      setState(() => _savedExternalIds.add(hit.id));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Saved "${hit.name}" to your records.')));
+    }
+  }
+
+  DateTime? _parseYear(String? eventDate) {
+    if (eventDate == null) return null;
+    final int? year = int.tryParse(eventDate.trim());
+    if (year == null) return null;
+    return DateTime(year);
+  }
+
+  Future<void> _joinTree(GlobalPersonMatch match) async {
+    setState(() => _joiningTreeIds.add(match.treeId));
+    try {
+      await ref.read(familyTreeControllerProvider.notifier).joinTree(match.treeId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Joined "${match.treeName ?? 'tree'}".')),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not join that tree.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _joiningTreeIds.remove(match.treeId));
+    }
+  }
+
+  Future<void> _open(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final AsyncValue<List<Record>> recordsAsync = ref.watch(recordsProvider);
     final List<Record> filtered = ref.watch(filteredRecordsProvider);
     final bool seesAllRecords = ref.watch(canSeeAllRecordsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -41,7 +137,11 @@ class RecordsScreen extends ConsumerWidget {
             icon: const Icon(Icons.file_upload_outlined),
             tooltip: 'Upload record',
             color: Colors.white,
-            onPressed: () => showRecordUploadSheet(context, ref),
+            onPressed: () => showRecordUploadSheet(
+              context,
+              ref,
+              initialType: ref.read(recordTypeFilterProvider),
+            ),
           ),
           const SizedBox(width: AppSpacing.sm),
         ],
@@ -51,9 +151,9 @@ class RecordsScreen extends ConsumerWidget {
         children: <Widget>[
           RecordsLibraryHero(
             assets: const <String>[
-              'assets/images/records_library_hero.png',
-              'assets/images/records_library_hero_2.png',
-              'assets/images/records_library_hero_3.png',
+              'assets/images/records_library_hero.jpg',
+              'assets/images/records_library_hero_2.jpg',
+              'assets/images/records_library_hero_3.jpg',
             ],
             title: seesAllRecords ? 'All records' : 'Your records',
             subtitle: seesAllRecords
@@ -70,9 +170,9 @@ class RecordsScreen extends ConsumerWidget {
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.lg),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: Theme.of(context).colorScheme.surface,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: Theme.of(context).dividerColor),
                 boxShadow: <BoxShadow>[
                   BoxShadow(
                     color: AppColors.primary.withValues(alpha: 0.06),
@@ -100,30 +200,149 @@ class RecordsScreen extends ConsumerWidget {
                 subtitle: '$e',
               ),
               data: (_) {
-                if (filtered.isEmpty) {
-                  final bool isFiltering =
-                      ref.watch(recordSearchProvider).trim().isNotEmpty ||
-                      ref.watch(recordTypeFilterProvider) != null;
+                final String query = ref.watch(recordSearchProvider).trim();
+                // Records only surface once you actually search — matches
+                // the per-category search screens, and keeps this "All
+                // records" list from just dumping every upload by default.
+                if (query.isEmpty) {
+                  return const _Message(
+                    icon: Icons.search,
+                    title: 'Search to see records',
+                    subtitle: 'Type a name, place, or title above.',
+                  );
+                }
+
+                // Reaches everywhere the per-category search screens do, not
+                // just records visible to this account: community
+                // (cross-tree, unattached) records, cross-tree people, and
+                // the external (FamilySearch-style) provider.
+                final AsyncValue<List<GlobalRecordMatch>> communityAsync = ref
+                    .watch(communityRecordSearchProvider(query));
+                final List<GlobalRecordMatch> community =
+                    communityAsync.value ?? const <GlobalRecordMatch>[];
+                final bool communityLoading = communityAsync.isLoading;
+
+                final AsyncValue<List<GlobalPersonMatch>> peopleAsync = ref
+                    .watch(communityPeopleSearchProvider(query));
+                final List<GlobalPersonMatch> people =
+                    peopleAsync.value ?? const <GlobalPersonMatch>[];
+                final bool peopleLoading = peopleAsync.isLoading;
+
+                final AsyncValue<RecordSearchResult> externalAsync = ref
+                    .watch(externalRecordSearchProvider(query));
+                final RecordSearchResult? externalResult =
+                    externalAsync.value;
+                final List<HistoricalRecord> external =
+                    externalResult?.records ?? const <HistoricalRecord>[];
+                final bool externalLoading = externalAsync.isLoading;
+
+                if (filtered.isEmpty &&
+                    community.isEmpty &&
+                    people.isEmpty &&
+                    external.isEmpty &&
+                    !communityLoading &&
+                    !peopleLoading &&
+                    !externalLoading) {
                   return _EmptyState(
-                    isFiltering: isFiltering,
+                    isFiltering: true,
                     seesAllRecords: seesAllRecords,
                   );
                 }
-                return ListView.builder(
+
+                final TextTheme text = Theme.of(context).textTheme;
+                return ListView(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
                     0,
                     AppSpacing.lg,
                     AppSpacing.xxl,
                   ),
-                  itemCount: filtered.length,
-                  itemBuilder: (_, i) {
-                    final Record r = filtered[i];
-                    return RecordCard(
-                      record: r,
-                      onTap: () => context.push('${AppRoutes.record}/${r.id}'),
-                    );
-                  },
+                  children: <Widget>[
+                    for (final r in filtered)
+                      RecordCard(
+                        record: r,
+                        onTap: () =>
+                            context.push('${AppRoutes.record}/${r.id}'),
+                      ),
+                    if (community.isNotEmpty || communityLoading) ...<Widget>[
+                      if (filtered.isNotEmpty)
+                        const SizedBox(height: AppSpacing.md),
+                      Text('COMMUNITY RECORDS', style: text.labelSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (communityLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else
+                        for (final m in community)
+                          GlobalRecordCard(
+                            match: m,
+                            saved: _savedCommunityIds.contains(m.id),
+                            onSave: () => _saveCommunityRecord(m),
+                            onOpen: m.fileUrl == null
+                                ? null
+                                : () => _open(m.fileUrl!),
+                          ),
+                    ],
+                    if (people.isNotEmpty || peopleLoading) ...<Widget>[
+                      if (filtered.isNotEmpty ||
+                          community.isNotEmpty ||
+                          communityLoading)
+                        const SizedBox(height: AppSpacing.md),
+                      Text('ACROSS ALL TREES', style: text.labelSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (peopleLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else
+                        for (final m in people)
+                          GlobalPersonCard(
+                            match: m,
+                            joining: _joiningTreeIds.contains(m.treeId),
+                            onJoin: () => _joinTree(m),
+                          ),
+                    ],
+                    if (external.isNotEmpty || externalLoading) ...<Widget>[
+                      if (filtered.isNotEmpty ||
+                          community.isNotEmpty ||
+                          communityLoading ||
+                          people.isNotEmpty ||
+                          peopleLoading)
+                        const SizedBox(height: AppSpacing.md),
+                      Text('HISTORICAL RECORDS', style: text.labelSmall),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (externalLoading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.md,
+                          ),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (externalResult?.available == false)
+                        Text(
+                          externalResult?.message ??
+                              'Historical record search is unavailable.',
+                          style: text.bodyMedium,
+                        )
+                      else
+                        for (final hit in external)
+                          HistoricalResultCard(
+                            hit: hit,
+                            saved: _savedExternalIds.contains(hit.id),
+                            onSave: () => _saveExternalRecord(hit),
+                            onOpen: hit.sourceUrl == null
+                                ? null
+                                : () => _open(hit.sourceUrl!),
+                          ),
+                    ],
+                  ],
                 );
               },
             ),
@@ -164,7 +383,10 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
         hintText: 'Search records…',
-        prefixIcon: const Icon(Icons.search, color: AppColors.textTertiary),
+        prefixIcon: Icon(
+          Icons.search,
+          color: Theme.of(context).textTheme.bodySmall?.color,
+        ),
         suffixIcon: _controller.text.isEmpty
             ? null
             : IconButton(
@@ -290,7 +512,7 @@ class _OtherChip extends StatelessWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppSpacing.radiusLg),
@@ -310,6 +532,8 @@ class _OtherChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final Color textColor = theme.textTheme.bodyLarge!.color!;
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: GestureDetector(
@@ -317,8 +541,8 @@ class _OtherChip extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
           decoration: BoxDecoration(
-            color: AppColors.cream,
-            border: Border.all(color: AppColors.border),
+            color: theme.colorScheme.surface,
+            border: Border.all(color: theme.dividerColor),
             borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
           ),
           child: Row(
@@ -326,17 +550,10 @@ class _OtherChip extends StatelessWidget {
             children: <Widget>[
               Text(
                 RecordType.other.label,
-                style: const TextStyle(
-                  color: AppColors.heroText,
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
               ),
               const SizedBox(width: AppSpacing.xs),
-              const Icon(
-                Icons.arrow_drop_down,
-                size: 18,
-                color: AppColors.heroText,
-              ),
+              Icon(Icons.arrow_drop_down, size: 18, color: textColor),
             ],
           ),
         ),
@@ -352,6 +569,7 @@ class _OtherOptionsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -364,7 +582,7 @@ class _OtherOptionsSheet extends StatelessWidget {
               bottom: AppSpacing.sm,
             ),
             decoration: BoxDecoration(
-              color: AppColors.border,
+              color: theme.dividerColor,
               borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
             ),
           ),
@@ -377,8 +595,7 @@ class _OtherOptionsSheet extends StatelessWidget {
             ),
             child: Text(
               'Other record types',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: AppColors.heroText,
+              style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -391,11 +608,11 @@ class _OtherOptionsSheet extends StatelessWidget {
               itemBuilder: (_, int i) {
                 final option = options[i];
                 return ListTile(
-                  title: Text(
-                    option.label,
-                    style: TextStyle(color: AppColors.heroText),
+                  title: Text(option.label, style: theme.textTheme.bodyLarge),
+                  leading: Icon(
+                    option.type.icon,
+                    color: theme.colorScheme.primary,
                   ),
-                  leading: Icon(option.type.icon, color: AppColors.primary),
                   onTap: () {
                     Navigator.of(context).pop();
                     context.push(
@@ -426,6 +643,7 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(right: AppSpacing.sm),
       child: ChoiceChip(
@@ -434,13 +652,15 @@ class _Chip extends StatelessWidget {
         onSelected: (_) => onSelected(),
         showCheckmark: false,
         labelStyle: TextStyle(
-          color: selected ? AppColors.onPrimary : AppColors.heroText,
+          color: selected
+              ? AppColors.onPrimary
+              : theme.textTheme.bodyLarge!.color,
           fontWeight: FontWeight.w600,
         ),
-        selectedColor: AppColors.primary,
-        backgroundColor: AppColors.cream,
+        selectedColor: theme.colorScheme.primary,
+        backgroundColor: theme.colorScheme.surface,
         side: BorderSide(
-          color: selected ? AppColors.primary : AppColors.border,
+          color: selected ? theme.colorScheme.primary : theme.dividerColor,
         ),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
@@ -501,10 +721,7 @@ class _Message extends StatelessWidget {
               color: AppColors.sunGold.withValues(alpha: 0.8),
             ),
             const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              style: text.titleMedium?.copyWith(color: AppColors.heroText),
-            ),
+            Text(title, style: text.titleMedium),
             const SizedBox(height: AppSpacing.xs),
             Text(subtitle, textAlign: TextAlign.center, style: text.bodyMedium),
           ],
