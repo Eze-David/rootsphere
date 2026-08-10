@@ -61,7 +61,7 @@ class PersonProfileScreen extends ConsumerWidget {
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      backgroundColor: AppColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -131,7 +131,7 @@ class PersonProfileScreen extends ConsumerWidget {
                       ? Text(
                           'No family linked yet.',
                           style: text.bodyLarge?.copyWith(
-                            color: AppColors.textTertiary,
+                            color: text.bodySmall?.color,
                           ),
                         )
                       : _RelativesWrap(
@@ -228,8 +228,8 @@ class PersonProfileScreen extends ConsumerWidget {
                         : 'No notes yet. Tap edit to add some.',
                     style: text.bodyLarge?.copyWith(
                       color: (person.notes?.trim().isNotEmpty ?? false)
-                          ? AppColors.textPrimary
-                          : AppColors.textTertiary,
+                          ? null
+                          : text.bodySmall?.color,
                     ),
                   ),
                 ),
@@ -638,9 +638,9 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Search by name or ID…',
-                  prefixIcon: const Icon(
+                  prefixIcon: Icon(
                     Icons.search,
-                    color: AppColors.textTertiary,
+                    color: text.bodySmall?.color,
                   ),
                   suffixIcon: _query.isEmpty
                       ? null
@@ -660,12 +660,7 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
                         padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.lg,
                         ),
-                        child: Text(
-                          'No matches.',
-                          style: text.bodyMedium?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
+                        child: Text('No matches.', style: text.bodySmall),
                       )
                     : ListView.builder(
                         shrinkWrap: true,
@@ -785,10 +780,8 @@ class _LocationMapCardState extends ConsumerState<_LocationMapCard> {
           height: 160,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            border: Border.all(
-              color: AppColors.textTertiary.withValues(alpha: 0.3),
-            ),
+            color: Theme.of(context).colorScheme.surface,
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: result == null
               ? _placeholder(context, loading: geocode.isLoading)
@@ -811,15 +804,13 @@ class _LocationMapCardState extends ConsumerState<_LocationMapCard> {
             : Icon(
                 Icons.map_outlined,
                 size: 40,
-                color: AppColors.textTertiary.withValues(alpha: 0.6),
+                color: Theme.of(context).textTheme.bodySmall?.color,
               ),
         const SizedBox(height: AppSpacing.sm),
         Text(
           widget.location,
           textAlign: TextAlign.center,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
     );
@@ -937,7 +928,7 @@ class _DetailsSection extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Icon(icon, size: 18, color: AppColors.textTertiary),
+              Icon(icon, size: 18, color: text.bodySmall?.color),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
@@ -1004,8 +995,9 @@ class _ResearchSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1305,7 +1297,7 @@ class _EditHistory extends ConsumerWidget {
         if (entries.isEmpty) {
           return Text(
             'No edits recorded yet.',
-            style: text.bodyLarge?.copyWith(color: AppColors.textTertiary),
+            style: text.bodyLarge?.copyWith(color: text.bodySmall?.color),
           );
         }
         return Column(
@@ -1341,20 +1333,16 @@ class _EditHistoryTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Row(
             children: <Widget>[
-              const Icon(
-                Icons.history,
-                size: 16,
-                color: AppColors.textTertiary,
-              ),
+              Icon(Icons.history, size: 16, color: text.bodySmall?.color),
               const SizedBox(width: AppSpacing.sm),
               Expanded(child: Text('$who · $when', style: text.labelLarge)),
             ],
@@ -1443,8 +1431,8 @@ class _HeroHeader extends ConsumerWidget {
                     children: <Widget>[
                       Container(
                         padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: AppColors.background,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).scaffoldBackgroundColor,
                           shape: BoxShape.circle,
                         ),
                         child: AdaptiveAvatar(
@@ -1495,7 +1483,7 @@ class _HeroHeader extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             person.lifespan,
-            style: text.bodyLarge?.copyWith(color: AppColors.textSecondary),
+            style: text.bodyLarge?.copyWith(color: text.bodyMedium?.color),
           ),
         ],
         if (person.birthPlace != null) ...<Widget>[
@@ -1503,10 +1491,10 @@ class _HeroHeader extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              const Icon(
+              Icon(
                 Icons.place_outlined,
                 size: 16,
-                color: AppColors.textTertiary,
+                color: text.bodySmall?.color,
               ),
               const SizedBox(width: 4),
               Text(person.birthPlace!, style: text.bodyMedium),
@@ -1517,7 +1505,7 @@ class _HeroHeader extends ConsumerWidget {
           const SizedBox(height: AppSpacing.sm),
           Center(
             child: Material(
-              color: AppColors.surfaceMuted,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
               child: InkWell(
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -1533,16 +1521,16 @@ class _HeroHeader extends ConsumerWidget {
                       Text(
                         person.code!,
                         style: text.labelMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: text.bodyMedium?.color,
                           letterSpacing: 1,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Icon(
+                      Icon(
                         Icons.copy_outlined,
                         size: 14,
-                        color: AppColors.textTertiary,
+                        color: text.bodySmall?.color,
                       ),
                     ],
                   ),
@@ -1698,7 +1686,7 @@ class _StatItem extends StatelessWidget {
           ),
           child: Column(
             children: <Widget>[
-              Icon(icon, size: 18, color: AppColors.primary),
+              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
               const SizedBox(height: 2),
               if (value != null)
                 Text(
@@ -1707,10 +1695,7 @@ class _StatItem extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              Text(
-                label,
-                style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
-              ),
+              Text(label, style: text.bodySmall),
             ],
           ),
         ),
@@ -1725,7 +1710,7 @@ class _StatDivider extends StatelessWidget {
     width: 1,
     height: 32,
     margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-    color: AppColors.border,
+    color: Theme.of(context).dividerColor,
   );
 }
 
@@ -1752,9 +1737,9 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -1771,10 +1756,16 @@ class _SectionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
-                child: Icon(icon, size: 16, color: AppColors.primary),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
@@ -1811,7 +1802,7 @@ class _RelativesWrap extends StatelessWidget {
       children: <Widget>[
         for (final r in relatives)
           Material(
-            color: AppColors.background,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
             child: InkWell(
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -1823,7 +1814,7 @@ class _RelativesWrap extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                  border: Border.all(color: AppColors.border),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -1840,12 +1831,7 @@ class _RelativesWrap extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Text(
-                          r.relation,
-                          style: text.bodySmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
+                        Text(r.relation, style: text.bodySmall),
                       ],
                     ),
                   ],
@@ -1879,14 +1865,17 @@ class _Timeline extends StatelessWidget {
                       width: 12,
                       height: 12,
                       margin: const EdgeInsets.only(top: 4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
                         shape: BoxShape.circle,
                       ),
                     ),
                     if (i != events.length - 1)
                       Expanded(
-                        child: Container(width: 2, color: AppColors.border),
+                        child: Container(
+                          width: 2,
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                   ],
                 ),
@@ -1908,7 +1897,7 @@ class _Timeline extends StatelessWidget {
                                 ? Person.fmtDate(events[i].date!)
                                 : '—',
                             style: text.labelLarge?.copyWith(
-                              color: AppColors.primary,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                           ),
                           Text(events[i].title, style: text.titleMedium),
@@ -2157,14 +2146,14 @@ class _AddTile extends ConsumerWidget {
         width: 96,
         height: 96,
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Icon(Icons.add, color: AppColors.textTertiary),
+            Icon(Icons.add, color: text.bodySmall?.color),
             const SizedBox(height: 4),
             Text('Add', style: text.bodyMedium),
           ],

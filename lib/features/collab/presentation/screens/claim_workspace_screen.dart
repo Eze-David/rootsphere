@@ -92,7 +92,7 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
         const SizedBox(height: AppSpacing.xs),
         Text(
           opportunity.requiredRole.description,
-          style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          style: text.bodyMedium,
         ),
         const SizedBox(height: AppSpacing.lg),
         _SubjectDetailsSection(opportunityId: opportunity.id),
@@ -276,12 +276,19 @@ class _WorkspaceStatusBanner extends StatelessWidget {
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       ),
+      // Text/icon colour is deliberately fixed (not theme-derived) — these
+      // status tints (cream/light green) don't change with the theme, so
+      // their content shouldn't switch to a light dark-mode colour and
+      // disappear against them.
       child: Row(
         children: <Widget>[
           Icon(icon, size: 18, color: AppColors.textSecondary),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            child: Text(
+              message,
+              style: const TextStyle(color: AppColors.textPrimary),
+            ),
           ),
         ],
       ),
@@ -295,7 +302,9 @@ class _RejectionFeedback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
+    // Text colour is deliberately fixed (not theme-derived) — this banner's
+    // light amber background doesn't change with the theme, so its text
+    // shouldn't switch to a light dark-mode colour and disappear against it.
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -306,19 +315,27 @@ class _RejectionFeedback extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Row(
+          const Row(
             children: <Widget>[
-              const Icon(
+              Icon(
                 Icons.feedback_outlined,
                 size: 16,
                 color: AppColors.sunGold,
               ),
-              const SizedBox(width: AppSpacing.xs),
-              Text('Changes requested by the company', style: text.labelSmall),
+              SizedBox(width: AppSpacing.xs),
+              Text(
+                'Changes requested by the company',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.0,
+                  color: AppColors.textPrimary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpacing.xs),
-          Text(feedback),
+          Text(feedback, style: const TextStyle(color: AppColors.textPrimary)),
         ],
       ),
     );
@@ -873,7 +890,7 @@ class _SectionTitle extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 18, color: AppColors.primary),
+          Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
           const SizedBox(width: AppSpacing.xs),
           Text(
             title,

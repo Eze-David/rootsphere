@@ -21,6 +21,7 @@ import '../../domain/entities/global_record_match.dart';
 import '../../domain/entities/historical_record.dart';
 import '../../domain/entities/record.dart';
 import '../providers/record_providers.dart';
+import 'global_record_detail_screen.dart';
 
 /// Records library (brief §Phase 3): searchable, type-filterable list of source
 /// documents with an upload entry point. Matches the "Records library" mockup.
@@ -282,9 +283,15 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
                             match: m,
                             saved: _savedCommunityIds.contains(m.id),
                             onSave: () => _saveCommunityRecord(m),
-                            onOpen: m.fileUrl == null
-                                ? null
-                                : () => _open(m.fileUrl!),
+                            onOpen: () => Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => GlobalRecordDetailScreen(
+                                  match: m,
+                                  saved: _savedCommunityIds.contains(m.id),
+                                  onSave: () => _saveCommunityRecord(m),
+                                ),
+                              ),
+                            ),
                           ),
                     ],
                     if (people.isNotEmpty || peopleLoading) ...<Widget>[

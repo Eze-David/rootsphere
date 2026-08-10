@@ -20,11 +20,19 @@ class AuthController extends AsyncNotifier<void> {
   }
 
   Future<bool> signUp(String fullName, String email, String password) {
-    return _run(() => _repo.signUpWithEmail(
-          fullName: fullName,
-          email: email,
-          password: password,
-        ));
+    return _run(() async {
+      await _repo.signUpWithEmail(
+        fullName: fullName,
+        email: email,
+        password: password,
+      );
+      // A brand-new account can never have a legitimate reason to inherit
+      // an explicit tree override — if this device previously had one set
+      // (e.g. from a different account, or earlier local/demo browsing),
+      // the new account would otherwise try to write into a tree it was
+      // never added to and hit an RLS violation. See clearSelectedTreeId.
+      clearSelectedTreeId(ref);
+    });
   }
 
   Future<bool> signInWithGoogle() => _run(_repo.signInWithGoogle);

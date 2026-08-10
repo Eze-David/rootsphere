@@ -40,6 +40,11 @@ function json(body: unknown, status = 200): Response {
 const MIN_AMOUNT_CENTS = 10_000; // ₦100 — a sane floor for a NGN donation.
 const MAX_AMOUNT_CENTS = 500_000_000; // ₦5,000,000 — sanity cap against fat-finger input.
 
+// Where Paystack sends the browser after checkout. Hash-routed to match the
+// Flutter web app's URL strategy (no usePathUrlStrategy() configured).
+const SITE_URL = "https://www.rootsphere.ink";
+const DONATION_THANK_YOU_PATH = "/donation-thank-you";
+
 interface RequestBody {
   opportunityId?: string;
   opportunityTitle?: string;
@@ -154,11 +159,6 @@ Deno.serve(async (req: Request) => {
     return json({ available: false, message: "That amount looks too large — please try a smaller one." });
   }
 
-  const redirectBase = Deno.env.get("SUPABASE_URL");
-  if (!redirectBase) {
-    return json({ available: false, message: "Donations are not configured yet." });
-  }
-
   const reference = `don_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
   try {
@@ -167,7 +167,12 @@ Deno.serve(async (req: Request) => {
       email: donorEmail,
       amountCents,
       currency,
-      callbackUrl: `${redirectBase}/functions/v1/donation-redirect`,
+      // Must be a page on our own domain, not a Supabase Edge Function URL —
+      // Supabase's function gateway force-overrides Content-Type to
+      // text/plain (plus a sandboxed CSP) on every function response,
+      // specifically to stop *.supabase.co from being used to host
+      // arbitrary HTML. See DonationThankYouScreen / AppRoutes.donationThankYou.
+      callbackUrl: `${SITE_URL}/#${DONATION_THANK_YOU_PATH}`,
       metadata: {
         opportunity_id: opportunityId,
         tree_id: treeId,

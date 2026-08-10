@@ -20,11 +20,14 @@ import '../../domain/entities/global_record_match.dart';
 import '../../domain/entities/historical_record.dart';
 import '../../domain/entities/record.dart';
 import '../providers/record_providers.dart';
+import 'global_record_detail_screen.dart';
 
-/// FamilySearch-style "Search historical records" screen, scoped to a record
-/// [type] chosen from the Records chips. Submitting the form queries the
-/// external provider (via the `records-search` edge function) and lists matches
-/// the user can open or save into their own records.
+/// FamilySearch-style "Search historical records" screen. [type] is just the
+/// starting category (usually whichever chip was tapped on the Records
+/// screen) — a dropdown in the search form lets the user switch to any other
+/// category without leaving this screen. Submitting the form queries the
+/// external provider (via the `records-search` edge function) and lists
+/// matches the user can open or save into their own records.
 class HistoricalRecordsSearchScreen extends ConsumerStatefulWidget {
   const HistoricalRecordsSearchScreen({super.key, this.type});
 
@@ -42,6 +45,10 @@ class _HistoricalRecordsSearchScreenState
   final _lastName = TextEditingController();
   final _place = TextEditingController();
   final _year = TextEditingController();
+
+  // Mutable (not read from widget.type directly) so the dropdown in
+  // _SearchCard can switch categories without leaving this screen.
+  late RecordType? _type = widget.type;
 
   String _country = 'Nigeria';
   String _birthPlace = '';
@@ -102,7 +109,7 @@ class _HistoricalRecordsSearchScreenState
     final String dbPlace = dbPlaceBuffer.toString();
 
     final query = RecordSearchQuery(
-      type: widget.type,
+      type: _type,
       firstName: _firstName.text,
       lastName: _lastName.text,
       place: place,
@@ -110,7 +117,7 @@ class _HistoricalRecordsSearchScreenState
     );
     if (query.isEmpty) return;
     final RecordSearchQuery dbQuery = RecordSearchQuery(
-      type: widget.type,
+      type: _type,
       firstName: _firstName.text,
       lastName: _lastName.text,
       place: dbPlace,
@@ -366,7 +373,7 @@ class _HistoricalRecordsSearchScreenState
       id: 'rec_${DateTime.now().microsecondsSinceEpoch}',
       treeId: treeId,
       // For an all-types search, fall back to the result's own type.
-      type: widget.type ?? hit.type,
+      type: _type ?? hit.type,
       title: hit.name,
       repository: hit.collection ?? 'FamilySearch',
       date: _parseYear(hit.eventDate),
@@ -394,7 +401,7 @@ class _HistoricalRecordsSearchScreenState
   /// them (see [RecordsLibraryHero]) — everything else is a single-element
   /// list, which the hero renders as a static image.
   List<String> _heroAssets() {
-    switch (widget.type) {
+    switch (_type) {
       case RecordType.birth:
         return const <String>[
           'assets/images/records_birth_hero.jpg',
@@ -543,7 +550,7 @@ class _HistoricalRecordsSearchScreenState
   }
 
   String _heroTitle() {
-    switch (widget.type) {
+    switch (_type) {
       case RecordType.birth:
         return 'Find birth records';
       case RecordType.marriage:
@@ -604,7 +611,7 @@ class _HistoricalRecordsSearchScreenState
   }
 
   String _heroSubtitle() {
-    switch (widget.type) {
+    switch (_type) {
       case RecordType.birth:
         return 'Search birth certificates, hospital registers, and vital records.';
       case RecordType.marriage:
@@ -713,6 +720,14 @@ class _HistoricalRecordsSearchScreenState
                   firstNameController: _firstName,
                   lastNameController: _lastName,
                   yearController: _year,
+                  selectedType: _type,
+                  onTypeChanged: (v) => setState(() {
+                    _type = v;
+                    // Stale results no longer match the newly-picked
+                    // category — make that obvious rather than silently
+                    // showing them until the next search.
+                    _hasSearched = false;
+                  }),
                   selectedCountry: _country,
                   selectedBirthPlace: _birthPlace,
                   onCountryChanged: (v) => setState(() {
@@ -822,7 +837,15 @@ class _HistoricalRecordsSearchScreenState
             match: m,
             saved: _savedGlobalRecords.contains(m.id),
             onSave: () => _saveGlobalRecord(m),
-            onOpen: m.fileUrl == null ? null : () => _open(m.fileUrl!),
+            onOpen: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => GlobalRecordDetailScreen(
+                  match: m,
+                  saved: _savedGlobalRecords.contains(m.id),
+                  onSave: () => _saveGlobalRecord(m),
+                ),
+              ),
+            ),
           ),
         );
       }
@@ -882,6 +905,8 @@ class _SearchCard extends StatelessWidget {
     required this.firstNameController,
     required this.lastNameController,
     required this.yearController,
+    required this.selectedType,
+    required this.onTypeChanged,
     required this.selectedCountry,
     required this.selectedBirthPlace,
     required this.onCountryChanged,
@@ -893,6 +918,8 @@ class _SearchCard extends StatelessWidget {
   final TextEditingController firstNameController;
   final TextEditingController lastNameController;
   final TextEditingController yearController;
+  final RecordType? selectedType;
+  final ValueChanged<RecordType?> onTypeChanged;
   final String selectedCountry;
   final String selectedBirthPlace;
   final ValueChanged<String> onCountryChanged;
@@ -920,6 +947,8 @@ class _SearchCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
+          _RecordTypeDropdown(value: selectedType, onChanged: onTypeChanged),
+          const SizedBox(height: AppSpacing.md),
           _CountryDropdown(
             value: selectedCountry,
             onChanged: (v) {
@@ -989,6 +1018,37 @@ class _SearchCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Lets the user switch which record category this search targets — this is
+/// what turns "click search records" into a dropdown of every category
+/// rather than a fixed category chosen back on the Records screen.
+class _RecordTypeDropdown extends StatelessWidget {
+  const _RecordTypeDropdown({required this.value, required this.onChanged});
+
+  final RecordType? value;
+  final ValueChanged<RecordType?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<RecordType?>(
+      initialValue: value,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        hintText: 'Record type',
+        prefixIcon: Icon(Icons.category_outlined),
+      ),
+      items: <DropdownMenuItem<RecordType?>>[
+        const DropdownMenuItem<RecordType?>(
+          value: null,
+          child: Text('All types'),
+        ),
+        for (final RecordType t in RecordType.values)
+          DropdownMenuItem<RecordType?>(value: t, child: Text(t.label)),
+      ],
+      onChanged: onChanged,
     );
   }
 }

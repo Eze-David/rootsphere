@@ -153,7 +153,7 @@ class _Attachment extends StatelessWidget {
     return Container(
       height: 160,
       decoration: BoxDecoration(
-        color: AppColors.surfaceMuted,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
       child: Column(
@@ -164,7 +164,7 @@ class _Attachment extends StatelessWidget {
                 ? Icons.picture_as_pdf_outlined
                 : record.type.icon,
             size: 48,
-            color: AppColors.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
@@ -228,9 +228,9 @@ class _CitationSection extends ConsumerWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(AppSpacing.lg),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            border: Border.all(color: AppColors.border),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,9 +366,9 @@ class _OcrSectionState extends ConsumerState<_OcrSection> {
             width: double.infinity,
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: SelectableText(
               record.ocrText!.trim(),
@@ -376,10 +376,7 @@ class _OcrSectionState extends ConsumerState<_OcrSection> {
             ),
           )
         else
-          Text(
-            _message ?? 'No text extracted yet.',
-            style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
-          ),
+          Text(_message ?? 'No text extracted yet.', style: text.bodyMedium),
       ],
     );
   }
@@ -551,14 +548,14 @@ class _AssistantSectionState extends ConsumerState<_AssistantSection> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             'Run OCR or add notes first so the assistant has text to work with.',
-            style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+            style: text.bodySmall?.copyWith(color: text.bodyMedium?.color),
           ),
         ],
         if (_message != null) ...<Widget>[
           const SizedBox(height: AppSpacing.sm),
           Text(
             _message!,
-            style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+            style: text.bodySmall?.copyWith(color: text.bodyMedium?.color),
           ),
         ],
         if ((record.aiSummary ?? '').trim().isNotEmpty) ...<Widget>[
@@ -639,9 +636,9 @@ class _AssistantResultCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,10 +673,7 @@ class _LinkedPeopleSection extends ConsumerWidget {
         Text('LINKED PEOPLE', style: text.labelSmall),
         const SizedBox(height: AppSpacing.sm),
         if (linked.isEmpty)
-          Text(
-            'No people linked to this record.',
-            style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
-          )
+          Text('No people linked to this record.', style: text.bodyMedium)
         else
           Wrap(
             spacing: AppSpacing.sm,

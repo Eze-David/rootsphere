@@ -175,9 +175,7 @@ class OpportunityCard extends StatelessWidget {
                           const SizedBox(height: AppSpacing.sm),
                           Text(
                             opportunity.description,
-                            style: text.bodyMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                            ),
+                            style: text.bodyMedium,
                           ),
                         ],
                       ],
@@ -211,15 +209,10 @@ class OpportunityCard extends StatelessWidget {
                         Icon(
                           Icons.location_on_outlined,
                           size: 16,
-                          color: AppColors.textTertiary,
+                          color: text.bodySmall?.color,
                         ),
                         const SizedBox(width: AppSpacing.xs),
-                        Text(
-                          opportunity.location!,
-                          style: text.bodySmall?.copyWith(
-                            color: AppColors.textTertiary,
-                          ),
-                        ),
+                        Text(opportunity.location!, style: text.bodySmall),
                       ],
                     ),
                   Row(
@@ -228,15 +221,10 @@ class OpportunityCard extends StatelessWidget {
                       Icon(
                         opportunity.requiredRole.icon,
                         size: 16,
-                        color: AppColors.textTertiary,
+                        color: text.bodySmall?.color,
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        opportunity.requiredRole.label,
-                        style: text.bodySmall?.copyWith(
-                          color: AppColors.textTertiary,
-                        ),
-                      ),
+                      Text(opportunity.requiredRole.label, style: text.bodySmall),
                     ],
                   ),
                 ],
@@ -247,26 +235,17 @@ class OpportunityCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'By ${opportunity.requesterName}',
-                      style: text.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: text.bodySmall,
                     ),
                   ),
                   if (opportunity.claimerId != null &&
                       !opportunity.isVerified) ...<Widget>[
                     Text(
                       'Attended to by ${opportunity.claimerName ?? 'someone'}',
-                      style: text.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                      style: text.bodySmall,
                     ),
                   ] else if (opportunity.isVerified) ...<Widget>[
-                    Text(
-                      'Verified',
-                      style: text.bodySmall?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
+                    Text('Verified', style: text.bodySmall),
                   ],
                 ],
               ),
@@ -296,7 +275,7 @@ class OpportunityCard extends StatelessWidget {
                         TextButton(
                           onPressed: onUnclaim,
                           style: TextButton.styleFrom(
-                            foregroundColor: AppColors.textTertiary,
+                            foregroundColor: text.bodySmall?.color,
                           ),
                           child: const Text('Unclaim'),
                         ),
@@ -327,9 +306,12 @@ class OpportunityCard extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: AppColors.cream,
+                          color: Theme.of(context).colorScheme.surface,
                           borderRadius: BorderRadius.circular(
                             AppSpacing.radiusSm,
+                          ),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
                           ),
                         ),
                         child: Column(
@@ -347,7 +329,7 @@ class OpportunityCard extends StatelessWidget {
                               Text(
                                 opportunity.resultUrl!,
                                 style: text.bodySmall?.copyWith(
-                                  color: AppColors.primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],

@@ -222,8 +222,11 @@ class _ContributionHeader extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        // Theme-aware — was a fixed light cream box that stayed light (with
+        // unreadable text) in dark mode.
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: <Widget>[
@@ -239,9 +242,7 @@ class _ContributionHeader extends ConsumerWidget {
                 ),
                 Text(
                   '${my.reputation} reputation',
-                  style: text.bodySmall?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: text.bodySmall,
                 ),
               ],
             ),
@@ -253,7 +254,11 @@ class _ContributionHeader extends ConsumerWidget {
                   padding: const EdgeInsets.only(left: AppSpacing.xs),
                   child: Tooltip(
                     message: '${badge.label}: ${badge.description}',
-                    child: Icon(badge.icon, color: AppColors.primary, size: 22),
+                    child: Icon(
+                      badge.icon,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
                   ),
                 );
               }).toList(),
@@ -508,17 +513,17 @@ class _OpportunityMapScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Row(
                       children: <Widget>[
-                        const Icon(
+                        Icon(
                           Icons.favorite,
                           size: 16,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
                           '\$${(raisedCents / 100).toStringAsFixed(2)} raised to support this research',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                                color: AppColors.primary,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),

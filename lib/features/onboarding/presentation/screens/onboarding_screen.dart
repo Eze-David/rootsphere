@@ -559,8 +559,76 @@ class _Footer extends StatelessWidget {
                 _open(context, const LegalDocumentScreen.privacyPolicy()),
             child: const Text('Privacy Policy'),
           ),
+          TextButton(
+            onPressed: () => _showContactUsDialog(context),
+            child: const Text('Contact us'),
+          ),
         ],
       ),
+    );
+  }
+
+  void _showContactUsDialog(BuildContext context) {
+    showDialog<void>(context: context, builder: (_) => const _ContactUsDialog());
+  }
+}
+
+/// A lightweight "Contact us" for signed-out visitors — the full message
+/// form in Profile ▸ Support requires a signed-in account (messages are
+/// attributed to a user), which doesn't apply here on the public landing
+/// page, so this just offers the support email to copy.
+class _ContactUsDialog extends StatelessWidget {
+  const _ContactUsDialog();
+
+  static const String _supportEmail = 'contact.us@rootsphere.ink';
+
+  Future<void> _copyEmail(BuildContext context) async {
+    await Clipboard.setData(const ClipboardData(text: _supportEmail));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Email address copied.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Contact us'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            "Have a question or found an issue? We'd love to hear from you.",
+          ),
+          const SizedBox(height: AppSpacing.md),
+          InkWell(
+            onTap: () => _copyEmail(context),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.copy_outlined,
+                    size: 18,
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Text(_supportEmail, style: Theme.of(context).textTheme.bodyMedium),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

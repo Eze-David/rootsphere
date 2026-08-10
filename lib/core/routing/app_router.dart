@@ -6,8 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/auth_screen.dart';
+import '../../features/auth/presentation/screens/legal_document_screen.dart';
 import '../../features/auth/presentation/screens/reset_password_screen.dart';
 import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../features/collab/presentation/screens/donation_thank_you_screen.dart';
 import '../../features/collab/presentation/screens/opportunities_screen.dart';
 import '../../features/collab/presentation/screens/company_requests_screen.dart';
 import '../../features/collab/presentation/screens/role_verification_review_screen.dart';
@@ -59,6 +61,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final String location = state.matchedLocation;
       final bool onOnboarding = location == AppRoutes.onboarding;
       final bool onAuthRoute = location == AppRoutes.auth;
+      // These must work as standalone URLs (Play Console/App Store Connect
+      // link to the legal docs directly; Paystack redirects here after
+      // checkout) regardless of onboarding/sign-in state — never redirected
+      // away like every other route below.
+      final bool onStandalonePublicPage =
+          location == AppRoutes.privacyPolicy ||
+          location == AppRoutes.termsOfService ||
+          location == AppRoutes.donationThankYou;
+      if (onStandalonePublicPage) return null;
 
       // First-launch: force onboarding until completed.
       if (!onboarded) return onOnboarding ? null : AppRoutes.onboarding;
@@ -105,6 +116,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.resetPassword,
         name: 'reset-password',
         builder: (_, _) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.privacyPolicy,
+        name: 'privacy-policy',
+        builder: (_, _) => const LegalDocumentScreen.privacyPolicy(),
+      ),
+      GoRoute(
+        path: AppRoutes.termsOfService,
+        name: 'terms-of-service',
+        builder: (_, _) => const LegalDocumentScreen.termsOfService(),
+      ),
+      GoRoute(
+        path: AppRoutes.donationThankYou,
+        name: 'donation-thank-you',
+        builder: (_, _) => const DonationThankYouScreen(),
       ),
       GoRoute(
         path: '${AppRoutes.person}/:id',

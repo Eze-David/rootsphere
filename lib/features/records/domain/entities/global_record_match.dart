@@ -42,6 +42,42 @@ class GlobalRecordMatch {
     return parts.join(' · ');
   }
 
+  /// Same extension-sniffing as [Record.mediaKind] — used to decide whether
+  /// "View" shows an image, a PDF viewer, or an extracted-text reader.
+  RecordMediaKind get mediaKind {
+    final String name = (fileName ?? fileUrl ?? '').toLowerCase();
+    if (name.isEmpty) return RecordMediaKind.none;
+    final int dot = name.lastIndexOf('.');
+    final String ext = dot >= 0 ? name.substring(dot + 1) : '';
+    const Set<String> images = <String>{
+      'jpg',
+      'jpeg',
+      'png',
+      'gif',
+      'webp',
+      'heic',
+      'bmp',
+    };
+    if (images.contains(ext)) return RecordMediaKind.image;
+    if (ext == 'pdf') return RecordMediaKind.pdf;
+    if (ext.isEmpty) return RecordMediaKind.none;
+    return RecordMediaKind.document;
+  }
+
+  bool get hasImage => mediaKind == RecordMediaKind.image && fileUrl != null;
+
+  /// An evidence-style citation, mirroring [Record.citation] (no override
+  /// concept here — this is someone else's record, not editable).
+  String get citation {
+    final List<String> parts = <String>[];
+    final String subject = title.trim();
+    final String typeLabel = type.label;
+    parts.add(subject.isNotEmpty ? '$typeLabel record for $subject' : '$typeLabel record');
+    if (repository.trim().isNotEmpty) parts.add(repository.trim());
+    if (year != null) parts.add('$year');
+    return '${parts.join(', ')}.';
+  }
+
   factory GlobalRecordMatch.fromRow(Map<String, dynamic> row) {
     DateTime? parse(dynamic v) =>
         v == null ? null : DateTime.tryParse(v.toString());

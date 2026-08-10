@@ -37,4 +37,18 @@ abstract class AppRoutes {
 
   /// Admin-only "Contact us" inbox, pushed over the shell: `/admin/support`.
   static const String supportMessages = '/admin/support';
+
+  /// Public legal documents — reachable standalone (signed out, not
+  /// onboarded) so they work as store-listing URLs (Play Console, App Store
+  /// Connect), not just as an in-app push from the sign-up/footer links.
+  static const String privacyPolicy = '/privacy-policy';
+  static const String termsOfService = '/terms-of-service';
+
+  /// Paystack's post-checkout `callback_url` lands here — must be a real
+  /// page on our own domain, not a Supabase Edge Function URL: Supabase's
+  /// function gateway force-overrides Content-Type to text/plain (plus a
+  /// sandboxed CSP) on every function response, specifically to stop
+  /// *.supabase.co from being used to host arbitrary HTML. Reachable
+  /// standalone like the legal docs above (donor may not be signed in).
+  static const String donationThankYou = '/donation-thank-you';
 }

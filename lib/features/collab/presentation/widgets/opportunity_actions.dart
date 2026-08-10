@@ -102,13 +102,12 @@ Future<void> showOpportunityDetail(
                         Icon(
                           Icons.location_on_outlined,
                           size: 18,
-                          color: AppColors.textTertiary,
+                          color: Theme.of(context).textTheme.bodySmall?.color,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
                           opportunity.location!,
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: AppColors.textSecondary),
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ],
                     ),
@@ -118,14 +117,12 @@ Future<void> showOpportunityDetail(
                       Icon(
                         opportunity.requiredRole.icon,
                         size: 18,
-                        color: AppColors.textTertiary,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                       const SizedBox(width: AppSpacing.xs),
                       Text(
                         opportunity.requiredRole.label,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
@@ -134,18 +131,14 @@ Future<void> showOpportunityDetail(
               const SizedBox(height: AppSpacing.md),
               Text(
                 'Requested by ${opportunity.requesterName}',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.textSecondary,
-                ),
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
               if (opportunity.claimerId != null &&
                   !opportunity.isVerified) ...<Widget>[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Attended to by ${opportunity.claimerName ?? 'someone'}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
+                  style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
               if (opportunity.status == OpportunityStatus.claimed &&
@@ -158,25 +151,37 @@ Future<void> showOpportunityDetail(
                     color: AppColors.sunGoldLight,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   ),
+                  // Text colour is deliberately fixed (not theme-derived) —
+                  // this banner's light amber background doesn't change with
+                  // the theme, so its text shouldn't switch to a light
+                  // dark-mode colour and disappear against it.
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: <Widget>[
-                      Row(
+                      const Row(
                         children: <Widget>[
-                          const Icon(
+                          Icon(
                             Icons.feedback_outlined,
                             size: 16,
                             color: AppColors.sunGold,
                           ),
-                          const SizedBox(width: AppSpacing.xs),
+                          SizedBox(width: AppSpacing.xs),
                           Text(
                             'Changes requested by the company',
-                            style: Theme.of(context).textTheme.labelSmall,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.0,
+                              color: AppColors.textPrimary,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: AppSpacing.xs),
-                      Text(opportunity.companyFeedback!),
+                      Text(
+                        opportunity.companyFeedback!,
+                        style: const TextStyle(color: AppColors.textPrimary),
+                      ),
                     ],
                   ),
                 ),
@@ -192,17 +197,17 @@ Future<void> showOpportunityDetail(
                     padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                     child: Row(
                       children: <Widget>[
-                        const Icon(
+                        Icon(
                           Icons.favorite,
                           size: 16,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
                           '₦${(raisedCents / 100).toStringAsFixed(2)} raised to support this research',
                           style: Theme.of(context).textTheme.bodyMedium
                               ?.copyWith(
-                                color: AppColors.primary,
+                                color: Theme.of(context).colorScheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
                         ),
@@ -227,8 +232,9 @@ Future<void> showOpportunityDetail(
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.cream,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                  border: Border.all(color: Theme.of(context).dividerColor),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -238,7 +244,7 @@ Future<void> showOpportunityDetail(
                         Icon(
                           opportunity.requiredRole.icon,
                           size: 18,
-                          color: AppColors.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                         const SizedBox(width: AppSpacing.xs),
                         Text(
@@ -274,9 +280,12 @@ Future<void> showOpportunityDetail(
                           width: double.infinity,
                           padding: const EdgeInsets.all(AppSpacing.md),
                           decoration: BoxDecoration(
-                            color: AppColors.cream,
+                            color: Theme.of(context).colorScheme.surface,
                             borderRadius: BorderRadius.circular(
                               AppSpacing.radiusSm,
+                            ),
+                            border: Border.all(
+                              color: Theme.of(context).dividerColor,
                             ),
                           ),
                           child: Column(
@@ -294,7 +303,11 @@ Future<void> showOpportunityDetail(
                                 Text(
                                   opportunity.resultUrl!,
                                   style: Theme.of(context).textTheme.bodySmall
-                                      ?.copyWith(color: AppColors.primary),
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                      ),
                                 ),
                               ],
                             ],
@@ -719,8 +732,9 @@ class _FinderSubmissionView extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -747,10 +761,7 @@ class _FinderSubmissionView extends StatelessWidget {
           if (submission.sources.isEmpty)
             Text(
               'None added',
-              style: text.bodyMedium?.copyWith(
-                color: AppColors.textTertiary,
-                fontStyle: FontStyle.italic,
-              ),
+              style: text.bodyMedium?.copyWith(fontStyle: FontStyle.italic),
             )
           else
             for (final ResearchSource s in submission.sources)
@@ -772,7 +783,7 @@ class _SourceTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
       child: Column(
@@ -802,8 +813,9 @@ class _IndexerSubmissionView extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,7 +845,7 @@ class _IndexerSubmissionView extends StatelessWidget {
                     size: 16,
                     color: submission.qualityChecks.contains(q)
                         ? AppColors.success
-                        : AppColors.textTertiary,
+                        : Theme.of(context).textTheme.bodySmall?.color,
                   ),
                   const SizedBox(width: AppSpacing.xs),
                   Text(q.label, style: text.bodySmall),
@@ -863,12 +875,13 @@ class _InfoBanner extends StatelessWidget {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: AppColors.cream,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 18, color: AppColors.textSecondary),
+          Icon(icon, size: 18, color: Theme.of(context).textTheme.bodyMedium?.color),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
@@ -900,10 +913,11 @@ class _SubmissionField extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             isEmpty ? 'Not provided' : value!,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: isEmpty ? AppColors.textTertiary : null,
-              fontStyle: isEmpty ? FontStyle.italic : FontStyle.normal,
-            ),
+            style: isEmpty
+                ? Theme.of(context).textTheme.bodySmall?.copyWith(
+                    fontStyle: FontStyle.italic,
+                  )
+                : Theme.of(context).textTheme.bodyMedium,
           ),
         ],
       ),
@@ -951,15 +965,16 @@ class _ClaimSection extends ConsumerWidget {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: AppColors.cream,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.apartment_outlined,
               size: 18,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
@@ -998,15 +1013,16 @@ class _ClaimSection extends ConsumerWidget {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: AppColors.cream,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: <Widget>[
-            const Icon(
+            Icon(
               Icons.hourglass_top,
               size: 18,
-              color: AppColors.textSecondary,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
