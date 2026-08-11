@@ -6,6 +6,7 @@ import 'package:printing/printing.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../data/services/tree_pdf_service.dart';
 import '../../domain/entities/person.dart';
 import '../layout/tree_layout.dart';
@@ -261,7 +262,10 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
       ),
       body: personsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load tree: $e')),
+        error: (e, _) => ErrorRetryView(
+          error: e,
+          onRetry: () => ref.invalidate(personsProvider),
+        ),
         data: (persons) {
           if (persons.isEmpty) {
             return _EmptyTree(onAdd: () => _addRootPerson(context, treeId));

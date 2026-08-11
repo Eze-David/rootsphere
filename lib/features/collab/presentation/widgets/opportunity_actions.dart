@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../domain/entities/finder_submission.dart';
@@ -465,7 +466,7 @@ Future<void> claimOpportunity(
           ? "You're not verified for this role yet."
           : e.toString().contains('company_request_admin_only')
           ? 'Only the company can claim this request.'
-          : 'Could not claim: ${e.toString()}';
+          : 'Could not claim: ${friendlyErrorMessage(e)}';
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -534,7 +535,11 @@ Future<void> submitOpportunityResult(
             } catch (e) {
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Could not submit: ${e.toString()}')),
+                  SnackBar(
+                    content: Text(
+                      'Could not submit: ${friendlyErrorMessage(e)}',
+                    ),
+                  ),
                 );
               }
             }
@@ -583,7 +588,7 @@ Future<void> verifyOpportunityResult(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not verify: ${e.toString()}')),
+        SnackBar(content: Text('Could not verify: ${friendlyErrorMessage(e)}')),
       );
     }
   }
@@ -606,7 +611,7 @@ Future<void> approveSubmission(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not approve: ${e.toString()}')),
+        SnackBar(content: Text('Could not approve: ${friendlyErrorMessage(e)}')),
       );
     }
   }
@@ -660,7 +665,9 @@ Future<void> rejectSubmission(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not send back: ${e.toString()}')),
+        SnackBar(
+          content: Text('Could not send back: ${friendlyErrorMessage(e)}'),
+        ),
       );
     }
   }
@@ -683,7 +690,7 @@ Future<void> unclaimOpportunity(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not unclaim: ${e.toString()}')),
+        SnackBar(content: Text('Could not unclaim: ${friendlyErrorMessage(e)}')),
       );
     }
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/data/african_locations.dart';
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../tree/data/services/geocoding_service.dart';
@@ -169,7 +170,9 @@ class _AddOpportunitySheetState extends ConsumerState<_AddOpportunitySheet> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Could not add: $e')));
+        ).showSnackBar(
+          SnackBar(content: Text('Could not add: ${friendlyErrorMessage(e)}')),
+        );
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

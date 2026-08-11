@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../../collab/presentation/providers/role_verification_providers.dart';
 import '../../domain/entities/support_message.dart';
 import '../../domain/entities/support_message_reply.dart';
@@ -82,7 +83,12 @@ class _SupportMessageThreadScreenState
           Expanded(
             child: repliesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(child: Text('Failed to load: $e')),
+              error: (e, _) => ErrorRetryView(
+                error: e,
+                onRetry: () => ref.invalidate(
+                  supportMessageRepliesProvider(widget.message.id),
+                ),
+              ),
               data: (replies) {
                 return ListView(
                   controller: _scrollController,

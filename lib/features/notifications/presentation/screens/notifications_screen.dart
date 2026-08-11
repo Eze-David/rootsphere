@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../domain/entities/app_notification.dart';
 import '../providers/notification_providers.dart';
 
@@ -31,7 +32,10 @@ class NotificationsScreen extends ConsumerWidget {
       ),
       body: notificationsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => ErrorRetryView(
+          error: e,
+          onRetry: () => ref.invalidate(notificationsProvider),
+        ),
         data: (notifications) {
           if (notifications.isEmpty) {
             return Center(

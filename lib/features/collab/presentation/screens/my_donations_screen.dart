@@ -7,6 +7,7 @@ import '../../domain/entities/donation.dart';
 import '../../domain/entities/opportunity.dart';
 import '../providers/donation_providers.dart';
 import '../providers/opportunity_providers.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../widgets/donate_dialog.dart';
 import '../widgets/opportunity_card.dart';
 
@@ -42,11 +43,9 @@ class MyDonationsScreen extends ConsumerWidget {
       ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Text(
-            'Could not load your donations.',
-            style: text.bodyMedium?.copyWith(color: AppColors.error),
-          ),
+        error: (e, _) => ErrorRetryView(
+          error: e,
+          onRetry: () => ref.invalidate(myDonationsProvider),
         ),
         data: (donations) {
           if (donations.isEmpty) {

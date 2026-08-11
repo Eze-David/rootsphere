@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../../../shared/widgets/fullscreen_document_text_viewer.dart';
 import '../../../../shared/widgets/fullscreen_image_viewer.dart';
 import '../../../../shared/widgets/fullscreen_pdf_viewer.dart';
@@ -56,7 +57,10 @@ class RoleVerificationReviewScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Review applications')),
       body: pendingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => ErrorRetryView(
+          error: e,
+          onRetry: () => ref.invalidate(pendingRoleVerificationsProvider),
+        ),
         data: (pending) {
           if (pending.isEmpty) {
             return Center(

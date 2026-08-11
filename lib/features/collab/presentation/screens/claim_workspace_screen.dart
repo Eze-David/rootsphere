@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
@@ -177,7 +178,7 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: ${e.toString()}')),
+          SnackBar(content: Text('Could not save: ${friendlyErrorMessage(e)}')),
         );
       }
     } finally {
@@ -223,7 +224,7 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not submit: ${e.toString()}')),
+          SnackBar(content: Text('Could not submit: ${friendlyErrorMessage(e)}')),
         );
       }
     } finally {

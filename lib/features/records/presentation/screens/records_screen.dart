@@ -16,6 +16,7 @@ import '../widgets/historical_result_card.dart';
 import '../widgets/record_card.dart';
 import '../widgets/record_upload_sheet.dart';
 import '../widgets/records_library_hero.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../domain/entities/global_person_match.dart';
 import '../../domain/entities/global_record_match.dart';
 import '../../domain/entities/historical_record.dart';
@@ -195,10 +196,9 @@ class _RecordsScreenState extends ConsumerState<RecordsScreen> {
           Expanded(
             child: recordsAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => _Message(
-                icon: Icons.error_outline,
-                title: 'Could not load records',
-                subtitle: '$e',
+              error: (e, _) => ErrorRetryView(
+                error: e,
+                onRetry: () => ref.invalidate(recordsProvider),
               ),
               data: (_) {
                 final String query = ref.watch(recordSearchProvider).trim();

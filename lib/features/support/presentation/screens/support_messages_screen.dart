@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../shared/widgets/error_retry_view.dart';
 import '../../domain/entities/support_message.dart';
 import '../providers/support_message_providers.dart';
 import 'support_message_thread_screen.dart';
@@ -24,7 +25,10 @@ class SupportMessagesScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Support messages')),
       body: messagesAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => ErrorRetryView(
+          error: e,
+          onRetry: () => ref.invalidate(supportMessagesProvider),
+        ),
         data: (messages) {
           if (messages.isEmpty) {
             return Center(
