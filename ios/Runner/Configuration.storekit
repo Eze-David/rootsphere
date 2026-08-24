@@ -1,0 +1,142 @@
+{
+  "identifier" : "6DE8F73A-3932-4B0C-9BB0-BF69EE393553",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "1.99",
+      "familyShareable" : false,
+      "internalID" : "2B809147-6B5B-45C9-883A-2131D796B003",
+      "localizations" : [
+        {
+          "description" : "A one-time $1.99 donation to Rootsphere.",
+          "displayName" : "Donate $1.99",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.rootsphere.rootsphere.donation.tier1",
+      "referenceName" : "Donation Tier 1",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "F534FBB0-D8E0-43C6-ABCB-F8F1A175A7E4",
+      "localizations" : [
+        {
+          "description" : "A one-time $4.99 donation to Rootsphere.",
+          "displayName" : "Donate $4.99",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.rootsphere.rootsphere.donation.tier2",
+      "referenceName" : "Donation Tier 2",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "9.99",
+      "familyShareable" : false,
+      "internalID" : "060A4C0C-0846-4889-9C5F-9713B59603F4",
+      "localizations" : [
+        {
+          "description" : "A one-time $9.99 donation to Rootsphere.",
+          "displayName" : "Donate $9.99",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.rootsphere.rootsphere.donation.tier3",
+      "referenceName" : "Donation Tier 3",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "19.99",
+      "familyShareable" : false,
+      "internalID" : "BDB7F6A7-A110-4243-B49D-DFAEB31CFBF7",
+      "localizations" : [
+        {
+          "description" : "A one-time $19.99 donation to Rootsphere.",
+          "displayName" : "Donate $19.99",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.rootsphere.rootsphere.donation.tier4",
+      "referenceName" : "Donation Tier 4",
+      "type" : "Consumable"
+    },
+    {
+      "displayPrice" : "49.99",
+      "familyShareable" : false,
+      "internalID" : "723E8B6F-6799-4098-A4D4-F23EBA064E25",
+      "localizations" : [
+        {
+          "description" : "A one-time $49.99 donation to Rootsphere.",
+          "displayName" : "Donate $49.99",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.rootsphere.rootsphere.donation.tier5",
+      "referenceName" : "Donation Tier 5",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_askToBuyEnabled" : false,
+    "_billingIssuesEnabled" : false,
+    "_disableDialogViews" : false,
+    "_failTransactionsEnabled" : false,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ],
+    "_timeRate" : 1
+  },
+  "subscriptionGroups" : [],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

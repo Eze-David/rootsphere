@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/config/supabase_config.dart';
 import '../../data/repositories/donation_repository_local.dart';
 import '../../data/repositories/donation_repository_supabase.dart';
+import '../../data/services/apple_iap_donation_service.dart';
 import '../../data/services/donation_checkout_service.dart';
 import '../../domain/entities/donation.dart';
 import '../../domain/repositories/donation_repository.dart';
@@ -19,8 +20,15 @@ final donationRepositoryProvider = Provider<DonationRepository>((ref) {
 });
 
 /// Starts a Paystack transaction for a donation (Supabase Edge Function).
+/// Android and web only — see [appleIapDonationServiceProvider] for iOS.
 final donationCheckoutServiceProvider = Provider<DonationCheckoutService>(
   (ref) => DonationCheckoutService(),
+);
+
+/// Runs a donation through Apple In-App Purchase — required on iOS by App
+/// Store Guideline 3.1.1.
+final appleIapDonationServiceProvider = Provider<AppleIapDonationService>(
+  (ref) => AppleIapDonationService(),
 );
 
 /// Donations for a given opportunity, newest first.

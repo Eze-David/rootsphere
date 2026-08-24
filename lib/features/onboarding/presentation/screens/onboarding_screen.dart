@@ -560,6 +560,10 @@ class _Footer extends StatelessWidget {
             child: const Text('Privacy Policy'),
           ),
           TextButton(
+            onPressed: () => _open(context, const _FaqScreen()),
+            child: const Text('FAQ'),
+          ),
+          TextButton(
             onPressed: () => _showContactUsDialog(context),
             child: const Text('Contact us'),
           ),
@@ -629,6 +633,98 @@ class _ContactUsDialog extends StatelessWidget {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+class _FaqItem {
+  const _FaqItem(this.question, this.answer);
+  final String question;
+  final String answer;
+}
+
+const List<_FaqItem> _faqItems = <_FaqItem>[
+  _FaqItem(
+    'What is Rootsphere?',
+    'Rootsphere is a family-tree app built for African genealogy. You can '
+        'build your family tree, upload and search historical records, '
+        'collaborate with relatives on research, and get help from an AI '
+        'research assistant.',
+  ),
+  _FaqItem(
+    'Is Rootsphere free to use?',
+    "Yes — creating an account, building your tree, and uploading records "
+        "are all free. \"Donate\" is a separate, optional way to support "
+        "Rootsphere's record-digitization work; it isn't required for any "
+        "feature.",
+  ),
+  _FaqItem(
+    'Do I need a family tree before I can upload records?',
+    "No. You can upload a record as soon as you sign up, even before you've "
+        'added anyone to a tree — it stays attached to your account and you '
+        'can link it to a person later.',
+  ),
+  _FaqItem(
+    'Where do the historical records come from?',
+    'Some are uploaded by you or people you invite; others are shared by '
+        'the wider Rootsphere community — searchable across registries and '
+        "countries. Every upload is OCR'd automatically so it's searchable "
+        'and easy to cite.',
+  ),
+  _FaqItem(
+    'Can I work on a tree with other family members?',
+    'Yes — invite relatives to your tree, post record-gathering tasks for '
+        "others to claim, and verify each other's contributions from the "
+        'Collab tab.',
+  ),
+  _FaqItem(
+    'How does the AI research assistant work?',
+    "It looks at what's already in your tree and suggests likely "
+        'ancestors, generates timelines, and recommends what to research '
+        'next — a starting point for your own research, not a substitute '
+        'for it.',
+  ),
+  _FaqItem(
+    'Is my family tree data private?',
+    'Yes. Your tree and personal notes are only visible to you and anyone '
+        'you invite. See our Privacy Policy for details on what we collect '
+        'and how it\'s used.',
+  ),
+];
+
+/// Public, signed-out-accessible answers to common questions — pushed from
+/// the landing page footer alongside Terms of Service / Privacy Policy.
+class _FaqScreen extends StatelessWidget {
+  const _FaqScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Scaffold(
+      appBar: AppBar(title: const Text('FAQ')),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        itemCount: _faqItems.length,
+        separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+        itemBuilder: (context, index) {
+          final _FaqItem item = _faqItems[index];
+          return Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
+              title: Text(
+                item.question,
+                style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+              ),
+              expandedAlignment: Alignment.centerLeft,
+              children: <Widget>[
+                Text(item.answer, style: text.bodyMedium),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

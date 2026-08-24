@@ -24,8 +24,8 @@ extension DonationStatusX on DonationStatus {
 class Donation {
   const Donation({
     required this.id,
-    required this.opportunityId,
-    required this.treeId,
+    this.opportunityId,
+    this.treeId,
     this.donorId,
     this.donorName = 'Anonymous',
     this.donorEmail,
@@ -38,8 +38,11 @@ class Donation {
   });
 
   final String id;
-  final String opportunityId;
-  final String treeId;
+
+  /// Null for a general donation to Rootsphere itself, not tied to any
+  /// specific research opportunity.
+  final String? opportunityId;
+  final String? treeId;
   final String? donorId;
   final String donorName;
   final String? donorEmail;
@@ -74,8 +77,8 @@ class Donation {
         v == null ? null : DateTime.tryParse(v.toString());
     return Donation(
       id: json['id'] as String,
-      opportunityId: json['opportunityId'] as String,
-      treeId: json['treeId'] as String,
+      opportunityId: json['opportunityId'] as String?,
+      treeId: json['treeId'] as String?,
       donorId: json['donorId'] as String?,
       donorName: json['donorName'] as String? ?? 'Anonymous',
       donorEmail: json['donorEmail'] as String?,

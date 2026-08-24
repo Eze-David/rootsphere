@@ -51,8 +51,8 @@ class DonationRepositorySupabase implements DonationRepository {
         v == null ? null : DateTime.tryParse(v.toString());
     return Donation(
       id: row['id'] as String,
-      opportunityId: row['opportunity_id'] as String,
-      treeId: row['tree_id'] as String,
+      opportunityId: row['opportunity_id'] as String?,
+      treeId: row['tree_id'] as String?,
       donorId: row['donor_id'] as String?,
       donorName: row['donor_name'] as String? ?? 'Anonymous',
       donorEmail: row['donor_email'] as String?,

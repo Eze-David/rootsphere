@@ -1,9 +1,14 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/services/apple_iap_donation_service.dart';
 import '../../domain/entities/opportunity.dart';
 import '../providers/donation_providers.dart';
 
@@ -16,16 +21,31 @@ const List<int> _presetAmountsCents = <int>[
   1000000,
 ];
 
-/// Shows the "Support this research" flow: pick an amount, enter an email
-/// (Paystack requires one) and optionally a name/message, then opens the
-/// Paystack payment page in the browser. The donation is only ever marked
-/// complete by the `paystack-webhook` function — this just starts it.
+/// Shows the donate flow appropriate to the platform: Apple In-App Purchase
+/// natively on iOS (required by App Store Guideline 3.1.1 — a donation
+/// button counts as a paid transaction there regardless of it being
+/// optional), or the existing Paystack checkout everywhere else.
 ///
 /// When [opportunity] is omitted, this is a general donation to Rootsphere
 /// itself rather than a specific research opportunity — e.g. from the
 /// sign-in screen, for someone who doesn't want to create an account just
 /// to donate.
 Future<void> showDonateDialog(
+  BuildContext context,
+  WidgetRef ref, [
+  CollaborationOpportunity? opportunity,
+]) {
+  if (!kIsWeb && Platform.isIOS) {
+    return _showAppleIapDonateSheet(context, ref, opportunity);
+  }
+  return _showPaystackDonateSheet(context, ref, opportunity);
+}
+
+/// Pick an amount, enter an email (Paystack requires one) and optionally a
+/// name/message, then opens the Paystack payment page in the browser. The
+/// donation is only ever marked complete by the `paystack-webhook` function
+/// — this just starts it.
+Future<void> _showPaystackDonateSheet(
   BuildContext context,
   WidgetRef ref, [
   CollaborationOpportunity? opportunity,
@@ -202,6 +222,171 @@ Future<void> showDonateDialog(
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   'Handled securely by Paystack. You\'ll finish payment in your browser.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+}
+
+/// Pick one of the fixed consumable tiers and pay via Apple's native
+/// in-app-purchase sheet — no email/custom amount, Apple handles the
+/// payment and receipt entirely. Only recorded as a completed donation once
+/// `apple-iap-verify` confirms it against Apple's own transaction record.
+Future<void> _showAppleIapDonateSheet(
+  BuildContext context,
+  WidgetRef ref, [
+  CollaborationOpportunity? opportunity,
+]) async {
+  final AppleIapDonationService service = ref.read(
+    appleIapDonationServiceProvider,
+  );
+
+  if (!await service.isAvailable()) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('In-app purchases aren\'t available right now.'),
+      ),
+    );
+    return;
+  }
+
+  final Map<String, ProductDetails> tiers = await service.queryTiers();
+  if (!context.mounted) return;
+  if (tiers.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Donation options aren\'t available right now.'),
+      ),
+    );
+    return;
+  }
+
+  final List<ProductDetails> orderedTiers = <ProductDetails>[
+    for (final String id in appleDonationTierProductIds)
+      if (tiers[id] != null) tiers[id]!,
+  ];
+  ProductDetails selected = orderedTiers.first;
+  final TextEditingController nameController = TextEditingController();
+  final TextEditingController messageController = TextEditingController();
+  bool submitting = false;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) {
+        Future<void> submit() async {
+          setState(() => submitting = true);
+          final AppleIapDonationResult result = await service.donate(
+            product: selected,
+            opportunityId: opportunity?.id,
+            treeId: opportunity?.treeId,
+            donorName: nameController.text.trim().isEmpty
+                ? null
+                : nameController.text.trim(),
+            message: messageController.text.trim().isEmpty
+                ? null
+                : messageController.text.trim(),
+          );
+          if (!ctx.mounted) return;
+          Navigator.pop(ctx);
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                result.success
+                    ? 'Thank you for your donation!'
+                    : (result.message ?? 'Could not complete your donation.'),
+              ),
+            ),
+          );
+        }
+
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: AppSpacing.lg,
+              right: AppSpacing.lg,
+              top: AppSpacing.lg,
+              bottom: AppSpacing.lg + MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  opportunity == null
+                      ? 'Support Rootsphere'
+                      : 'Support this research',
+                  style: Theme.of(ctx).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  opportunity?.title ??
+                      'Help us build and maintain the platform.',
+                  style: Theme.of(ctx).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Wrap(
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  children: <Widget>[
+                    for (final ProductDetails tier in orderedTiers)
+                      ChoiceChip(
+                        label: Text(tier.price),
+                        selected: selected.id == tier.id,
+                        onSelected: (_) => setState(() => selected = tier),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: nameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    hintText: 'Your name (optional)',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextField(
+                  controller: messageController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    hintText: 'Message (optional)',
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: submitting ? null : submit,
+                    child: submitting
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text('Donate ${selected.price}'),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Processed securely by Apple.',
                   textAlign: TextAlign.center,
                   style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
                     color: AppColors.textTertiary,
