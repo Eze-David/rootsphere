@@ -24,6 +24,11 @@ class LegalDocumentScreen extends StatelessWidget {
         intro = LegalDocuments.privacyPolicyIntro,
         sections = LegalDocuments.privacyPolicy;
 
+  const LegalDocumentScreen.ourFoundation({super.key})
+      : title = 'Our Foundation',
+        intro = LegalDocuments.ourFoundationIntro,
+        sections = LegalDocuments.ourFoundation;
+
   final String title;
   final String intro;
   final List<LegalSection> sections;

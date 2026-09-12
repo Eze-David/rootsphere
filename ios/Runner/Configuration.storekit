@@ -134,7 +134,57 @@
     ],
     "_timeRate" : 1
   },
-  "subscriptionGroups" : [],
+  "subscriptionGroups" : [
+    {
+      "id" : "8E8E6B35-3EA2-45AB-B8CF-61B93B17EA0F",
+      "localizations" : [],
+      "name" : "RootSphere Heritage Partner",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "4.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "4457A7AB-36FB-4812-AA46-BA8863C13ECC",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Monthly recurring gift to support RootSphere.",
+              "displayName" : "RootSphere Monthly Partner",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.rootsphere.rootsphere.donation.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "RootSphere Monthly Partner",
+          "subscriptionGroupID" : "8E8E6B35-3EA2-45AB-B8CF-61B93B17EA0F",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "49.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "5D8B203A-73E2-44CD-820A-F1F5CD813DBC",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "Annual recurring gift to support RootSphere.",
+              "displayName" : "RootSphere Annual Partner",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.rootsphere.rootsphere.donation.annual",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "RootSphere Annual Partner",
+          "subscriptionGroupID" : "8E8E6B35-3EA2-45AB-B8CF-61B93B17EA0F",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
   "version" : {
     "major" : 3,
     "minor" : 0

@@ -184,10 +184,11 @@ class _PersonCardWidgetState extends State<PersonCardWidget> {
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
-              vertical: AppSpacing.sm,
+              vertical: AppSpacing.xs,
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
@@ -196,27 +197,30 @@ class _PersonCardWidgetState extends State<PersonCardWidget> {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w700,
+                    height: 1.1,
                     color: nameColor,
                   ),
                 ),
                 if (span.isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     span,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
+                      height: 1.1,
                       color: spanColor,
                     ),
                   ),
                 ],
                 if ((person.code ?? '').isNotEmpty) ...<Widget>[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     person.code!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.labelSmall?.copyWith(
+                      height: 1.1,
                       color: spanColor,
                       letterSpacing: 0.5,
                     ),

@@ -46,6 +46,41 @@ class DonationRepositorySupabase implements DonationRepository {
         .map((rows) => rows.map(_fromRow).toList());
   }
 
+  @override
+  Stream<List<DonationSubscription>> watchMySubscriptions(String donorId) {
+    return _client
+        .from('donation_subscriptions')
+        .stream(primaryKey: <String>['id'])
+        .eq('donor_id', donorId)
+        .order('created_at')
+        .map((rows) => rows.map(_subscriptionFromRow).toList());
+  }
+
+  DonationSubscription _subscriptionFromRow(Map<String, dynamic> row) {
+    DateTime? parse(dynamic v) =>
+        v == null ? null : DateTime.tryParse(v.toString());
+    return DonationSubscription(
+      id: row['id'] as String,
+      donorId: row['donor_id'] as String?,
+      donorName: row['donor_name'] as String? ?? 'Anonymous',
+      donorEmail: row['donor_email'] as String?,
+      message: row['message'] as String?,
+      purpose: _purposeFromColumn(row['purpose'] as String?),
+      amountCents: (row['amount_cents'] as num?)?.round() ?? 0,
+      currency: row['currency'] as String? ?? 'ngn',
+      interval: DonationInterval.values.firstWhere(
+        (i) => i.name == row['interval'],
+        orElse: () => DonationInterval.monthly,
+      ),
+      status: DonationSubscriptionStatus.values.firstWhere(
+        (s) => s.name == row['status'],
+        orElse: () => DonationSubscriptionStatus.pending,
+      ),
+      createdAt: parse(row['created_at']),
+      cancelledAt: parse(row['cancelled_at']),
+    );
+  }
+
   Donation _fromRow(Map<String, dynamic> row) {
     DateTime? parse(dynamic v) =>
         v == null ? null : DateTime.tryParse(v.toString());
@@ -57,6 +92,7 @@ class DonationRepositorySupabase implements DonationRepository {
       donorName: row['donor_name'] as String? ?? 'Anonymous',
       donorEmail: row['donor_email'] as String?,
       message: row['message'] as String?,
+      purpose: _purposeFromColumn(row['purpose'] as String?),
       amountCents: (row['amount_cents'] as num?)?.round() ?? 0,
       currency: row['currency'] as String? ?? 'ngn',
       status: DonationStatus.values.firstWhere(
@@ -67,4 +103,12 @@ class DonationRepositorySupabase implements DonationRepository {
       completedAt: parse(row['completed_at']),
     );
   }
+}
+
+DonationPurpose? _purposeFromColumn(String? name) {
+  if (name == null) return null;
+  for (final DonationPurpose p in DonationPurpose.values) {
+    if (p.name == name) return p;
+  }
+  return null;
 }

@@ -24,6 +24,7 @@
 //   supabase functions deploy apple-iap-verify
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { BUNDLE_ID, fetchAppleTransaction } from "../_shared/apple_store.ts";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -38,8 +39,6 @@ function json(body: unknown, status = 200): Response {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 }
-
-const BUNDLE_ID = "com.rootsphere.rootsphere";
 
 // Fixed consumable donation tiers — must match the Product IDs created in
 // App Store Connect exactly. Apple's transaction record is the source of
@@ -62,98 +61,19 @@ interface RequestBody {
   donorName?: string;
   donorEmail?: string;
   message?: string;
+  purpose?: string;
 }
 
-function base64UrlEncode(bytes: Uint8Array): string {
-  let binary = "";
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function pemToPkcs8(pem: string): Uint8Array {
-  const stripped = pem
-    .replace(/-----BEGIN PRIVATE KEY-----/, "")
-    .replace(/-----END PRIVATE KEY-----/, "")
-    .replace(/\s+/g, "");
-  const binary = atob(stripped);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-/** Signs a short-lived ES256 JWT to authenticate against Apple's App Store Server API. */
-async function appStoreServerApiToken(): Promise<string> {
-  const keyId = Deno.env.get("APPLE_IAP_KEY_ID");
-  const issuerId = Deno.env.get("APPLE_IAP_ISSUER_ID");
-  const privateKeyPem = Deno.env.get("APPLE_IAP_PRIVATE_KEY");
-  if (!keyId || !issuerId || !privateKeyPem) throw new Error("unconfigured");
-
-  const key = await crypto.subtle.importKey(
-    "pkcs8",
-    pemToPkcs8(privateKeyPem),
-    { name: "ECDSA", namedCurve: "P-256" },
-    false,
-    ["sign"],
-  );
-
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const header = { alg: "ES256", kid: keyId, typ: "JWT" };
-  const payload = {
-    iss: issuerId,
-    iat: nowSeconds,
-    exp: nowSeconds + 600, // Apple caps this at 60 minutes; a short lifetime is plenty since we mint one per call.
-    aud: "appstoreconnect-v1",
-    bid: BUNDLE_ID,
-  };
-
-  const encoder = new TextEncoder();
-  const signingInput =
-    `${base64UrlEncode(encoder.encode(JSON.stringify(header)))}.` +
-    base64UrlEncode(encoder.encode(JSON.stringify(payload)));
-
-  const signature = await crypto.subtle.sign(
-    { name: "ECDSA", hash: "SHA-256" },
-    key,
-    encoder.encode(signingInput),
-  );
-
-  return `${signingInput}.${base64UrlEncode(new Uint8Array(signature))}`;
-}
-
-function decodeJwsPayload(jws: string): Record<string, unknown> {
-  const parts = jws.split(".");
-  if (parts.length !== 3) throw new Error("Malformed transaction JWS");
-  const padded = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-  const binary = atob(padded.padEnd(padded.length + ((4 - (padded.length % 4)) % 4), "="));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return JSON.parse(new TextDecoder().decode(bytes));
-}
-
-/** Fetches the authoritative transaction record from Apple — tries production first, then sandbox (TestFlight/review builds only ever exist in sandbox). */
-async function fetchAppleTransaction(
-  transactionId: string,
-): Promise<Record<string, unknown>> {
-  const token = await appStoreServerApiToken();
-  const hosts = [
-    "https://api.storekit.itunes.apple.com",
-    "https://api.storekit-sandbox.itunes.apple.com",
-  ];
-
-  let lastStatus = 0;
-  for (const host of hosts) {
-    const res = await fetch(`${host}/inApps/v1/transactions/${transactionId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const signedTransactionInfo = data.signedTransactionInfo as string;
-      return decodeJwsPayload(signedTransactionInfo);
-    }
-    lastStatus = res.status;
-  }
-  throw new Error(`Apple returned ${lastStatus} for transaction ${transactionId}`);
-}
+const KNOWN_PURPOSES = new Set<string>([
+  "generalPrograms",
+  "familyHistoryResearch",
+  "oralHistory",
+  "recordDigitization",
+  "genealogyEducation",
+  "appDevelopment",
+  "aiResearchAssistant",
+  "whereMostNeeded",
+]);
 
 async function insertCompletedDonation(row: Record<string, unknown>): Promise<void> {
   const url = Deno.env.get("SUPABASE_URL");
@@ -199,6 +119,8 @@ Deno.serve(async (req: Request) => {
   const donorName = body.donorName?.trim() || "Anonymous";
   const donorEmail = body.donorEmail?.trim() || null;
   const message = body.message?.trim() || null;
+  const purpose = body.purpose?.trim();
+  const validPurpose = purpose && KNOWN_PURPOSES.has(purpose) ? purpose : null;
 
   if (!transactionId) {
     return json({ available: false, message: "Missing transaction ID." });
@@ -234,6 +156,7 @@ Deno.serve(async (req: Request) => {
       donor_name: donorName,
       donor_email: donorEmail,
       message,
+      purpose: validPurpose,
       amount_cents: amountCents,
       currency,
       status: "completed",

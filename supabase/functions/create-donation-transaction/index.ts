@@ -55,7 +55,19 @@ interface RequestBody {
   donorEmail?: string;
   message?: string;
   donorId?: string;
+  purpose?: string;
 }
+
+const KNOWN_PURPOSES = new Set<string>([
+  "generalPrograms",
+  "familyHistoryResearch",
+  "oralHistory",
+  "recordDigitization",
+  "genealogyEducation",
+  "appDevelopment",
+  "aiResearchAssistant",
+  "whereMostNeeded",
+]);
 
 async function initializeTransaction(params: {
   reference: string;
@@ -142,6 +154,8 @@ Deno.serve(async (req: Request) => {
   const donorEmail = body.donorEmail?.trim() ?? "";
   const message = body.message?.trim() ?? "";
   const donorId = body.donorId?.trim() ?? "";
+  const purpose = body.purpose?.trim();
+  const validPurpose = purpose && KNOWN_PURPOSES.has(purpose) ? purpose : null;
 
   if (Boolean(opportunityId) !== Boolean(treeId)) {
     return json({ available: false, message: "Missing opportunity." }, 200);
@@ -188,6 +202,7 @@ Deno.serve(async (req: Request) => {
       donor_name: donorName,
       donor_email: donorEmail,
       message: message || null,
+      purpose: validPurpose,
       amount_cents: amountCents,
       currency,
       status: "pending",

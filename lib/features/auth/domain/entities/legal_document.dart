@@ -258,4 +258,193 @@ abstract class LegalDocuments {
       'Questions about this Policy or your data: contact.us@rootsphere.ink.',
     ),
   ];
+
+  static const String ourFoundationIntro =
+      'Discover Your Roots • Preserve Your Story • Connect Generations\n\n'
+      'RootSphere Family History Foundation is a nonprofit initiative '
+      'dedicated to helping individuals, families, and communities '
+      'discover, document, preserve, and share their family histories, '
+      'genealogy, cultural heritage, and memories.\n\n'
+      'We believe every person has a story, every family has a history, '
+      'and every community has a heritage worth preserving.\n\n'
+      'Across Africa and other parts of the world, much of our family '
+      'history exists not only in written records but also in oral '
+      'traditions, photographs, family documents, community records, '
+      'cemeteries, religious records, traditional institutions, and the '
+      'memories of elders. As generations pass, valuable information can '
+      'be lost if it is not intentionally documented and preserved.\n\n'
+      'RootSphere combines technology, genealogical research, education, '
+      'oral history, record preservation, and community participation to '
+      'make family history more accessible. Through the RootSphere App '
+      'and our wider programs, we seek to provide individuals and '
+      'families with practical tools to build family trees, preserve '
+      'memories, document important life events, record oral histories, '
+      'organize family records, and pass their heritage to future '
+      'generations.\n\n'
+      'While RootSphere has a strong commitment to African family history '
+      'and the preservation of underrepresented histories, our vision is '
+      'inclusive and global. Everyone deserves the opportunity to know '
+      'where they come from and preserve that knowledge for those who '
+      'come after them.';
+
+  static const List<LegalSection> ourFoundation = <LegalSection>[
+    LegalSection(
+      'Our Mission',
+      'Our mission is to empower individuals, families, and communities to '
+          'discover, document, preserve, and share their family history and '
+          'heritage through accessible technology, genealogical research, '
+          'education, community engagement, and responsible record '
+          'preservation.\n\n'
+          'We work to make family history understandable and accessible, '
+          'particularly in communities where historical information may be '
+          'scattered, undocumented, difficult to access, or primarily '
+          'preserved through oral tradition.',
+    ),
+    LegalSection(
+      'Our Vision',
+      'Our vision is a world where every person has the opportunity to '
+          'discover their roots, understand their heritage, preserve their '
+          'family story, and connect generations through family history.\n\n'
+          'We envision families and communities in which photographs, '
+          'documents, oral histories, cultural traditions, and ancestral '
+          'knowledge are preserved rather than forgotten and made '
+          'available responsibly to future generations.',
+    ),
+    LegalSection(
+      'Our Values',
+      '• Family — Understanding our families can strengthen identity, '
+          'belonging, relationships, and connections across generations.\n'
+          '• Preservation — Protecting family stories, photographs, '
+          'documents, oral histories, cultural knowledge, and historical '
+          'records from being permanently lost.\n'
+          '• Accuracy — Evidence-based family history, responsible '
+          'documentation, proper sourcing, and honest distinction between '
+          'established facts, family traditions, and information that '
+          'still requires verification.\n'
+          '• Respect — Approaching every family and community\'s history, '
+          'traditions, beliefs, and experiences with dignity and '
+          'sensitivity.\n'
+          '• Privacy — Responsible collection, storage, use, and sharing '
+          'of genealogical information, respecting privacy, consent, and '
+          'applicable data-protection requirements.\n'
+          '• Inclusion — Making genealogy accessible regardless of '
+          'nationality, ethnicity, social background, education, age, or '
+          'economic circumstances.\n'
+          '• Education — Helping people learn how to discover and '
+          'preserve their own histories, not just receive information.\n'
+          '• Innovation — Embracing appropriate technology that makes '
+          'research, preservation, collaboration, and education easier '
+          'and more accessible.\n'
+          '• Community — Encouraging community participation in '
+          'preserving the collective history of villages, towns, '
+          'institutions, migrations, occupations, and faith communities.',
+    ),
+    LegalSection(
+      'What We Do',
+      '• Family Tree Building — helping families create, organize, and '
+          'preserve family trees connecting parents, children, '
+          'grandparents, ancestors, descendants, and extended family.\n'
+          '• Genealogical Research — supporting research using available '
+          'sources to discover ancestors, establish relationships, and '
+          'document genealogical conclusions.\n'
+          '• Oral History Preservation — encouraging families to '
+          'interview elders and traditional leaders so their memories and '
+          'experiences can be recorded before they are lost.\n'
+          '• Memories and Family Stories — preserving photographs, '
+          'biographies, personal experiences, and family traditions so '
+          'future generations understand the lives behind the names.\n'
+          '• Records and Document Preservation — encouraging the '
+          'identification, digitization, and preservation of birth, '
+          'marriage, death, school, religious, military, migration, land, '
+          'cemetery, and other historical records, where lawfully '
+          'accessible.\n'
+          '• Genealogy Education and Training — workshops, tutorials, and '
+          'guidance that teach people how to begin and improve their '
+          'family history research.\n'
+          '• Community Heritage Projects — encouraging communities to '
+          'document their settlements, migrations, traditional '
+          'leadership, and cultural practices.\n'
+          '• Digital Preservation — using the RootSphere App and related '
+          'technology to organize and preserve genealogical information, '
+          'photographs, documents, stories, and recordings digitally.\n'
+          '• Research Collaboration — encouraging relatives, researchers, '
+          'volunteers, institutions, and communities to work together '
+          'responsibly to solve genealogical questions.',
+    ),
+    LegalSection(
+      'Our Objectives',
+      '• Promote family history awareness and encourage people to '
+          'understand the importance of discovering and preserving their '
+          'ancestry.\n'
+          '• Make genealogy more accessible, particularly in African '
+          'communities and other places where traditional genealogical '
+          'resources may be limited.\n'
+          '• Support family tree development with tools and guidance for '
+          'documenting relationships across generations.\n'
+          '• Preserve oral histories by encouraging the recording of '
+          'elders, family members, and other custodians of historical '
+          'knowledge.\n'
+          '• Promote responsible genealogical research based on evidence, '
+          'documentation, and source evaluation.\n'
+          '• Preserve family records and memories, including photographs, '
+          'documents, stories, and interviews.\n'
+          '• Support the digitization of vulnerable records where '
+          'appropriate and with the permission of their owners or '
+          'custodians.\n'
+          '• Provide genealogy education and training for individuals, '
+          'families, students, volunteers, researchers, and communities.\n'
+          '• Encourage young people to participate in family history so '
+          'heritage preservation continues across generations.\n'
+          '• Support community history projects documenting local '
+          'histories, families, migrations, and traditions.\n'
+          '• Encourage collaboration among families, genealogists, '
+          'archives, libraries, educational and religious institutions, '
+          'and historical societies.\n'
+          '• Promote ethical genealogy, including privacy, informed '
+          'consent, and cultural sensitivity.\n'
+          '• Use technology to make research, documentation, '
+          'preservation, education, and family connections more '
+          'accessible.\n'
+          '• Contribute to the preservation of African genealogical '
+          'heritage while building connections with the wider '
+          'international family-history community.',
+    ),
+    LegalSection(
+      'Why RootSphere?',
+      'The name RootSphere represents two ideas: Roots and Sphere. Roots '
+          'represent ancestry, origin, identity, family connections, '
+          'heritage, and the generations that came before us. Sphere '
+          'represents the wider circle of human connection — the '
+          'families, communities, cultures, countries, and generations '
+          'that together form our shared human story.\n\n'
+          'Family history is more than discovering names and dates. It is '
+          'about understanding the people behind those names — their '
+          'experiences, relationships, migrations, occupations, '
+          'sacrifices, traditions, challenges, achievements, and '
+          'contributions.\n\n'
+          'RootSphere exists because valuable family histories are '
+          'disappearing every day. Elders pass away, photographs '
+          'deteriorate, documents are damaged, memories fade, and '
+          'information that was never recorded can disappear permanently. '
+          'Technology gives us an opportunity to change that — RootSphere '
+          'seeks to create a bridge between the wisdom of the past, the '
+          'technology of the present, and the generations of the future.',
+    ),
+    LegalSection(
+      'Our Commitment',
+      'We are committed to building a trusted family-history environment '
+          'that respects individuals, families, cultures, communities, and '
+          'the records entrusted to our care. We will continue to promote '
+          'responsible research, accurate documentation, informed '
+          'consent, privacy, collaboration, education, and long-term '
+          'preservation.\n\n'
+          'Our goal is not simply to build family trees. Our goal is to '
+          'preserve lives, memories, relationships, and stories so that '
+          'generations yet unborn can know those who came before them.',
+    ),
+    LegalSection(
+      'Our Promise',
+      'Discover the Past. Preserve the Present. Connect the Future.',
+    ),
+  ];
 }

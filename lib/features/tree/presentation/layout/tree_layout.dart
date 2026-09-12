@@ -24,6 +24,12 @@ class TreeMetrics {
 
   /// Extra height reserved below the focus card for its inline "Add relative".
   static const double focusFooter = 52;
+
+  /// Gap between the focus's own row and their children row in Descendants
+  /// mode — matches the ancestors pedigree's `_childDepthGap` (vertical),
+  /// which gives that identical transition extra breathing room beyond the
+  /// plain [rowGap] used between every other generation.
+  static const double focusChildGap = 140;
 }
 
 /// A person placed at an absolute position in scene coordinates.
@@ -177,9 +183,15 @@ class TreeLayoutEngine {
   static TreeLayout _finalize(_LayoutResult r, String focusId) {
     final byId = r.byId;
 
-    // Assign y from generation (top-down).
+    // Assign y from generation (top-down). The focus's own row to its
+    // children gets the same generous gap the ancestors pedigree gives that
+    // exact transition — the plain rowGap used for every other generation
+    // made the couple + children "hourglass waist" feel more cramped here
+    // than in Ancestors mode for the same family. rowTop/gapBelow are also
+    // used below for the collapse toggles, which must agree with this exact
+    // placement or they'd float at the old (uniform-gap) position.
     for (final n in r.allNodes) {
-      n.y = n.gen * TreeMetrics.rowHeight;
+      n.y = _rowTop(n.gen);
     }
 
     if (r.allNodes.isEmpty) {
@@ -227,20 +239,38 @@ class TreeLayoutEngine {
       );
     }
 
-    final connectors = _buildConnectors(r, byId, rectById);
+    // The focus (and any spouse card, kept the same height for visual parity)
+    // renders an inline "Add relative" footer below its base rect — see the
+    // `Positioned` height bump in tree_screen.dart. Connectors/toggles must
+    // anchor to that taller *visual* bottom, not the base rect, or they end
+    // up drawn through the footer instead of touching beneath it.
+    final Set<String> spouseCardIds = r.allNodes
+        .where((n) => n.isSpouse)
+        .map((n) => n.id)
+        .toSet();
+    double footerFor(String id) => (id == focusId || spouseCardIds.contains(id))
+        ? TreeMetrics.focusFooter
+        : 0;
+
+    final connectors = _buildConnectors(r, byId, rectById, footerFor);
 
     final List<CollapseToggle> toggles = <CollapseToggle>[];
     for (final t in r.toggles) {
       final double parentBottom =
-          t.gen * TreeMetrics.rowHeight + TreeMetrics.cardHeight + oy;
-      toggles.add(CollapseToggle(
-        center: Offset(t.x + ox, parentBottom + TreeMetrics.rowGap / 2),
-        personId: t.personId,
-        collapsed: t.collapsed,
-      ));
+          _rowTop(t.gen) + TreeMetrics.cardHeight + oy + footerFor(t.personId);
+      toggles.add(
+        CollapseToggle(
+          center: Offset(t.x + ox, parentBottom + _gapBelow(t.gen) / 2),
+          personId: t.personId,
+          collapsed: t.collapsed,
+        ),
+      );
     }
-    final List<GenerationLabel> labels =
-        _buildDescendantLabels(r, byId[focusId]!, rectById);
+    final List<GenerationLabel> labels = _buildDescendantLabels(
+      r,
+      byId[focusId]!,
+      rectById,
+    );
 
     final Size size = Size(
       maxX - minX + TreeMetrics.padding * 2,
@@ -270,8 +300,7 @@ class TreeLayoutEngine {
     Map<String, Rect> rectById,
   ) {
     final List<GenerationLabel> out = <GenerationLabel>[];
-    final int maxGen =
-        r.allNodes.fold<int>(0, (a, n) => n.gen > a ? n.gen : a);
+    final int maxGen = r.allNodes.fold<int>(0, (a, n) => n.gen > a ? n.gen : a);
     for (int g = 1; g <= maxGen; g++) {
       final List<Rect> rects = r.allNodes
           .where((n) => n.gen == g)
@@ -286,10 +315,12 @@ class TreeLayoutEngine {
         if (rr.top < minT) minT = rr.top;
       }
       final String text = "${focus.givenName}'s ${_descendantRelationName(g)}";
-      out.add(GenerationLabel(
-        text: text,
-        center: Offset((minL + maxR) / 2, minT - 16),
-      ));
+      out.add(
+        GenerationLabel(
+          text: text,
+          center: Offset((minL + maxR) / 2, minT - 16),
+        ),
+      );
     }
     return out;
   }
@@ -305,14 +336,35 @@ class TreeLayoutEngine {
     return b.toString();
   }
 
+  /// Un-offset top-of-row y for [gen] (0 = focus's own row). Gen 0→1 uses
+  /// [TreeMetrics.focusChildGap]; every later transition uses the plain
+  /// [TreeMetrics.rowGap] (folded into [TreeMetrics.rowHeight]).
+  static double _rowTop(int gen) => gen == 0
+      ? 0
+      : TreeMetrics.cardHeight +
+            TreeMetrics.focusChildGap +
+            (gen - 1) * TreeMetrics.rowHeight;
+
+  /// The gap below generation [gen]'s row, before the next one starts.
+  static double _gapBelow(int gen) =>
+      gen == 0 ? TreeMetrics.focusChildGap : TreeMetrics.rowGap;
+
   /// Builds spouse + parent-child elbow connectors from the placed rects.
+  ///
+  /// [footerFor] returns the extra visual height (if any) a card renders
+  /// below its base rect — see [TreeMetrics.focusFooter] — so connectors
+  /// anchor to where the card actually ends on screen.
   static List<TreeConnector> _buildConnectors(
     _LayoutResult r,
     Map<String, Person> byId,
     Map<String, Rect> rectById,
+    double Function(String id) footerFor,
   ) {
     final connectors = <TreeConnector>[];
     final placed = rectById.keys.toSet();
+    final Map<String, int> genById = <String, int>{
+      for (final n in r.allNodes) n.id: n.gen,
+    };
 
     // Spouse connectors (draw once per pair).
     final drawnPairs = <String>{};
@@ -345,27 +397,55 @@ class TreeLayoutEngine {
     // Group children by their parent set's couple-centre.
     for (final childId in placed) {
       final child = byId[childId]!;
-      final parents = child.parentIds.where(placed.contains).toList();
-      if (parents.isEmpty) continue;
+      final recordedParents = child.parentIds.where(placed.contains).toList();
+      if (recordedParents.isEmpty) continue;
       final childRect = rectById[childId]!;
 
-      // Couple centre = midpoint of placed parents' rects.
+      // Widen to the whole couple, not just whoever is actually recorded as
+      // this child's parent: many trees only record one biological parent
+      // even though the spouse is placed right beside them as a visual
+      // family unit, and the connector should originate from between the
+      // couple, not lopsided under just the recorded one.
+      final Set<String> coupleIds = <String>{...recordedParents};
+      for (final pid in recordedParents) {
+        final Rect pRect = rectById[pid]!;
+        for (final sId in byId[pid]!.spouseIds) {
+          if (coupleIds.contains(sId)) continue;
+          final Rect? sRect = rectById[sId];
+          if (sRect != null && (pRect.top - sRect.top).abs() <= 1) {
+            coupleIds.add(sId);
+          }
+        }
+      }
+
+      // Couple centre = midpoint of the couple's placed rects. Bottom uses
+      // each card's true visual extent (base rect + footer, if any), so the
+      // connector starts beneath whichever half of the couple renders taller.
+      // Cy matches the spouse connector's own line (same row, so any member's
+      // center.dy works) — the child connector starts there, not at the
+      // card bottom, so the two lines meet instead of leaving a gap in the
+      // narrow strip between the couple's cards.
       double cx = 0;
       double parentBottom = -double.infinity;
-      for (final pid in parents) {
+      final double cy = rectById[coupleIds.first]!.center.dy;
+      for (final pid in coupleIds) {
         final pr = rectById[pid]!;
         cx += pr.center.dx;
-        parentBottom = pr.bottom > parentBottom ? pr.bottom : parentBottom;
+        final double visualBottom = pr.bottom + footerFor(pid);
+        parentBottom = visualBottom > parentBottom
+            ? visualBottom
+            : parentBottom;
       }
-      cx /= parents.length;
+      cx /= coupleIds.length;
+      final double gap = _gapBelow(genById[coupleIds.first] ?? 0);
 
       final bool childIsBelow = childRect.top > parentBottom;
       if (childIsBelow) {
-        final double busY = parentBottom + TreeMetrics.rowGap / 2;
+        final double busY = parentBottom + gap / 2;
         connectors.add(
           TreeConnector(
             points: <Offset>[
-              Offset(cx, parentBottom),
+              Offset(cx, coupleIds.length > 1 ? cy : parentBottom),
               Offset(cx, busY),
               Offset(childRect.center.dx, busY),
               Offset(childRect.center.dx, childRect.top),
@@ -456,10 +536,9 @@ class _Descendants {
   }
 
   List<Person> _childrenOf(Person p) {
-    return byId.values
-        .where((c) => c.parentIds.contains(p.id))
-        .toList()
-      ..sort((a, b) => (a.birthDate?.year ?? 0).compareTo(b.birthDate?.year ?? 0));
+    return byId.values.where((c) => c.parentIds.contains(p.id)).toList()..sort(
+      (a, b) => (a.birthDate?.year ?? 0).compareTo(b.birthDate?.year ?? 0),
+    );
   }
 
   Person? _spouseOf(Person p) {
@@ -545,12 +624,14 @@ class _Descendants {
     }
 
     if (allChildren.isNotEmpty) {
-      result.toggles.add(_PendingToggle(
-        personId: person.id,
-        gen: gen,
-        x: left + TreeMetrics.cardWidth / 2,
-        collapsed: isCollapsed,
-      ));
+      result.toggles.add(
+        _PendingToggle(
+          personId: person.id,
+          gen: gen,
+          x: left + TreeMetrics.cardWidth / 2,
+          collapsed: isCollapsed,
+        ),
+      );
     }
 
     return centre;
@@ -654,8 +735,7 @@ class _KinshipLayout {
   /// on the same resolution.
   (String?, String?) _resolveParents(String id) {
     final Person p = byId[id]!;
-    final List<String> remaining =
-        p.parentIds.where(byId.containsKey).toList();
+    final List<String> remaining = p.parentIds.where(byId.containsKey).toList();
     String? father = _firstWhere(remaining, (x) => byId[x]!.sex == Sex.male);
     if (father != null) remaining.remove(father);
     String? mother = _firstWhere(remaining, (x) => byId[x]!.sex == Sex.female);
@@ -682,10 +762,12 @@ class _KinshipLayout {
       width = _breadthExtent;
     } else {
       final (String? father, String? mother) = _resolveParents(id);
-      final double fatherW =
-          father != null ? _subtreeWidth(father) : _breadthExtent;
-      final double motherW =
-          mother != null ? _subtreeWidth(mother) : _breadthExtent;
+      final double fatherW = father != null
+          ? _subtreeWidth(father)
+          : _breadthExtent;
+      final double motherW = mother != null
+          ? _subtreeWidth(mother)
+          : _breadthExtent;
       width = fatherW + _spouseGap + motherW;
     }
     _widthCache[id] = width;
@@ -708,8 +790,9 @@ class _KinshipLayout {
     if (gen > _maxGen) _maxGen = gen;
 
     final double width = _subtreeWidth(id);
-    final double left =
-        cardOnRight ? rangeLeft + width - _breadthExtent : rangeLeft;
+    final double left = cardOnRight
+        ? rangeLeft + width - _breadthExtent
+        : rangeLeft;
     _add(_PlacedKinNode(key: id, gen: gen, x: left, personId: id));
 
     if (collapsed.contains(id)) return;
@@ -717,14 +800,20 @@ class _KinshipLayout {
     final (String? father, String? mother) = _resolveParents(id);
     final String fatherKey = father ?? _slotKey(id, SlotKind.father);
     final String motherKey = mother ?? _slotKey(id, SlotKind.mother);
-    final double fatherW =
-        father != null ? _subtreeWidth(father) : _breadthExtent;
+    final double fatherW = father != null
+        ? _subtreeWidth(father)
+        : _breadthExtent;
     final double motherRangeLeft = rangeLeft + fatherW + _spouseGap;
 
     if (father != null) {
       _placeReal(father, gen + 1, rangeLeft, true);
     } else {
-      _placeSlotAt(id, SlotKind.father, gen + 1, rangeLeft + fatherW - _breadthExtent);
+      _placeSlotAt(
+        id,
+        SlotKind.father,
+        gen + 1,
+        rangeLeft + fatherW - _breadthExtent,
+      );
     }
     if (mother != null) {
       _placeReal(mother, gen + 1, motherRangeLeft, false);
@@ -752,8 +841,9 @@ class _KinshipLayout {
     final (String? father, String? mother) = _resolveParents(id);
     final String fatherKey = father ?? _slotKey(id, SlotKind.father);
     final String motherKey = mother ?? _slotKey(id, SlotKind.mother);
-    final double fatherW =
-        father != null ? _subtreeWidth(father) : _breadthExtent;
+    final double fatherW = father != null
+        ? _subtreeWidth(father)
+        : _breadthExtent;
     final double motherRangeLeft = fatherW + _spouseGap;
 
     if (father != null) {
@@ -771,20 +861,27 @@ class _KinshipLayout {
     final double motherCentre = _byKey[motherKey]!.x + _breadthExtent / 2;
     final double centre = (fatherCentre + motherCentre) / 2;
     _add(
-      _PlacedKinNode(key: id, gen: gen, x: centre - _breadthExtent / 2, personId: id),
+      _PlacedKinNode(
+        key: id,
+        gen: gen,
+        x: centre - _breadthExtent / 2,
+        personId: id,
+      ),
     );
     _parentKeysOf[id] = <String>[fatherKey, motherKey];
   }
 
   void _placeSlotAt(String childId, SlotKind kind, int gen, double x) {
     if (gen > _maxGen) _maxGen = gen;
-    _add(_PlacedKinNode(
-      key: _slotKey(childId, kind),
-      gen: gen,
-      x: x,
-      childId: childId,
-      kind: kind,
-    ));
+    _add(
+      _PlacedKinNode(
+        key: _slotKey(childId, kind),
+        gen: gen,
+        x: x,
+        childId: childId,
+        kind: kind,
+      ),
+    );
   }
 
   /// Places the focus's spouse (beside) and immediate children (below, via a
@@ -817,17 +914,31 @@ class _KinshipLayout {
       final double sx = spouseGoesFirst
           ? focusNode.x - _spouseGap - _breadthExtent
           : coupleRight + _spouseGap;
-      _add(_PlacedKinNode(key: spouse.id, gen: 0, x: sx, personId: spouse.id, isFocusExtra: true));
+      _add(
+        _PlacedKinNode(
+          key: spouse.id,
+          gen: 0,
+          x: sx,
+          personId: spouse.id,
+          isFocusExtra: true,
+        ),
+      );
       _focusSpouseKey = spouse.id;
       coupleLeft = spouseGoesFirst ? sx : coupleLeft;
       coupleRight = spouseGoesFirst ? coupleRight : sx + _breadthExtent;
     }
     _focusFamilyCentre = (coupleLeft + coupleRight) / 2;
 
-    final List<Person> children = byId.values
-        .where((c) => c.parentIds.contains(focus.id) && !_visited.contains(c.id))
-        .toList()
-      ..sort((a, b) => (a.birthDate?.year ?? 0).compareTo(b.birthDate?.year ?? 0));
+    final List<Person> children =
+        byId.values
+            .where(
+              (c) => c.parentIds.contains(focus.id) && !_visited.contains(c.id),
+            )
+            .toList()
+          ..sort(
+            (a, b) =>
+                (a.birthDate?.year ?? 0).compareTo(b.birthDate?.year ?? 0),
+          );
     if (children.isEmpty) return;
 
     _focusChildrenCollapsed = collapsed.contains(childrenToggleKey(focus.id));
@@ -838,7 +949,15 @@ class _KinshipLayout {
     double left = _focusFamilyCentre! - totalWidth / 2;
     for (final child in children) {
       _visited.add(child.id);
-      _add(_PlacedKinNode(key: child.id, gen: -1, x: left, personId: child.id, isFocusExtra: true));
+      _add(
+        _PlacedKinNode(
+          key: child.id,
+          gen: -1,
+          x: left,
+          personId: child.id,
+          isFocusExtra: true,
+        ),
+      );
       _focusChildKeys.add(child.id);
       left += _breadthExtent + _crossGap;
     }
@@ -855,8 +974,9 @@ class _KinshipLayout {
     final Rect? focusRect = rectByKey[focusId];
     if (focusRect == null) return out;
 
-    final Rect? spouseRect =
-        _focusSpouseKey == null ? null : rectByKey[_focusSpouseKey];
+    final Rect? spouseRect = _focusSpouseKey == null
+        ? null
+        : rectByKey[_focusSpouseKey];
     if (spouseRect != null) {
       // Whichever of the two is actually first along the breadth axis (not
       // necessarily the focus — see _placeFocusFamily's male-first rule),
@@ -866,22 +986,25 @@ class _KinshipLayout {
           : focusRect.left <= spouseRect.left;
       final Rect first = focusFirst ? focusRect : spouseRect;
       final Rect second = focusFirst ? spouseRect : focusRect;
-      out.add(TreeConnector(
-        points: _horizontal
-            ? <Offset>[
-                Offset(first.center.dx, first.bottom),
-                Offset(second.center.dx, second.top),
-              ]
-            : <Offset>[
-                Offset(first.right, first.center.dy),
-                Offset(second.left, second.center.dy),
-              ],
-        isSpouse: true,
-      ));
+      out.add(
+        TreeConnector(
+          points: _horizontal
+              ? <Offset>[
+                  Offset(first.center.dx, first.bottom),
+                  Offset(second.center.dx, second.top),
+                ]
+              : <Offset>[
+                  Offset(first.right, first.center.dy),
+                  Offset(second.left, second.center.dy),
+                ],
+          isSpouse: true,
+        ),
+      );
     }
 
-    final List<Rect> childRects =
-        _focusChildKeys.map((k) => rectByKey[k]!).toList();
+    final List<Rect> childRects = _focusChildKeys
+        .map((k) => rectByKey[k]!)
+        .toList();
     if (childRects.isEmpty) return out;
 
     if (_horizontal) {
@@ -889,7 +1012,9 @@ class _KinshipLayout {
           ? (focusRect.center.dy + spouseRect.center.dy) / 2
           : focusRect.center.dy;
       final double parentLeft = spouseRect != null
-          ? (focusRect.left < spouseRect.left ? focusRect.left : spouseRect.left)
+          ? (focusRect.left < spouseRect.left
+                ? focusRect.left
+                : spouseRect.left)
           : focusRect.left;
       final double busX = parentLeft - _childDepthGap / 2;
       // When there's a spouse, the spouse connector is drawn at the card's
@@ -897,21 +1022,29 @@ class _KinshipLayout {
       // here too so the two lines actually meet instead of leaving a gap
       // across the width of the card. Without a spouse there's no such line
       // to meet, so start from the edge as before.
-      final double startX = spouseRect != null ? focusRect.center.dx : parentLeft;
+      final double startX = spouseRect != null
+          ? focusRect.center.dx
+          : parentLeft;
       for (final cr in childRects) {
-        out.add(TreeConnector(points: <Offset>[
-          Offset(startX, cy),
-          Offset(busX, cy),
-          Offset(busX, cr.center.dy),
-          Offset(cr.right, cr.center.dy),
-        ]));
+        out.add(
+          TreeConnector(
+            points: <Offset>[
+              Offset(startX, cy),
+              Offset(busX, cy),
+              Offset(busX, cr.center.dy),
+              Offset(cr.right, cr.center.dy),
+            ],
+          ),
+        );
       }
     } else {
       final double cx = spouseRect != null
           ? (focusRect.center.dx + spouseRect.center.dx) / 2
           : focusRect.center.dx;
       final double parentBottom = spouseRect != null
-          ? (focusRect.bottom > spouseRect.bottom ? focusRect.bottom : spouseRect.bottom)
+          ? (focusRect.bottom > spouseRect.bottom
+                ? focusRect.bottom
+                : spouseRect.bottom)
           : focusRect.bottom;
       final double busY = parentBottom + _childDepthGap / 2;
       // When there's a spouse, `cx` falls in the empty gap between the two
@@ -920,14 +1053,20 @@ class _KinshipLayout {
       // otherwise be a visible gap between it and the child's line. Without a
       // spouse, `cx` is under the focus card itself, so it doesn't matter
       // (that segment is hidden behind the card either way).
-      final double startY = spouseRect != null ? focusRect.center.dy : parentBottom;
+      final double startY = spouseRect != null
+          ? focusRect.center.dy
+          : parentBottom;
       for (final cr in childRects) {
-        out.add(TreeConnector(points: <Offset>[
-          Offset(cx, startY),
-          Offset(cx, busY),
-          Offset(cr.center.dx, busY),
-          Offset(cr.center.dx, cr.top),
-        ]));
+        out.add(
+          TreeConnector(
+            points: <Offset>[
+              Offset(cx, startY),
+              Offset(cx, busY),
+              Offset(cr.center.dx, busY),
+              Offset(cr.center.dx, cr.top),
+            ],
+          ),
+        );
       }
     }
     return out;
@@ -992,18 +1131,18 @@ class _KinshipLayout {
       final Rect rect = raw.shift(Offset(ox, oy));
       rectByKey[n.key] = rect;
       if (n.isSlot) {
-        slots.add(PositionedSlot(
-          rect: rect,
-          childId: n.childId!,
-          kind: n.kind!,
-        ));
+        slots.add(
+          PositionedSlot(rect: rect, childId: n.childId!, kind: n.kind!),
+        );
       } else {
-        persons.add(PositionedPerson(
-          person: byId[n.personId]!,
-          rect: rect,
-          isFocus: n.personId == focus.id,
-          isSpouseCard: n.key == _focusSpouseKey,
-        ));
+        persons.add(
+          PositionedPerson(
+            person: byId[n.personId]!,
+            rect: rect,
+            isFocus: n.personId == focus.id,
+            isSpouseCard: n.key == _focusSpouseKey,
+          ),
+        );
         // The chevron sits on the connector toward this person's parents.
         // The focus's spouse/children aren't recursed into, so they don't
         // get one of these (they get the children-toggle below instead).
@@ -1011,11 +1150,13 @@ class _KinshipLayout {
           final Offset tc = _horizontal
               ? Offset(rect.right + _depthGap / 2, rect.center.dy)
               : Offset(rect.center.dx, rect.top - _depthGap / 2);
-          toggles.add(CollapseToggle(
-            center: tc,
-            personId: n.personId!,
-            collapsed: collapsed.contains(n.personId),
-          ));
+          toggles.add(
+            CollapseToggle(
+              center: tc,
+              personId: n.personId!,
+              collapsed: collapsed.contains(n.personId),
+            ),
+          );
         }
       }
     }
@@ -1028,22 +1169,26 @@ class _KinshipLayout {
 
     // The focus's children row + its collapse toggle (see _placeFocusFamily).
     final double? familyCentre = _focusFamilyCentre;
-    if (familyCentre != null && (_focusChildKeys.isNotEmpty || _focusChildrenCollapsed)) {
+    if (familyCentre != null &&
+        (_focusChildKeys.isNotEmpty || _focusChildrenCollapsed)) {
       final double toggleDepth = _horizontal
           ? -_childDepthGap / 2
           : _maxGen * (_cardH + _depthGap) + _cardH + _childDepthGap / 2;
       final Offset rawCentre = _horizontal
           ? Offset(toggleDepth, familyCentre)
           : Offset(familyCentre, toggleDepth);
-      toggles.add(CollapseToggle(
-        center: rawCentre + Offset(ox, oy),
-        personId: childrenToggleKey(focus.id),
-        collapsed: _focusChildrenCollapsed,
-      ));
+      toggles.add(
+        CollapseToggle(
+          center: rawCentre + Offset(ox, oy),
+          personId: childrenToggleKey(focus.id),
+          collapsed: _focusChildrenCollapsed,
+        ),
+      );
 
       if (_focusChildKeys.isNotEmpty) {
-        final List<Rect> childRects =
-            _focusChildKeys.map((k) => rectByKey[k]!).toList();
+        final List<Rect> childRects = _focusChildKeys
+            .map((k) => rectByKey[k]!)
+            .toList();
         double minL = double.infinity, maxR = -double.infinity;
         double minT = double.infinity;
         for (final r in childRects) {
@@ -1051,10 +1196,12 @@ class _KinshipLayout {
           if (r.right > maxR) maxR = r.right;
           if (r.top < minT) minT = r.top;
         }
-        labels.add(GenerationLabel(
-          text: "${focus.givenName}'s children",
-          center: Offset((minL + maxR) / 2, minT - 16),
-        ));
+        labels.add(
+          GenerationLabel(
+            text: "${focus.givenName}'s children",
+            center: Offset((minL + maxR) / 2, minT - 16),
+          ),
+        );
       }
     }
 
@@ -1086,21 +1233,29 @@ class _KinshipLayout {
         if (_horizontal) {
           // Child's right → bus → parent's left.
           final double busX = childRect.right + _depthGap / 2;
-          out.add(TreeConnector(points: <Offset>[
-            Offset(childRect.right, childRect.center.dy),
-            Offset(busX, childRect.center.dy),
-            Offset(busX, pr.center.dy),
-            Offset(pr.left, pr.center.dy),
-          ]));
+          out.add(
+            TreeConnector(
+              points: <Offset>[
+                Offset(childRect.right, childRect.center.dy),
+                Offset(busX, childRect.center.dy),
+                Offset(busX, pr.center.dy),
+                Offset(pr.left, pr.center.dy),
+              ],
+            ),
+          );
         } else {
           // Child's top → bus → parent's bottom.
           final double busY = childRect.top - _depthGap / 2;
-          out.add(TreeConnector(points: <Offset>[
-            Offset(childRect.center.dx, childRect.top),
-            Offset(childRect.center.dx, busY),
-            Offset(pr.center.dx, busY),
-            Offset(pr.center.dx, pr.bottom),
-          ]));
+          out.add(
+            TreeConnector(
+              points: <Offset>[
+                Offset(childRect.center.dx, childRect.top),
+                Offset(childRect.center.dx, busY),
+                Offset(pr.center.dx, busY),
+                Offset(pr.center.dx, pr.bottom),
+              ],
+            ),
+          );
         }
       }
     });

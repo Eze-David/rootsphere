@@ -57,6 +57,31 @@ final myDonationsProvider = StreamProvider<List<Donation>>((ref) {
       );
 });
 
+/// Every recurring donation (Monthly/Annual) the signed-in user has active
+/// or has had, newest first — powers "My donations" screen's recurring
+/// section.
+final mySubscriptionsProvider = StreamProvider<List<DonationSubscription>>((
+  ref,
+) {
+  final String? uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) {
+    return Stream<List<DonationSubscription>>.value(
+      const <DonationSubscription>[],
+    );
+  }
+  return ref
+      .watch(donationRepositoryProvider)
+      .watchMySubscriptions(uid)
+      .map(
+        (subs) => subs.toList()
+          ..sort(
+            (a, b) => (b.createdAt ?? DateTime(0)).compareTo(
+              a.createdAt ?? DateTime(0),
+            ),
+          ),
+      );
+});
+
 /// Total raised (in cents) for a given opportunity — only counts completed
 /// donations, so pending/failed checkout attempts don't inflate the total.
 final opportunityRaisedCentsProvider = Provider.family<int, String>((

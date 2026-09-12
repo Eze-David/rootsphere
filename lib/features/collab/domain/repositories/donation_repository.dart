@@ -13,4 +13,8 @@ abstract class DonationRepository {
   /// Streams every donation made by a given donor, across all opportunities,
   /// newest first — powers the "My donations" screen.
   Stream<List<Donation>> watchMyDonations(String donorId);
+
+  /// Streams a donor's recurring donations (Monthly/Annual), newest first —
+  /// powers the "My donations" screen's recurring section.
+  Stream<List<DonationSubscription>> watchMySubscriptions(String donorId);
 }

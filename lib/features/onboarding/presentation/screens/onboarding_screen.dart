@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../auth/presentation/providers/auth_mode_provider.dart';
 import '../../../auth/presentation/screens/legal_document_screen.dart';
+import '../../../collab/presentation/screens/donation_welcome_screen.dart';
 import '../../../collab/presentation/widgets/donate_dialog.dart';
 import '../providers/onboarding_provider.dart';
 
@@ -58,6 +59,8 @@ class OnboardingScreen extends ConsumerWidget {
                 _CtaBanner(
                   onGetStarted: () => _enter(context, ref, signUp: true),
                 ),
+                const SizedBox(height: AppSpacing.xxl),
+                const _DonationBannerSection(),
               ],
             ),
           ),
@@ -91,7 +94,10 @@ class _Hero extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: <Widget>[
-            Image.asset('assets/images/onboarding -image.jpg', fit: BoxFit.cover),
+            Image.asset(
+              'assets/images/onboarding -image.jpg',
+              fit: BoxFit.cover,
+            ),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -116,16 +122,14 @@ class _Hero extends StatelessWidget {
                     child: Row(
                       children: <Widget>[
                         Image.asset(
-                          'assets/images/logo.png',
+                          'assets/images/rootsphere-logo-espresso-v6-cropped.png',
                           width: 40,
                           fit: BoxFit.contain,
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         Text(
                           'Rootsphere',
-                          style: text.titleLarge?.copyWith(
-                            color: Colors.white,
-                          ),
+                          style: text.titleLarge?.copyWith(color: Colors.white),
                         ),
                         const Spacer(),
                         TextButton(
@@ -438,9 +442,7 @@ class _HowItWorksSection extends StatelessWidget {
               Text(
                 s.title,
                 textAlign: TextAlign.center,
-                style: text.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
+                style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
@@ -457,7 +459,11 @@ class _HowItWorksSection extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 900),
       child: Column(
         children: <Widget>[
-          Text('How it works', textAlign: TextAlign.center, style: text.headlineSmall),
+          Text(
+            'How it works',
+            textAlign: TextAlign.center,
+            style: text.headlineSmall,
+          ),
           const SizedBox(height: AppSpacing.xxl),
           if (isWide)
             IntrinsicHeight(
@@ -524,6 +530,59 @@ class _CtaBanner extends StatelessWidget {
   }
 }
 
+/// "Front Page / Donation Banner" — the marketing entry point into the full
+/// donation wizard ([DonationWelcomeScreen]), distinct from the lighter
+/// quick-donate link already in the hero: this is the dedicated,
+/// foundation-wide ask, not a per-opportunity one.
+class _DonationBannerSection extends StatelessWidget {
+  const _DonationBannerSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 900),
+      padding: const EdgeInsets.all(AppSpacing.xxl),
+      decoration: BoxDecoration(
+        color: AppColors.cream,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        children: <Widget>[
+          Text(
+            'Preserve a Story. Connect a Generation. Leave a Legacy.',
+            textAlign: TextAlign.center,
+            style: text.headlineSmall,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            'Every family has a story worth remembering. Your support '
+            'helps RootSphere preserve family histories, memories, oral '
+            'traditions, photographs, records, and the stories that '
+            'connect generations.',
+            textAlign: TextAlign.center,
+            style: text.bodyLarge?.copyWith(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: 220,
+            child: FilledButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DonationWelcomeScreen(),
+                ),
+              ),
+              child: const Text('Support Our Mission'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _Footer extends StatelessWidget {
   const _Footer();
 
@@ -551,6 +610,11 @@ class _Footer extends StatelessWidget {
           Text('© ${DateTime.now().year} Rootsphere', style: text.bodySmall),
           TextButton(
             onPressed: () =>
+                _open(context, const LegalDocumentScreen.ourFoundation()),
+            child: const Text('Our Foundation'),
+          ),
+          TextButton(
+            onPressed: () =>
                 _open(context, const LegalDocumentScreen.termsOfService()),
             child: const Text('Terms of Service'),
           ),
@@ -573,7 +637,10 @@ class _Footer extends StatelessWidget {
   }
 
   void _showContactUsDialog(BuildContext context) {
-    showDialog<void>(context: context, builder: (_) => const _ContactUsDialog());
+    showDialog<void>(
+      context: context,
+      builder: (_) => const _ContactUsDialog(),
+    );
   }
 }
 
@@ -589,9 +656,9 @@ class _ContactUsDialog extends StatelessWidget {
   Future<void> _copyEmail(BuildContext context) async {
     await Clipboard.setData(const ClipboardData(text: _supportEmail));
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Email address copied.')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Email address copied.')));
   }
 
   @override
@@ -620,7 +687,10 @@ class _ContactUsDialog extends StatelessWidget {
                     color: Theme.of(context).textTheme.bodyMedium?.color,
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Text(_supportEmail, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(
+                    _supportEmail,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
                 ],
               ),
             ),
@@ -718,9 +788,7 @@ class _FaqScreen extends StatelessWidget {
                 style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               expandedAlignment: Alignment.centerLeft,
-              children: <Widget>[
-                Text(item.answer, style: text.bodyMedium),
-              ],
+              children: <Widget>[Text(item.answer, style: text.bodyMedium)],
             ),
           );
         },

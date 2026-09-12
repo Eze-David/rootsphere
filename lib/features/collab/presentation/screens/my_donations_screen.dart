@@ -18,8 +18,10 @@ class MyDonationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final TextTheme text = Theme.of(context).textTheme;
     final AsyncValue<List<Donation>> async = ref.watch(myDonationsProvider);
+    final List<DonationSubscription> subscriptions =
+        ref.watch(mySubscriptionsProvider).value ??
+        const <DonationSubscription>[];
     final List<CollaborationOpportunity> opportunities =
         ref.watch(opportunitiesProvider).value ??
         const <CollaborationOpportunity>[];
@@ -41,95 +43,125 @@ class MyDonationsScreen extends ConsumerWidget {
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => ErrorRetryView(
-          error: e,
-          onRetry: () => ref.invalidate(myDonationsProvider),
-        ),
-        data: (donations) {
-          if (donations.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpacing.xl),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    Icon(
-                      Icons.volunteer_activism_outlined,
-                      size: 48,
-                      color: AppColors.textTertiary,
+      body: Column(
+        children: <Widget>[
+          if (subscriptions.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                0,
+              ),
+              child: _RecurringSection(subscriptions: subscriptions),
+            ),
+          Expanded(
+            child: _buildOneTimeSection(
+              context,
+              ref,
+              async,
+              opportunities,
+              titleById,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOneTimeSection(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<Donation>> async,
+    List<CollaborationOpportunity> opportunities,
+    Map<String, String> titleById,
+  ) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return async.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => ErrorRetryView(
+        error: e,
+        onRetry: () => ref.invalidate(myDonationsProvider),
+      ),
+      data: (donations) {
+        if (donations.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.xl),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.volunteer_activism_outlined,
+                    size: 48,
+                    color: AppColors.textTertiary,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text('No donations yet', style: text.titleMedium),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'When you support a research opportunity, it shows up here.',
+                    textAlign: TextAlign.center,
+                    style: text.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text('No donations yet', style: text.titleMedium),
+                  ),
+                  if (opportunities.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpacing.lg),
+                    FilledButton.icon(
+                      onPressed: () =>
+                          _pickOpportunityToDonate(context, ref, opportunities),
+                      icon: const Icon(Icons.favorite_border, size: 18),
+                      label: const Text('Make a donation'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          );
+        }
+
+        final int totalGivenCents = donations
+            .where((d) => d.status == DonationStatus.completed)
+            .fold<int>(0, (sum, d) => sum + d.amountCents);
+
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: <Widget>[
+            if (totalGivenCents > 0) ...<Widget>[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(AppSpacing.md),
+                decoration: BoxDecoration(
+                  color: AppColors.cream,
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text('Total given', style: text.labelSmall),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'When you support a research opportunity, it shows up here.',
-                      textAlign: TextAlign.center,
-                      style: text.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
+                      // Donations are only ever made in NGN today (see
+                      // donate_dialog.dart) — safe to sum raw cents.
+                      '₦${(totalGivenCents / 100).toStringAsFixed(2)}',
+                      style: text.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    if (opportunities.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: AppSpacing.lg),
-                      FilledButton.icon(
-                        onPressed: () => _pickOpportunityToDonate(
-                          context,
-                          ref,
-                          opportunities,
-                        ),
-                        icon: const Icon(Icons.favorite_border, size: 18),
-                        label: const Text('Make a donation'),
-                      ),
-                    ],
                   ],
                 ),
               ),
-            );
-          }
-
-          final int totalGivenCents = donations
-              .where((d) => d.status == DonationStatus.completed)
-              .fold<int>(0, (sum, d) => sum + d.amountCents);
-
-          return ListView(
-            padding: const EdgeInsets.all(AppSpacing.lg),
-            children: <Widget>[
-              if (totalGivenCents > 0) ...<Widget>[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.cream,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text('Total given', style: text.labelSmall),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        // Donations are only ever made in NGN today (see
-                        // donate_dialog.dart) — safe to sum raw cents.
-                        '₦${(totalGivenCents / 100).toStringAsFixed(2)}',
-                        style: text.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-              ],
-              for (final Donation d in donations)
-                _DonationTile(
-                  donation: d,
-                  opportunityTitle: titleById[d.opportunityId],
-                ),
+              const SizedBox(height: AppSpacing.lg),
             ],
-          );
-        },
-      ),
+            for (final Donation d in donations)
+              _DonationTile(
+                donation: d,
+                opportunityTitle: titleById[d.opportunityId],
+              ),
+          ],
+        );
+      },
     );
   }
 }
@@ -306,5 +338,166 @@ Future<void> _pickOpportunityToDonate(
   );
   if (chosen != null && context.mounted) {
     await showDonateDialog(context, ref, chosen);
+  }
+}
+
+/// Monthly/Annual recurring donations — shown above the one-time history so
+/// a donor can see and cancel an active subscription at a glance. Web/
+/// Android only (see 20260910000000_donation_subscriptions.sql).
+class _RecurringSection extends StatelessWidget {
+  const _RecurringSection({required this.subscriptions});
+  final List<DonationSubscription> subscriptions;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('RECURRING', style: text.labelSmall),
+        const SizedBox(height: AppSpacing.sm),
+        for (final DonationSubscription s in subscriptions)
+          _SubscriptionTile(subscription: s),
+        const SizedBox(height: AppSpacing.md),
+        const Divider(),
+      ],
+    );
+  }
+}
+
+class _SubscriptionTile extends ConsumerStatefulWidget {
+  const _SubscriptionTile({required this.subscription});
+  final DonationSubscription subscription;
+
+  @override
+  ConsumerState<_SubscriptionTile> createState() => _SubscriptionTileState();
+}
+
+class _SubscriptionTileState extends ConsumerState<_SubscriptionTile> {
+  bool _cancelling = false;
+
+  Color _statusColor(DonationSubscriptionStatus status) {
+    switch (status) {
+      case DonationSubscriptionStatus.active:
+        return AppColors.success;
+      case DonationSubscriptionStatus.pending:
+        return AppColors.sunGold;
+      case DonationSubscriptionStatus.cancelled:
+        return AppColors.textSecondary;
+      case DonationSubscriptionStatus.failed:
+        return AppColors.error;
+    }
+  }
+
+  Future<void> _confirmCancel() async {
+    final bool? confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel recurring donation?'),
+        content: Text(
+          'This stops future ${widget.subscription.interval.label.toLowerCase()} '
+          'charges. Past contributions aren\'t affected.',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Keep giving'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel it'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _cancelling = true);
+    final result = await ref
+        .read(donationCheckoutServiceProvider)
+        .cancelSubscription(widget.subscription.id);
+    if (!mounted) return;
+    setState(() => _cancelling = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          result.success
+              ? 'Your recurring donation has been cancelled.'
+              : (result.message ?? 'Could not cancel this donation.'),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final DonationSubscription s = widget.subscription;
+    final bool canCancel =
+        s.status == DonationSubscriptionStatus.active ||
+        s.status == DonationSubscriptionStatus.pending;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: AppSpacing.md),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    s.purpose?.label ?? 'General RootSphere Programs',
+                    style: text.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${s.formattedAmount} · ${s.interval.label}',
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 2,
+              ),
+              decoration: BoxDecoration(
+                color: _statusColor(s.status).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+              ),
+              child: Text(
+                s.status.label,
+                style: text.labelSmall?.copyWith(
+                  color: _statusColor(s.status),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            if (canCancel) ...<Widget>[
+              const SizedBox(height: AppSpacing.sm),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _cancelling ? null : _confirmCancel,
+                  child: _cancelling
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Cancel'),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }

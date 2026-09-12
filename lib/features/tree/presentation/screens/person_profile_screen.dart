@@ -4,6 +4,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/routing/app_routes.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -14,6 +16,7 @@ import '../../../assistant/presentation/providers/assistant_providers.dart';
 import '../../../records/domain/entities/record.dart';
 import '../../../records/presentation/providers/record_providers.dart';
 import '../../data/services/geocoding_service.dart';
+import '../../data/services/person_pdf_service.dart';
 import '../../domain/entities/edit_history_entry.dart';
 import '../../domain/entities/person.dart';
 import '../../domain/entities/timeline_event.dart';
@@ -36,6 +39,8 @@ class PersonProfileScreen extends ConsumerWidget {
 
   final GlobalKey _familyKey = GlobalKey();
   final GlobalKey _mediaKey = GlobalKey();
+  final ExpansibleController _familyController = ExpansibleController();
+  final ExpansibleController _mediaController = ExpansibleController();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -48,7 +53,6 @@ class PersonProfileScreen extends ConsumerWidget {
       );
     }
 
-    final TextTheme text = Theme.of(context).textTheme;
     final events = _personTimeline(person);
     final relatives = _relatives(ref, person);
     final int mediaCount =
@@ -60,24 +64,37 @@ class PersonProfileScreen extends ConsumerWidget {
         .length;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        foregroundColor: AppColors.onPrimary,
-        title: const Text(
-          'Profile',
-          style: TextStyle(color: AppColors.onPrimary),
-        ),
+        title: const Text('Profile'),
+        // Find person / Add relative / Edit all share this one row —
+        // verified via a throwaway layout test to fit down to 360dp-wide
+        // phones once the pills and the edit icon are both this compact;
+        // any looser and it overflows (this app already hit that exact bug
+        // once with the tree screen's action icons — see the comment on
+        // TreeScreen._buildCanvas).
         actions: <Widget>[
+          _AppBarPillButton(
+            icon: Icons.search,
+            label: 'Find person',
+            onPressed: () => _showFindPersonSheet(context, ref, person),
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          _AppBarPillButton(
+            icon: Icons.person_add_alt,
+            label: 'Add relative',
+            filled: true,
+            onPressed: () => _showAddRelativeSheet(context, ref, person),
+          ),
           IconButton(
-            icon: const Icon(Icons.edit_outlined),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            icon: const Icon(Icons.edit_outlined, size: 20),
             tooltip: 'Edit',
             onPressed: () =>
                 showPersonEditorSheet(context, ref, existing: person),
           ),
+          const SizedBox(width: AppSpacing.sm),
         ],
       ),
       body: ListView(
@@ -90,9 +107,21 @@ class PersonProfileScreen extends ConsumerWidget {
             mediaCount: mediaCount,
             onFamilyTap: relatives.isEmpty
                 ? null
-                : () => _scrollToSection(_familyKey),
+                : () {
+                    _familyController.expand();
+                    Future.delayed(
+                      const Duration(milliseconds: 250),
+                      () => _scrollToSection(_familyKey),
+                    );
+                  },
             onRecordsTap: () => _showPersonRecordsSheet(context, ref, person),
-            onMediaTap: () => _scrollToSection(_mediaKey),
+            onMediaTap: () {
+              _mediaController.expand();
+              Future.delayed(
+                const Duration(milliseconds: 250),
+                () => _scrollToSection(_mediaKey),
+              );
+            },
             onTreeTap: () {
               setFocusPerson(ref, person.id);
               context.go(AppRoutes.tree);
@@ -103,94 +132,14 @@ class PersonProfileScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
-                _SectionCard(
-                  key: _familyKey,
-                  icon: Icons.diversity_3_outlined,
-                  title: 'FAMILY',
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      IconButton(
-                        tooltip: 'Find existing person',
-                        icon: const Icon(Icons.search, size: 20),
-                        onPressed: () =>
-                            _showFindPersonSheet(context, ref, person),
-                      ),
-                      IconButton(
-                        tooltip: 'Add family member',
-                        icon: const Icon(
-                          Icons.person_add_alt_outlined,
-                          size: 20,
-                        ),
-                        onPressed: () =>
-                            _showAddRelativeSheet(context, ref, person),
-                      ),
-                    ],
-                  ),
-                  child: relatives.isEmpty
-                      ? Text(
-                          'No family linked yet.',
-                          style: text.bodyLarge?.copyWith(
-                            color: text.bodySmall?.color,
-                          ),
-                        )
-                      : _RelativesWrap(
-                          relatives: relatives,
-                          onTap: (p) => context.push('/person/${p.id}'),
-                        ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                if (_hasDetails(person)) ...<Widget>[
-                  _SectionCard(
-                    icon: Icons.badge_outlined,
-                    title: 'DETAILS',
-                    child: _DetailsSection(person: person),
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                ],
-                _SectionCard(
-                  icon: Icons.auto_awesome_outlined,
-                  title: 'AI RESEARCH ASSISTANT',
-                  child: _ResearchAssistantSection(
-                    person: person,
-                    relatives: relatives,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _SectionCard(
-                  icon: Icons.timeline_outlined,
-                  title: 'TIMELINE',
-                  trailing: TextButton.icon(
-                    onPressed: () =>
-                        showTimelineEventEditorSheet(context, ref, person),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add event'),
-                  ),
-                  child: events.isEmpty
-                      ? Text('No dated events yet.', style: text.bodyMedium)
-                      : _Timeline(
-                          events: events,
-                          onTapEvent: (event) {
-                            // Only custom events are editable; birth/death
-                            // derive from the structured fields (edit those
-                            // via the person editor).
-                            if (event.id == '_birth' ||
-                                event.id == '_death') {
-                              showPersonEditorSheet(
-                                context,
-                                ref,
-                                existing: person,
-                              );
-                            } else {
-                              showTimelineEventEditorSheet(
-                                context,
-                                ref,
-                                person,
-                                existing: event,
-                              );
-                            }
-                          },
-                        ),
+                _QuickActionsCard(
+                  person: person,
+                  events: events,
+                  relatives: relatives,
+                  familyKey: _familyKey,
+                  familyController: _familyController,
+                  mediaKey: _mediaKey,
+                  mediaController: _mediaController,
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 if (_hasResearch(person)) ...<Widget>[
@@ -212,34 +161,6 @@ class PersonProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                 ],
-                _SectionCard(
-                  key: _mediaKey,
-                  icon: Icons.perm_media_outlined,
-                  title: 'MEDIA',
-                  child: _MediaGallery(person: person),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _SectionCard(
-                  icon: Icons.sticky_note_2_outlined,
-                  title: 'NOTES',
-                  child: Text(
-                    (person.notes?.trim().isNotEmpty ?? false)
-                        ? person.notes!
-                        : 'No notes yet. Tap edit to add some.',
-                    style: text.bodyLarge?.copyWith(
-                      color: (person.notes?.trim().isNotEmpty ?? false)
-                          ? null
-                          : text.bodySmall?.color,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.lg),
-                _SectionCard(
-                  icon: Icons.history,
-                  title: 'EDIT HISTORY',
-                  child: _EditHistory(personId: person.id),
-                ),
-                const SizedBox(height: AppSpacing.lg),
               ],
             ),
           ),
@@ -278,14 +199,11 @@ class PersonProfileScreen extends ConsumerWidget {
     )) {
       if (!visited.add(s.id)) continue;
       out.add(
-        _Relative(
-          s,
-          switch (s.sex) {
-            Sex.male => 'Brother',
-            Sex.female => 'Sister',
-            Sex.unknown => 'Sibling',
-          },
-        ),
+        _Relative(s, switch (s.sex) {
+          Sex.male => 'Brother',
+          Sex.female => 'Sister',
+          Sex.unknown => 'Sibling',
+        }),
       );
     }
 
@@ -293,14 +211,11 @@ class PersonProfileScreen extends ConsumerWidget {
       final Person? r = map[id];
       if (r != null) {
         out.add(
-          _Relative(
-            r,
-            switch (r.sex) {
-              Sex.male => 'Husband',
-              Sex.female => 'Wife',
-              Sex.unknown => 'Spouse',
-            },
-          ),
+          _Relative(r, switch (r.sex) {
+            Sex.male => 'Husband',
+            Sex.female => 'Wife',
+            Sex.unknown => 'Spouse',
+          }),
         );
       }
     }
@@ -387,9 +302,7 @@ class PersonProfileScreen extends ConsumerWidget {
     WidgetRef ref,
     Person person,
   ) {
-    final List<Record> records = ref.read(
-      recordsForPersonProvider(person.id),
-    );
+    final List<Record> records = ref.read(recordsForPersonProvider(person.id));
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -446,7 +359,11 @@ class PersonProfileScreen extends ConsumerWidget {
 
   /// Quick-add menu for the FAMILY section: creates a brand-new relative
   /// (via the person editor) and links it straight away.
-  void _showAddRelativeSheet(BuildContext context, WidgetRef ref, Person person) {
+  void _showAddRelativeSheet(
+    BuildContext context,
+    WidgetRef ref,
+    Person person,
+  ) {
     showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -507,10 +424,10 @@ class PersonProfileScreen extends ConsumerWidget {
     WidgetRef ref,
     Person person,
   ) async {
-    final List<Person> persons = (ref.read(personsProvider).value ??
-            const <Person>[])
-        .where((p) => p.id != person.id)
-        .toList();
+    final List<Person> persons =
+        (ref.read(personsProvider).value ?? const <Person>[])
+            .where((p) => p.id != person.id)
+            .toList();
     final Person? found = await showDialog<Person>(
       context: context,
       builder: (ctx) => _FindPersonDialog(persons: persons),
@@ -638,10 +555,7 @@ class _FindPersonDialogState extends State<_FindPersonDialog> {
                 textInputAction: TextInputAction.search,
                 decoration: InputDecoration(
                   hintText: 'Search by name or ID…',
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: text.bodySmall?.color,
-                  ),
+                  prefixIcon: Icon(Icons.search, color: text.bodySmall?.color),
                   suffixIcon: _query.isEmpty
                       ? null
                       : IconButton(
@@ -1362,6 +1276,60 @@ class _EditHistoryTile extends StatelessWidget {
   }
 }
 
+/// A labeled pill button for the app bar's second row — "Find person" /
+/// "Add relative" moved here from the FAMILY section's trailing icons, in
+/// the icon+label style from the proposed tree-design mock (adapted to this
+/// app's own palette rather than the mock's literal black/green).
+class _AppBarPillButton extends StatelessWidget {
+  const _AppBarPillButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color background = filled
+        ? AppColors.primary
+        : Theme.of(context).colorScheme.surfaceContainerHighest;
+    final Color foreground = filled
+        ? AppColors.onPrimary
+        : Theme.of(context).textTheme.bodyMedium!.color!;
+    return Material(
+      color: background,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, size: 13, color: foreground),
+              const SizedBox(width: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  color: foreground,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Cover-banner header: gradient banner behind the app bar, an avatar
 /// overlapping its bottom edge, and a quick-stat row (family/records/media)
 /// beneath the name — replaces the old plain centered header.
@@ -1387,158 +1355,159 @@ class _HeroHeader extends ConsumerWidget {
   final VoidCallback? onTreeTap;
 
   static const double _avatarRadius = 48;
-  static const double _bannerContentHeight = 96;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final TextTheme text = Theme.of(context).textTheme;
     final bool hasPhoto =
         person.photoUrl != null && person.photoUrl!.isNotEmpty;
-    final double topInset =
-        MediaQuery.of(context).padding.top + kToolbarHeight;
-    final double bannerHeight = topInset + _bannerContentHeight;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: <Widget>[
-        SizedBox(
-          height: bannerHeight + _avatarRadius,
-          child: Stack(
-            clipBehavior: Clip.none,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            0,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              Container(
-                height: bannerHeight,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: <Color>[
-                      AppColors.primary,
-                      AppColors.primaryHover,
-                    ],
+              Stack(
+                children: <Widget>[
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).scaffoldBackgroundColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Theme.of(context).dividerColor),
+                    ),
+                    child: AdaptiveAvatar(
+                      reference: person.photoUrl,
+                      radius: _avatarRadius,
+                    ),
                   ),
-                  borderRadius: BorderRadius.vertical(
-                    bottom: Radius.circular(AppSpacing.radiusXl),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: bannerHeight - _avatarRadius,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: Stack(
-                    children: <Widget>[
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).scaffoldBackgroundColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: AdaptiveAvatar(
-                          reference: person.photoUrl,
-                          radius: _avatarRadius,
-                        ),
-                      ),
-                      Positioned(
-                        right: 0,
-                        bottom: 0,
-                        child: Material(
-                          color: AppColors.primary,
-                          shape: const CircleBorder(),
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: () => hasPhoto
-                                ? _showAvatarMenu(context, ref)
-                                : PhotoActions.setProfilePhoto(
-                                    context,
-                                    ref,
-                                    person,
-                                  ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(6),
-                              child: Icon(
-                                Icons.camera_alt_outlined,
-                                size: 16,
-                                color: AppColors.onPrimary,
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Material(
+                      color: AppColors.primary,
+                      shape: const CircleBorder(),
+                      child: InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => hasPhoto
+                            ? _showAvatarMenu(context, ref)
+                            : PhotoActions.setProfilePhoto(
+                                context,
+                                ref,
+                                person,
                               ),
-                            ),
+                        child: const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: Icon(
+                            Icons.camera_alt_outlined,
+                            size: 16,
+                            color: AppColors.onPrimary,
                           ),
                         ),
                       ),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      person.fullName,
+                      style: text.headlineMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (person.lifespan.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 4),
+                      Text(
+                        person.lifespan,
+                        style: text.bodyLarge?.copyWith(
+                          color: text.bodyMedium?.color,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text(
-          person.fullName,
-          style: text.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-          textAlign: TextAlign.center,
-        ),
-        if (person.lifespan.isNotEmpty) ...<Widget>[
-          const SizedBox(height: 4),
-          Text(
-            person.lifespan,
-            style: text.bodyLarge?.copyWith(color: text.bodyMedium?.color),
-          ),
-        ],
-        if (person.birthPlace != null) ...<Widget>[
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Icon(
-                Icons.place_outlined,
-                size: 16,
-                color: text.bodySmall?.color,
-              ),
-              const SizedBox(width: 4),
-              Text(person.birthPlace!, style: text.bodyMedium),
-            ],
-          ),
-        ],
-        if ((person.code ?? '').isNotEmpty) ...<Widget>[
-          const SizedBox(height: AppSpacing.sm),
-          Center(
-            child: Material(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                onTap: () => _copyCode(context, person.code!),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  child: Row(
+        if (person.birthPlace != null || (person.code ?? '').isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                if (person.birthPlace != null)
+                  Row(
                     mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
-                      Text(
-                        person.code!,
-                        style: text.labelMedium?.copyWith(
-                          color: text.bodyMedium?.color,
-                          letterSpacing: 1,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
                       Icon(
-                        Icons.copy_outlined,
-                        size: 14,
+                        Icons.place_outlined,
+                        size: 16,
                         color: text.bodySmall?.color,
                       ),
+                      const SizedBox(width: 4),
+                      Text(person.birthPlace!, style: text.bodyMedium),
                     ],
                   ),
-                ),
-              ),
+                if ((person.code ?? '').isNotEmpty) ...<Widget>[
+                  if (person.birthPlace != null)
+                    const SizedBox(height: AppSpacing.sm),
+                  Material(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                      onTap: () => _copyCode(context, person.code!),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Text(
+                              person.code!,
+                              style: text.labelMedium?.copyWith(
+                                color: text.bodyMedium?.color,
+                                letterSpacing: 1,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Icon(
+                              Icons.copy_outlined,
+                              size: 14,
+                              color: text.bodySmall?.color,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-        ],
         const SizedBox(height: AppSpacing.lg),
         _HeroStats(
           familyCount: familyCount,
@@ -1686,7 +1655,11 @@ class _StatItem extends StatelessWidget {
           ),
           child: Column(
             children: <Widget>[
-              Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                icon,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(height: 2),
               if (value != null)
                 Text(
@@ -1718,17 +1691,14 @@ class _StatDivider extends StatelessWidget {
 /// (Family, Details, Timeline, etc.) with a consistent icon + title header.
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
-    super.key,
     required this.icon,
     required this.title,
     required this.child,
-    this.trailing,
   });
 
   final IconData icon;
   final String title;
   final Widget child;
-  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -1777,13 +1747,315 @@ class _SectionCard extends StatelessWidget {
                   ),
                 ),
               ),
-              ?trailing,
             ],
           ),
           const SizedBox(height: AppSpacing.md),
           child,
         ],
       ),
+    );
+  }
+}
+
+/// Quick-jump menu to the page's own sections, plus a print/export action —
+/// mirrors the "Vital details / Photos & memories / Life story / Sources &
+/// records" list from the proposed tree-design mock, adapted to this screen's
+/// existing light theme and card styling rather than the mock's dark card.
+class _QuickActionsCard extends ConsumerWidget {
+  const _QuickActionsCard({
+    required this.person,
+    required this.events,
+    required this.relatives,
+    this.familyKey,
+    this.familyController,
+    this.mediaKey,
+    this.mediaController,
+  });
+
+  final Person person;
+  final List<TimelineEvent> events;
+  final List<_Relative> relatives;
+  final GlobalKey? familyKey;
+  final ExpansibleController? familyController;
+  final GlobalKey? mediaKey;
+  final ExpansibleController? mediaController;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final List<Record> records = ref.watch(recordsForPersonProvider(person.id));
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: Theme.of(context).dividerColor),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          _AccordionItem(
+            icon: Icons.description_outlined,
+            label: 'Vital details',
+            child: _hasDetails(person)
+                ? _DetailsSection(person: person)
+                : Text(
+                    'No vital details yet. Tap edit to add some.',
+                    style: text.bodyMedium,
+                  ),
+          ),
+          _AccordionItem(
+            key: familyKey,
+            controller: familyController,
+            icon: Icons.diversity_3_outlined,
+            label: 'Family',
+            child: relatives.isEmpty
+                ? Text('No family linked yet.', style: text.bodyMedium)
+                : _RelativesWrap(
+                    relatives: relatives,
+                    onTap: (p) => context.push('/person/${p.id}'),
+                  ),
+          ),
+          _AccordionItem(
+            icon: Icons.auto_awesome_outlined,
+            label: 'AI research assistant',
+            child: _ResearchAssistantSection(
+              person: person,
+              relatives: relatives,
+            ),
+          ),
+          _AccordionItem(
+            icon: Icons.sticky_note_2_outlined,
+            label: 'Notes',
+            child: Text(
+              (person.notes?.trim().isNotEmpty ?? false)
+                  ? person.notes!
+                  : 'No notes yet. Tap edit to add some.',
+              style: text.bodyMedium?.copyWith(
+                color: (person.notes?.trim().isNotEmpty ?? false)
+                    ? null
+                    : text.bodySmall?.color,
+              ),
+            ),
+          ),
+          _AccordionItem(
+            icon: Icons.history,
+            label: 'Edit history',
+            child: _EditHistory(personId: person.id),
+          ),
+          _AccordionItem(
+            key: mediaKey,
+            controller: mediaController,
+            icon: Icons.image_outlined,
+            label: 'Photos & memories',
+            child: _MediaGallery(person: person),
+          ),
+          _AccordionItem(
+            icon: Icons.menu_book_outlined,
+            label: 'Life story',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    onPressed: () =>
+                        showTimelineEventEditorSheet(context, ref, person),
+                    icon: const Icon(Icons.add, size: 18),
+                    label: const Text('Add event'),
+                  ),
+                ),
+                events.isEmpty
+                    ? Text('No dated events yet.', style: text.bodyMedium)
+                    : _Timeline(
+                        events: events,
+                        onTapEvent: (event) {
+                          // Only custom events are editable; birth/death
+                          // derive from the structured fields (edit those
+                          // via the person editor).
+                          if (event.id == '_birth' || event.id == '_death') {
+                            showPersonEditorSheet(
+                              context,
+                              ref,
+                              existing: person,
+                            );
+                          } else {
+                            showTimelineEventEditorSheet(
+                              context,
+                              ref,
+                              person,
+                              existing: event,
+                            );
+                          }
+                        },
+                      ),
+              ],
+            ),
+          ),
+          _AccordionItem(
+            icon: Icons.attach_file,
+            label: 'Sources & records',
+            showDivider: false,
+            child: records.isEmpty
+                ? Text(
+                    'No records linked to this person yet.',
+                    style: text.bodyMedium,
+                  )
+                : Column(
+                    children: <Widget>[
+                      for (final Record r in records)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(r.type.icon),
+                          title: Text(r.title),
+                          subtitle: Text(r.type.label),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () => context.push('/record/${r.id}'),
+                        ),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _PrintOrExportButton(person: person),
+          const SizedBox(height: AppSpacing.md),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: Text(
+              'Privacy: only people you\'ve added to this tree can see '
+              '${person.givenName}\'s profile.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One "Vital details / Photos & memories / ..." dropdown — tapping expands
+/// its content inline instead of scrolling elsewhere on the page.
+class _AccordionItem extends StatelessWidget {
+  const _AccordionItem({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.child,
+    this.controller,
+    this.showDivider = true,
+  });
+
+  final IconData icon;
+  final String label;
+  final Widget child;
+  final ExpansibleController? controller;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      children: <Widget>[
+        ExpansionTile(
+          controller: controller,
+          tilePadding: EdgeInsets.zero,
+          childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
+          shape: const Border(),
+          collapsedShape: const Border(),
+          leading: Icon(icon, size: 20, color: text.bodySmall?.color),
+          title: Text(label, style: text.bodyLarge),
+          children: <Widget>[child],
+        ),
+        if (showDivider)
+          Divider(height: 1, color: Theme.of(context).dividerColor),
+      ],
+    );
+  }
+}
+
+/// The quick-actions card's "Print or export" button — a small stateful
+/// widget of its own so it can show a spinner while the PDF is generated
+/// (fonts are fetched over the network the first time) without needing to
+/// convert the whole (stateless) [PersonProfileScreen] just for this.
+class _PrintOrExportButton extends ConsumerStatefulWidget {
+  const _PrintOrExportButton({required this.person});
+  final Person person;
+
+  @override
+  ConsumerState<_PrintOrExportButton> createState() =>
+      _PrintOrExportButtonState();
+}
+
+class _PrintOrExportButtonState extends ConsumerState<_PrintOrExportButton> {
+  bool _busy = false;
+
+  Future<void> _printOrExport() async {
+    setState(() => _busy = true);
+    try {
+      final List<TimelineEvent> events = _personTimeline(widget.person);
+      final bool launched = await Printing.layoutPdf(
+        format: PdfPageFormat.a4,
+        name: '${widget.person.fullName}.pdf',
+        onLayout: (PdfPageFormat format) => PersonPdfService.build(
+          person: widget.person,
+          events: events,
+          format: format,
+        ),
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Printing was cancelled.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Could not prepare the PDF. Check your internet connection '
+              'and try again. ($e)',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: _busy ? null : _printOrExport,
+      icon: _busy
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.print_outlined, size: 18),
+      label: const Text('Print or export'),
     );
   }
 }

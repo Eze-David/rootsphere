@@ -17,4 +17,8 @@ class DonationRepositoryLocal implements DonationRepository {
   @override
   Stream<List<Donation>> watchMyDonations(String donorId) =>
       Stream<List<Donation>>.value(const <Donation>[]);
+
+  @override
+  Stream<List<DonationSubscription>> watchMySubscriptions(String donorId) =>
+      Stream<List<DonationSubscription>>.value(const <DonationSubscription>[]);
 }

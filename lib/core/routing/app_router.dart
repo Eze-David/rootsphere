@@ -130,7 +130,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.donationThankYou,
         name: 'donation-thank-you',
-        builder: (_, _) => const DonationThankYouScreen(),
+        builder: (_, GoRouterState state) => DonationThankYouScreen(
+          reference:
+              state.uri.queryParameters['reference'] ??
+              state.uri.queryParameters['trxref'],
+        ),
       ),
       GoRoute(
         path: '${AppRoutes.person}/:id',

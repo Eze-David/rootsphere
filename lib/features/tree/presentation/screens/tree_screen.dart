@@ -16,13 +16,12 @@ import '../widgets/person_card_widget.dart';
 import '../widgets/person_actions_sheet.dart';
 import '../widgets/person_editor_sheet.dart';
 import '../widgets/tree_node_widgets.dart';
-import '../../../../shared/widgets/zoom_controls.dart';
 
 /// The Phase 2 centrepiece: an interactive, pan/zoom family-tree renderer with
 /// Ancestors / Descendants / Pedigree modes.
-/// The three mutually-exclusive options in the app-bar "view" menu — the
-/// first two select [TreeViewMode.graph] plus a [TreeOrientation], the third
-/// selects [TreeViewMode.list] (which has no orientation of its own).
+/// The three mutually-exclusive options in the [_ViewModeToggle] pill row —
+/// the first two select [TreeViewMode.graph] plus a [TreeOrientation], the
+/// third selects [TreeViewMode.list] (which has no orientation of its own).
 enum _TreeViewOption { vertical, horizontal, list }
 
 class TreeScreen extends ConsumerStatefulWidget {
@@ -37,6 +36,7 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   Size _viewport = Size.zero;
   bool _didInitialFit = false;
   TreeOrientation? _lastOrientation;
+  TreeMode? _lastMode;
   bool _printing = false;
 
   @override
@@ -83,10 +83,15 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     const double scale = _defaultFocusScale;
     final bool horizontal =
         ref.read(treeOrientationProvider) == TreeOrientation.horizontal;
-    // Vertical: focus near the bottom (ancestors above). Horizontal: focus
-    // near the left (ancestors to the right).
-    final double anchorX = horizontal ? 0.28 : 0.5;
-    final double anchorY = horizontal ? 0.5 : 0.72;
+    final bool descendants = ref.read(treeModeProvider) == TreeMode.descendants;
+    // Descendants always grow straight down from the focus (the orientation
+    // toggle only affects the ancestors layout), so anchoring it near the
+    // bottom — correct for ancestors, who grow upward — left almost no room
+    // below the focus and rendered most of the tree past the visible edge.
+    // Vertical ancestors: focus near the bottom (ancestors above).
+    // Horizontal ancestors: focus near the left (ancestors to the right).
+    final double anchorX = descendants ? 0.5 : (horizontal ? 0.28 : 0.5);
+    final double anchorY = descendants ? 0.22 : (horizontal ? 0.5 : 0.72);
     final double tx = _viewport.width * anchorX - f.center.dx * scale;
     final double ty = _viewport.height * anchorY - f.center.dy * scale;
     _controller.value = Matrix4.identity()
@@ -142,6 +147,46 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     );
   }
 
+  /// The flat person list has no descendants/ancestors distinction of its
+  /// own — it always shows everyone, alphabetically — so toggling mode while
+  /// List is active changed nothing on screen even though List stayed
+  /// highlighted, making the tap look like it had no effect. Switching to
+  /// the graph canvas when the mode changes makes every tap visible.
+  void _onModeChanged(TreeMode m) {
+    ref.read(treeModeProvider.notifier).state = m;
+    if (ref.read(treeViewModeProvider) == TreeViewMode.list) {
+      ref.read(treeViewModeProvider.notifier).state = TreeViewMode.graph;
+    }
+    // The descendants layout is always top-down (it has no horizontal
+    // variant, unlike the ancestors pedigree) — forcing vertical here stops
+    // the orientation from getting stuck on horizontal from a previous
+    // ancestors view, which rendered the landscape card style over a tree
+    // shape that never actually reflows for it.
+    if (m == TreeMode.descendants) {
+      ref.read(treeOrientationProvider.notifier).state =
+          TreeOrientation.vertical;
+    }
+  }
+
+  void _onViewOptionSelected(_TreeViewOption o) {
+    // Vertical/Horizontal/List and Descendant are one mutually-exclusive
+    // set of four styles, not two independently-toggled axes — picking any
+    // of these three always drops back to the ancestors view.
+    ref.read(treeModeProvider.notifier).state = TreeMode.ancestors;
+    switch (o) {
+      case _TreeViewOption.vertical:
+        ref.read(treeViewModeProvider.notifier).state = TreeViewMode.graph;
+        ref.read(treeOrientationProvider.notifier).state =
+            TreeOrientation.vertical;
+      case _TreeViewOption.horizontal:
+        ref.read(treeViewModeProvider.notifier).state = TreeViewMode.graph;
+        ref.read(treeOrientationProvider.notifier).state =
+            TreeOrientation.horizontal;
+      case _TreeViewOption.list:
+        ref.read(treeViewModeProvider.notifier).state = TreeViewMode.list;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
@@ -153,9 +198,16 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     final int generations = layout?.generations ?? 0;
     final treeId = ref.watch(activeTreeIdProvider);
 
-    // Re-fit the view whenever the orientation flips.
+    // Re-fit the view whenever the orientation flips or the ancestors/
+    // descendants mode changes — otherwise the viewport stays panned to
+    // wherever the previous layout was, and the newly-built layout can end
+    // up rendering entirely off-screen (a blank canvas).
     if (orientation != _lastOrientation) {
       _lastOrientation = orientation;
+      _didInitialFit = false;
+    }
+    if (mode != _lastMode) {
+      _lastMode = mode;
       _didInitialFit = false;
     }
 
@@ -166,7 +218,18 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            Text('Family Tree', style: text.titleLarge),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Image.asset(
+                  'assets/images/rootsphere-logo-espresso-v6-cropped.png',
+                  width: 40,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text('RootSphere Family Tree', style: text.titleLarge),
+              ],
+            ),
             Text(
               '${_treeName(treeId)} · $generations generation'
               '${generations == 1 ? '' : 's'}',
@@ -174,91 +237,14 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
             ),
           ],
         ),
-        // Zoom in/out/recenter used to live here too, but 7 action icons
-        // (each needing ~48dp) plus the leading button overflows AppBars on
-        // phones narrower than ~400dp — most Android devices, not just the
-        // budget end — silently clipping the trailing icons off-screen
-        // rather than throwing a visible overflow error. They're a floating
-        // cluster over the canvas instead (see _buildCanvas below).
-        actions: <Widget>[
-          PopupMenuButton<_TreeViewOption>(
-            tooltip: 'View',
-            icon: Icon(
-              viewMode == TreeViewMode.list
-                  ? Icons.view_list_outlined
-                  : orientation == TreeOrientation.vertical
-                  ? Icons.account_tree_outlined
-                  : Icons.account_tree,
-            ),
-            onSelected: (o) {
-              switch (o) {
-                case _TreeViewOption.vertical:
-                  ref.read(treeViewModeProvider.notifier).state =
-                      TreeViewMode.graph;
-                  ref.read(treeOrientationProvider.notifier).state =
-                      TreeOrientation.vertical;
-                case _TreeViewOption.horizontal:
-                  ref.read(treeViewModeProvider.notifier).state =
-                      TreeViewMode.graph;
-                  ref.read(treeOrientationProvider.notifier).state =
-                      TreeOrientation.horizontal;
-                case _TreeViewOption.list:
-                  ref.read(treeViewModeProvider.notifier).state =
-                      TreeViewMode.list;
-              }
-            },
-            itemBuilder: (context) => <PopupMenuEntry<_TreeViewOption>>[
-              CheckedPopupMenuItem<_TreeViewOption>(
-                value: _TreeViewOption.vertical,
-                checked:
-                    viewMode == TreeViewMode.graph &&
-                    orientation == TreeOrientation.vertical,
-                child: const Text('Vertical'),
-              ),
-              CheckedPopupMenuItem<_TreeViewOption>(
-                value: _TreeViewOption.horizontal,
-                checked:
-                    viewMode == TreeViewMode.graph &&
-                    orientation == TreeOrientation.horizontal,
-                child: const Text('Horizontal'),
-              ),
-              CheckedPopupMenuItem<_TreeViewOption>(
-                value: _TreeViewOption.list,
-                checked: viewMode == TreeViewMode.list,
-                child: const Text('List'),
-              ),
-            ],
-          ),
-          IconButton(
-            tooltip: 'Search people',
-            icon: const Icon(Icons.search),
-            onPressed: layout == null
-                ? null
-                : () => _showSearch(
-                    ref.read(personsProvider).value ?? const <Person>[],
-                  ),
-          ),
-          if (viewMode == TreeViewMode.graph)
-            IconButton(
-              tooltip: 'Print family tree',
-              icon: _printing
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.print_outlined),
-              onPressed: layout == null || _printing
-                  ? null
-                  : () => _printTree(layout, treeId),
-            ),
-          IconButton(
-            tooltip: 'Add person',
-            icon: const Icon(Icons.add),
-            onPressed: () => _addRootPerson(context, treeId),
-          ),
-          const SizedBox(width: AppSpacing.xs),
-        ],
+        // Search/Print/zoom/recenter never lived in the AppBar's actions —
+        // 7 action icons (each needing ~48dp) plus the leading button
+        // overflows AppBars on phones narrower than ~400dp — most Android
+        // devices, not just the budget end — silently clipping the trailing
+        // icons off-screen rather than throwing a visible overflow error.
+        // They're a single floating cluster over the canvas instead (see
+        // _buildCanvas below), alongside List mode's own floating Search
+        // button.
       ),
       body: personsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -271,9 +257,39 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
             return _EmptyTree(onAdd: () => _addRootPerson(context, treeId));
           }
           if (viewMode == TreeViewMode.list) {
-            return _PersonListView(
-              persons: persons,
-              onTap: (p) => showPersonActionsSheet(context, ref, p),
+            return Column(
+              children: <Widget>[
+                Expanded(
+                  child: Stack(
+                    children: <Widget>[
+                      _PersonListView(
+                        persons: persons,
+                        onTap: (p) => showPersonActionsSheet(context, ref, p),
+                      ),
+                      Positioned(
+                        right: AppSpacing.lg,
+                        bottom: AppSpacing.lg,
+                        child: _CanvasActionCluster(
+                          children: <Widget>[
+                            IconButton(
+                              tooltip: 'Search people',
+                              icon: const Icon(Icons.search),
+                              onPressed: () => _showSearch(persons),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                _ViewModeToggle(
+                  viewMode: viewMode,
+                  orientation: orientation,
+                  mode: mode,
+                  onSelected: _onViewOptionSelected,
+                  onModeChanged: _onModeChanged,
+                ),
+              ],
             );
           }
           if (layout == null) {
@@ -288,20 +304,61 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
                     Positioned(
                       right: AppSpacing.lg,
                       bottom: AppSpacing.lg,
-                      child: ZoomControls(
-                        onZoomIn: () => _zoomBy(1.25),
-                        onZoomOut: () => _zoomBy(0.8),
-                        thirdIcon: Icons.center_focus_strong_outlined,
-                        thirdTooltip: 'Recenter',
-                        onThird: () => _resetZoom(layout),
+                      child: _CanvasActionCluster(
+                        children: <Widget>[
+                          IconButton(
+                            tooltip: 'Search people',
+                            icon: const Icon(Icons.search),
+                            onPressed: () => _showSearch(persons),
+                          ),
+                          const Divider(height: 1),
+                          IconButton(
+                            tooltip: 'Print family tree',
+                            icon: _printing
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.print_outlined),
+                            onPressed: _printing
+                                ? null
+                                : () => _printTree(layout, treeId),
+                          ),
+                          const Divider(height: 1),
+                          IconButton(
+                            tooltip: 'Zoom in',
+                            icon: const Icon(Icons.add),
+                            onPressed: () => _zoomBy(1.25),
+                          ),
+                          const Divider(height: 1),
+                          IconButton(
+                            tooltip: 'Zoom out',
+                            icon: const Icon(Icons.remove),
+                            onPressed: () => _zoomBy(0.8),
+                          ),
+                          const Divider(height: 1),
+                          IconButton(
+                            tooltip: 'Recenter',
+                            icon: const Icon(
+                              Icons.center_focus_strong_outlined,
+                            ),
+                            onPressed: () => _resetZoom(layout),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
               ),
-              _ModeToggle(
+              _ViewModeToggle(
+                viewMode: viewMode,
+                orientation: orientation,
                 mode: mode,
-                onChanged: (m) => ref.read(treeModeProvider.notifier).state = m,
+                onSelected: _onViewOptionSelected,
+                onModeChanged: _onModeChanged,
               ),
             ],
           );
@@ -620,11 +677,143 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
   }
 }
 
-class _ModeToggle extends StatelessWidget {
-  const _ModeToggle({required this.mode, required this.onChanged});
+/// Vertical / Horizontal / List / Descendants, as a single pill row —
+/// replaces both the old app-bar dropdown menu and the separate
+/// Ancestors/Descendants toggle underneath it. "Ancestors" isn't its own
+/// button: it's just whatever "Descendants" isn't (the default, unselected
+/// state), since a vertical/horizontal ancestors view is the tree's normal
+/// starting point — Descendants is the one alternate worth a dedicated
+/// toggle.
+/// A single floating card of stacked icon buttons docked over the canvas —
+/// Search, Print, and zoom in/out/recenter all together, rather than two
+/// separate cards.
+class _CanvasActionCluster extends StatelessWidget {
+  const _CanvasActionCluster({required this.children});
 
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+}
+
+class _ViewModeToggle extends StatelessWidget {
+  const _ViewModeToggle({
+    required this.viewMode,
+    required this.orientation,
+    required this.mode,
+    required this.onSelected,
+    required this.onModeChanged,
+  });
+
+  final TreeViewMode viewMode;
+  final TreeOrientation orientation;
   final TreeMode mode;
-  final ValueChanged<TreeMode> onChanged;
+  final ValueChanged<_TreeViewOption> onSelected;
+  final ValueChanged<TreeMode> onModeChanged;
+
+  static const List<String> _labels = <String>[
+    'Pedigree',
+    'List',
+    'Descendant',
+  ];
+
+  /// One font size shared by all three buttons, so a long label ("Descendant")
+  /// never renders smaller than a short one ("List") just because each
+  /// button used to scale its own text independently to fit its (equal)
+  /// share of the row.
+  double _sharedFontSize(BuildContext context, double maxWidth) {
+    final TextStyle style =
+        Theme.of(context).textTheme.labelLarge ?? const TextStyle(fontSize: 14);
+    final double naturalSize = style.fontSize ?? 14;
+    const int count = 3;
+    const double spacing = AppSpacing.sm * (count - 1);
+    const double hPadding = AppSpacing.sm * 2;
+    final double perButtonWidth = (maxWidth - spacing) / count - hPadding;
+    if (perButtonWidth <= 0) return naturalSize;
+
+    double longest = 0;
+    for (final String label in _labels) {
+      final TextPainter painter = TextPainter(
+        text: TextSpan(text: label, style: style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      if (painter.width > longest) longest = painter.width;
+    }
+    if (longest <= 0) return naturalSize;
+
+    final double scale = (perButtonWidth / longest).clamp(0.0, 1.0);
+    return naturalSize * scale;
+  }
+
+  /// Vertical/Horizontal live inside a pull-up sheet from "Pedigree" now,
+  /// rather than each getting their own button in the main row.
+  void _showPedigreeSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.radiusLg),
+        ),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Pedigree orientation',
+                  style: Theme.of(ctx).textTheme.titleMedium,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            ListTile(
+              leading: const Icon(Icons.swap_vert),
+              title: const Text('Vertical'),
+              trailing: orientation == TreeOrientation.vertical
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                onSelected(_TreeViewOption.vertical);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.swap_horiz),
+              title: const Text('Horizontal'),
+              trailing: orientation == TreeOrientation.horizontal
+                  ? const Icon(Icons.check, color: AppColors.primary)
+                  : null,
+              onTap: () {
+                Navigator.pop(ctx);
+                onSelected(_TreeViewOption.horizontal);
+              },
+            ),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -637,20 +826,45 @@ class _ModeToggle extends StatelessWidget {
           AppSpacing.lg,
           AppSpacing.lg,
         ),
-        child: Row(
-          children: <Widget>[
-            _ModeButton(
-              label: 'Ancestors',
-              selected: mode == TreeMode.ancestors,
-              onTap: () => onChanged(TreeMode.ancestors),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            _ModeButton(
-              label: 'Descendants',
-              selected: mode == TreeMode.descendants,
-              onTap: () => onChanged(TreeMode.descendants),
-            ),
-          ],
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final double fontSize = _sharedFontSize(
+              context,
+              constraints.maxWidth,
+            );
+            return Row(
+              children: <Widget>[
+                _ModeButton(
+                  label: 'Pedigree',
+                  fontSize: fontSize,
+                  selected:
+                      mode == TreeMode.ancestors &&
+                      viewMode == TreeViewMode.graph,
+                  onTap: () => _showPedigreeSheet(context),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _ModeButton(
+                  label: 'List',
+                  fontSize: fontSize,
+                  selected:
+                      mode == TreeMode.ancestors &&
+                      viewMode == TreeViewMode.list,
+                  onTap: () => onSelected(_TreeViewOption.list),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                _ModeButton(
+                  label: 'Descendant',
+                  fontSize: fontSize,
+                  selected: mode == TreeMode.descendants,
+                  onTap: () => onModeChanged(
+                    mode == TreeMode.descendants
+                        ? TreeMode.ancestors
+                        : TreeMode.descendants,
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -660,11 +874,13 @@ class _ModeToggle extends StatelessWidget {
 class _ModeButton extends StatelessWidget {
   const _ModeButton({
     required this.label,
+    required this.fontSize,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final double fontSize;
   final bool selected;
   final VoidCallback onTap;
 
@@ -679,6 +895,7 @@ class _ModeButton extends StatelessWidget {
         child: Container(
           height: 48,
           alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
           decoration: BoxDecoration(
             color: selected ? primary : theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -686,7 +903,11 @@ class _ModeButton extends StatelessWidget {
           ),
           child: Text(
             label,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.clip,
             style: text.labelLarge?.copyWith(
+              fontSize: fontSize,
               color: selected
                   ? AppColors.onPrimary
                   : theme.textTheme.bodyLarge?.color,
@@ -713,8 +934,7 @@ class _PersonListView extends StatelessWidget {
     final TextTheme text = Theme.of(context).textTheme;
     final List<Person> sorted = <Person>[...persons]
       ..sort(
-        (a, b) =>
-            a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
+        (a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
       );
     return ListView.separated(
       padding: const EdgeInsets.symmetric(
@@ -732,8 +952,13 @@ class _PersonListView extends StatelessWidget {
         return ListTile(
           leading: AdaptiveAvatar(reference: p.photoUrl, radius: 20),
           title: Text(p.fullName),
-          subtitle: subtitle.isEmpty ? null : Text(subtitle, style: text.bodySmall),
-          trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+          subtitle: subtitle.isEmpty
+              ? null
+              : Text(subtitle, style: text.bodySmall),
+          trailing: const Icon(
+            Icons.chevron_right,
+            color: AppColors.textTertiary,
+          ),
           onTap: () => onTap(p),
         );
       },

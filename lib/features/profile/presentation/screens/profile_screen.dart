@@ -11,6 +11,7 @@ import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/providers/auth_controller.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/screens/legal_document_screen.dart';
+import '../../../collab/presentation/screens/donation_welcome_screen.dart';
 import '../../../collab/presentation/screens/my_donations_screen.dart';
 import '../../../collab/presentation/providers/role_verification_providers.dart';
 import '../../../support/presentation/providers/support_message_providers.dart';
@@ -931,8 +932,26 @@ class _SupportSection extends ConsumerWidget {
               ),
             _AccountTile(
               icon: Icons.info_outline,
-              label: 'About us',
+              label: 'About App',
               onTap: () => _showAboutUsDialog(context),
+            ),
+            _AccountTile(
+              icon: Icons.diversity_3_outlined,
+              label: 'Our Foundation',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LegalDocumentScreen.ourFoundation(),
+                ),
+              ),
+            ),
+            _AccountTile(
+              icon: Icons.favorite_border,
+              label: 'Donate',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const DonationWelcomeScreen(),
+                ),
+              ),
             ),
             _AccountTile(
               icon: Icons.volunteer_activism_outlined,
@@ -979,7 +998,7 @@ class _SupportSection extends ConsumerWidget {
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          title: const Text('About us'),
+          title: const Text('About App'),
           content: const SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
