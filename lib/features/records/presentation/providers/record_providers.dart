@@ -82,6 +82,15 @@ final recordsProvider = StreamProvider<List<Record>>((ref) {
   return repo.watchRecords(treeId);
 });
 
+/// Which body the Records screen shows: the signed-in user's own/tree
+/// records (existing behaviour) or the published Digital Records Repository
+/// catalogue.
+enum RecordsViewMode { mine, catalogue }
+
+final recordsViewModeProvider = StateProvider<RecordsViewMode>(
+  (ref) => RecordsViewMode.mine,
+);
+
 /// Free-text search query for the records library.
 final recordSearchProvider = StateProvider<String>((ref) => '');
 

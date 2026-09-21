@@ -13,6 +13,7 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
 import '../../../assistant/domain/entities/assistant_result.dart';
 import '../../../assistant/presentation/providers/assistant_providers.dart';
+import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../../records/domain/entities/record.dart';
 import '../../../records/presentation/providers/record_providers.dart';
 import '../../data/services/geocoding_service.dart';
@@ -86,14 +87,9 @@ class PersonProfileScreen extends ConsumerWidget {
             filled: true,
             onPressed: () => _showAddRelativeSheet(context, ref, person),
           ),
-          IconButton(
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
-            icon: const Icon(Icons.edit_outlined, size: 20),
-            tooltip: 'Edit',
-            onPressed: () =>
-                showPersonEditorSheet(context, ref, existing: person),
-          ),
+          // Folded into one menu (rather than a second standalone icon) to
+          // stay within the same tight-width budget noted above.
+          _ProfileOverflowMenu(person: person),
           const SizedBox(width: AppSpacing.sm),
         ],
       ),
@@ -1280,6 +1276,51 @@ class _EditHistoryTile extends StatelessWidget {
 /// "Add relative" moved here from the FAMILY section's trailing icons, in
 /// the icon+label style from the proposed tree-design mock (adapted to this
 /// app's own palette rather than the mock's literal black/green).
+class _ProfileOverflowMenu extends ConsumerWidget {
+  const _ProfileOverflowMenu({required this.person});
+  final Person person;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final String? myPersonId = ref.watch(myPersonIdForActiveTreeProvider).value;
+    final bool isMe = myPersonId == person.id;
+
+    return PopupMenuButton<_ProfileMenuAction>(
+      padding: EdgeInsets.zero,
+      icon: const Icon(Icons.edit_outlined, size: 20),
+      tooltip: 'More',
+      onSelected: (action) async {
+        switch (action) {
+          case _ProfileMenuAction.edit:
+            showPersonEditorSheet(context, ref, existing: person);
+          case _ProfileMenuAction.markAsMe:
+            await ref
+                .read(familyTreeRepositoryProvider)
+                .setMyPersonId(person.treeId, person.id);
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Marked as you on the dashboard.')),
+              );
+            }
+        }
+      },
+      itemBuilder: (context) => <PopupMenuEntry<_ProfileMenuAction>>[
+        const PopupMenuItem<_ProfileMenuAction>(
+          value: _ProfileMenuAction.edit,
+          child: Text('Edit'),
+        ),
+        PopupMenuItem<_ProfileMenuAction>(
+          value: _ProfileMenuAction.markAsMe,
+          enabled: !isMe,
+          child: Text(isMe ? 'This is me ✓' : 'Mark as me'),
+        ),
+      ],
+    );
+  }
+}
+
+enum _ProfileMenuAction { edit, markAsMe }
+
 class _AppBarPillButton extends StatelessWidget {
   const _AppBarPillButton({
     required this.icon,

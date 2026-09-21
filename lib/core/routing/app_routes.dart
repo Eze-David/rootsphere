@@ -38,6 +38,10 @@ abstract class AppRoutes {
   /// Admin-only "Contact us" inbox, pushed over the shell: `/admin/support`.
   static const String supportMessages = '/admin/support';
 
+  /// Admin-only Digital Records Repository (curated civil/historical records
+  /// catalogue), pushed over the shell: `/admin/archive`.
+  static const String archiveRepository = '/admin/archive';
+
   /// Public legal documents — reachable standalone (signed out, not
   /// onboarded) so they work as store-listing URLs (Play Console, App Store
   /// Connect), not just as an in-app push from the sign-up/footer links.

@@ -10,17 +10,24 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../hints/domain/entities/hint.dart';
 import '../../../hints/presentation/providers/hint_providers.dart';
 import '../../../notifications/presentation/providers/notification_providers.dart';
-import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../../records/domain/entities/record.dart';
 import '../../../records/presentation/providers/record_providers.dart';
 import '../../../tree/domain/entities/edit_history_entry.dart';
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
+import '../widgets/tree_progress_ring_painter.dart';
 import '../widgets/what_to_watch_section.dart';
 
-/// Home dashboard (brief §Phase 4 mockup): greeting, key stats, recent activity
-/// and a surfaced opportunity. The Hints stat and activity feed are the entry
-/// points into the Hints & AI feature.
+String _initialsOf(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty);
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first[0].toUpperCase();
+  return (parts.first[0] + parts.last[0]).toUpperCase();
+}
+
+/// Home dashboard: a branded hero + search card, a tree-completeness ring,
+/// quick actions, a "family at a glance" preview, recent activity, and the
+/// existing hints-driven sections below.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -28,9 +35,6 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final List<Person> people =
         ref.watch(personsProvider).value ?? const <Person>[];
-    final List<Record> records =
-        ref.watch(recordsProvider).value ?? const <Record>[];
-    final int hintCount = ref.watch(pendingHintCountProvider);
     final AppUser? user = ref.watch(authStateProvider).value;
     final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
 
@@ -44,17 +48,13 @@ class DashboardScreen extends ConsumerWidget {
             AppSpacing.xxl,
           ),
           children: <Widget>[
-            _Greeting(
-              user: user,
-              treeName: _treeName(ref),
-              unreadNotifications: unreadNotifications,
-            ),
+            _HeroSearchCard(user: user, unreadNotifications: unreadNotifications),
             const SizedBox(height: AppSpacing.lg),
-            _StatsRow(
-              people: people.length,
-              records: records.length,
-              hints: hintCount,
-            ),
+            _TreeProgressCard(people: people),
+            const SizedBox(height: AppSpacing.xl),
+            const _QuickActionsGrid(),
+            const SizedBox(height: AppSpacing.xl),
+            const _FamilyAtAGlance(),
             const SizedBox(height: AppSpacing.xl),
             const _RecentActivity(),
             const SizedBox(height: AppSpacing.xl),
@@ -66,90 +66,34 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
-
-  String _treeName(WidgetRef ref) {
-    final String activeId = ref.watch(activeTreeIdProvider);
-    final trees = ref.watch(familyTreeControllerProvider).value;
-    if (trees != null) {
-      for (final t in trees) {
-        if (t.id == activeId) return '${t.name} family tree';
-      }
-    }
-    if (activeId == 'okonkwo') return 'Okonkwo family tree';
-    return 'Your family tree';
-  }
 }
 
-class _Greeting extends StatelessWidget {
-  const _Greeting({
-    required this.user,
-    required this.treeName,
-    required this.unreadNotifications,
-  });
+class _HeroSearchCard extends ConsumerStatefulWidget {
+  const _HeroSearchCard({required this.user, required this.unreadNotifications});
   final AppUser? user;
-  final String treeName;
   final int unreadNotifications;
 
   @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final int hour = DateTime.now().hour;
-    final String part = hour < 12
-        ? 'Good morning'
-        : hour < 17
-        ? 'Good afternoon'
-        : 'Good evening';
-    final String? name = _firstName(user);
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(
-                name == null ? part : '$part, $name',
-                style: text.headlineMedium,
-              ),
-              const SizedBox(height: 2),
-              Text(treeName, style: text.bodyMedium),
-            ],
-          ),
-        ),
-        Stack(
-          clipBehavior: Clip.none,
-          children: <Widget>[
-            IconButton.outlined(
-              onPressed: () => context.push(AppRoutes.notifications),
-              icon: const Icon(Icons.notifications_none),
-            ),
-            if (unreadNotifications > 0)
-              Positioned(
-                right: 2,
-                top: 2,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 1,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.sunGold,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                    border: Border.all(color: AppColors.background, width: 1.5),
-                  ),
-                  child: Text(
-                    unreadNotifications > 9 ? '9+' : '$unreadNotifications',
-                    style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
-    );
+  ConsumerState<_HeroSearchCard> createState() => _HeroSearchCardState();
+}
+
+class _HeroSearchCardState extends ConsumerState<_HeroSearchCard> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    final String query = _controller.text.trim();
+    if (query.isEmpty) return;
+    // Reuses the Records screen's own unified search (person + record +
+    // external results) rather than building a second search stack.
+    ref.read(recordSearchProvider.notifier).state = query;
+    ref.read(recordsViewModeProvider.notifier).state = RecordsViewMode.mine;
+    context.go(AppRoutes.records);
   }
 
   String? _firstName(AppUser? user) {
@@ -162,92 +106,481 @@ class _Greeting extends StatelessWidget {
     if (local.isEmpty) return null;
     return local[0].toUpperCase() + local.substring(1);
   }
-}
-
-class _StatsRow extends StatelessWidget {
-  const _StatsRow({
-    required this.people,
-    required this.records,
-    required this.hints,
-  });
-  final int people;
-  final int records;
-  final int hints;
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final int hour = DateTime.now().hour;
+    final String part = hour < 12
+        ? 'Good morning'
+        : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening';
+    final String? name = _firstName(widget.user);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        // Deliberately a fixed brand-dark card (not theme-swapped) — this is
+        // the "espresso/forest" hero accent from the mockup, meant to stay
+        // dark with light text in both app themes, unlike a plain surface.
+        color: AppColors.primary,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'YOUR HISTORY LIVES HERE',
+                  style: text.labelSmall?.copyWith(
+                    color: AppColors.sunGold,
+                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Stack(
+                clipBehavior: Clip.none,
+                children: <Widget>[
+                  IconButton(
+                    onPressed: () => context.push(AppRoutes.notifications),
+                    icon: const Icon(Icons.notifications_none, color: Colors.white),
+                  ),
+                  if (widget.unreadNotifications > 0)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppColors.sunGold,
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                          border: Border.all(color: AppColors.primary, width: 1.5),
+                        ),
+                        child: Text(
+                          widget.unreadNotifications > 9 ? '9+' : '${widget.unreadNotifications}',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            name == null
+                ? '$part. Continue building your family story.'
+                : '$part, $name. Continue building your family story.',
+            style: text.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            "Connect generations, preserve memories and keep the records that prove your family's journey.",
+            style: text.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  onSubmitted: (_) => _search(),
+                  style: const TextStyle(color: AppColors.textPrimary),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    hintText: 'Search a person, place or record',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              FilledButton.icon(
+                onPressed: _search,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.sunGold,
+                  foregroundColor: AppColors.textPrimary,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                ),
+                icon: const Icon(Icons.search, size: 18),
+                label: const Text('Search'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TreeProgressCard extends StatelessWidget {
+  const _TreeProgressCard({required this.people});
+  final List<Person> people;
+
+  /// A heuristic, not a precise metric: the fraction of a few core fields
+  /// filled in, averaged across every person in the tree. Deliberately
+  /// simple (photo, birth date, birth place, at least one parent linked, at
+  /// least one spouse linked) rather than a weighted/scientific score.
+  double get _completeness {
+    if (people.isEmpty) return 0;
+    double sum = 0;
+    for (final Person p in people) {
+      int filled = 0;
+      const int total = 5;
+      if ((p.photoUrl ?? '').isNotEmpty) filled++;
+      if (p.birthDate != null) filled++;
+      if ((p.birthPlace ?? '').isNotEmpty) filled++;
+      if (p.parentIds.isNotEmpty) filled++;
+      if (p.spouseIds.isNotEmpty) filled++;
+      sum += filled / total;
+    }
+    return sum / people.length;
+  }
+
+  /// Persons with neither a parent nor a spouse linked — disconnected nodes
+  /// the "add N more relatives" nudge points at.
+  int get _unconnectedCount =>
+      people.where((p) => p.parentIds.isEmpty && p.spouseIds.isEmpty).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final double percent = _completeness;
+    final int pct = (percent * 100).round();
+    final int unconnected = _unconnectedCount;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Your tree progress', style: text.titleMedium),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          SizedBox(
+            width: 140,
+            height: 140,
+            child: CustomPaint(
+              painter: TreeProgressRingPainter(
+                percent: percent,
+                trackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                progressColor: AppColors.sunGold,
+              ),
+              child: Center(
+                child: Text(
+                  '$pct%',
+                  style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Text(
+            '${people.length} people connected',
+            style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          if (unconnected > 0) ...<Widget>[
+            const SizedBox(height: 2),
+            Text(
+              'Add $unconnected more relative${unconnected == 1 ? '' : 's'} to complete this branch',
+              style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickActionsGrid extends StatelessWidget {
+  const _QuickActionsGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text('What would you like to do?', style: text.titleMedium),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.account_tree_outlined,
+                title: 'View Family Tree',
+                subtitle: 'Explore ancestors and descendants',
+                onTap: () => context.go(AppRoutes.tree),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.person_add_alt,
+                title: 'Add a Relative',
+                subtitle: 'Create a new family profile',
+                // The tree screen owns person creation/editing — no
+                // separate top-level "add relative" entry point exists.
+                onTap: () => context.go(AppRoutes.tree),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.md),
+        Row(
+          children: <Widget>[
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.search,
+                title: 'Search Records',
+                subtitle: 'Find historical evidence',
+                onTap: () => context.go(AppRoutes.records),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: _QuickActionCard(
+                icon: Icons.mic_none,
+                title: 'Record a Story',
+                subtitle: 'Preserve an oral history',
+                // Voice notes are captured per-person on the tree — no
+                // separate top-level recording flow exists yet.
+                onTap: () => context.go(AppRoutes.tree),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              ),
+              child: Icon(icon, size: 20),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FamilyAtAGlance extends ConsumerWidget {
+  const _FamilyAtAGlance();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final String? myId = ref.watch(myPersonIdForActiveTreeProvider).value;
+    final Map<String, Person> byId = ref.watch(personMapProvider);
+    final Person? me = myId == null ? null : byId[myId];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Row(
+          children: <Widget>[
+            Expanded(child: Text('Your family at a glance', style: text.titleMedium)),
+            if (me != null)
+              TextButton(
+                onPressed: () {
+                  setFocusPerson(ref, me.id);
+                  context.go(AppRoutes.tree);
+                },
+                child: const Text('Open full tree →'),
+              ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surface,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+            border: Border.all(color: Theme.of(context).dividerColor),
+          ),
+          child: me == null ? const _MarkMeCta() : _FamilyRow(me: me, byId: byId),
+        ),
+      ],
+    );
+  }
+}
+
+class _MarkMeCta extends StatelessWidget {
+  const _MarkMeCta();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
     return Row(
       children: <Widget>[
-        Expanded(
-          child: _StatCard(
-            value: '$people',
-            label: 'PEOPLE',
-            onTap: () => _go(context, AppRoutes.tree),
-          ),
-        ),
+        const Icon(Icons.person_pin_circle_outlined, color: AppColors.textTertiary),
         const SizedBox(width: AppSpacing.md),
         Expanded(
-          child: _StatCard(
-            value: '$records',
-            label: 'RECORDS',
-            onTap: () => _go(context, AppRoutes.records),
-          ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: _StatCard(
-            value: '$hints',
-            label: 'HINTS',
-            highlight: hints > 0,
-            onTap: () => context.push(AppRoutes.hints),
+          child: Text(
+            'Open your profile in the tree and choose "Mark as me" to see your family here.',
+            style: text.bodyMedium,
           ),
         ),
       ],
     );
   }
-
-  void _go(BuildContext context, String location) => context.go(location);
 }
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.value,
+class _FamilyRow extends StatelessWidget {
+  const _FamilyRow({required this.me, required this.byId});
+  final Person me;
+  final Map<String, Person> byId;
+
+  @override
+  Widget build(BuildContext context) {
+    Person? father;
+    Person? mother;
+    for (final String pid in me.parentIds) {
+      final Person? p = byId[pid];
+      if (p == null) continue;
+      if (p.sex == Sex.male) father ??= p;
+      if (p.sex == Sex.female) mother ??= p;
+    }
+    final Person? parent = father ?? mother;
+    final String parentLabel = father != null ? 'Father' : 'Mother';
+
+    Person? child;
+    String childLabel = 'Child';
+    for (final Person p in byId.values) {
+      if (p.parentIds.contains(me.id)) {
+        child = p;
+        childLabel = p.sex == Sex.male
+            ? 'Son'
+            : p.sex == Sex.female
+            ? 'Daughter'
+            : 'Child';
+        break;
+      }
+    }
+
+    final List<Widget> nodes = <Widget>[
+      if (parent != null) _FamilyNode(person: parent, label: parentLabel),
+      _FamilyNode(person: me, label: 'You', highlight: true),
+      if (child != null) _FamilyNode(person: child, label: childLabel),
+    ];
+
+    return Row(
+      children: <Widget>[
+        for (int i = 0; i < nodes.length; i++) ...<Widget>[
+          if (i > 0)
+            Expanded(
+              child: Container(height: 1, color: Theme.of(context).dividerColor),
+            ),
+          nodes[i],
+        ],
+      ],
+    );
+  }
+}
+
+class _FamilyNode extends StatelessWidget {
+  const _FamilyNode({
+    required this.person,
     required this.label,
-    required this.onTap,
     this.highlight = false,
   });
-  final String value;
+  final Person person;
   final String label;
-  final VoidCallback onTap;
   final bool highlight;
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final TextTheme text = theme.textTheme;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-        decoration: BoxDecoration(
-          // Theme-aware (not a fixed light cream) — a hardcoded light
-          // background left this card's now-light dark-mode text
-          // unreadable against it.
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-          border: Border.all(
-            color: highlight ? theme.colorScheme.primary : theme.dividerColor,
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        CircleAvatar(
+          radius: 24,
+          backgroundColor: highlight ? AppColors.sunGold : AppColors.avatarGreen,
+          child: Text(
+            _initialsOf(person.fullName),
+            style: text.titleSmall?.copyWith(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ),
-        child: Column(
-          children: <Widget>[
-            Text(value, style: text.displayMedium),
-            const SizedBox(height: 2),
-            Text(label, style: text.labelSmall),
-          ],
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          person.fullName,
+          style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
-      ),
+        Text(label, style: text.bodySmall?.copyWith(color: AppColors.textTertiary)),
+      ],
     );
   }
 }
@@ -262,8 +595,15 @@ class _RecentActivity extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('RECENT ACTIVITY', style: text.labelSmall),
-        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: <Widget>[
+            Expanded(child: Text('Recent activity', style: text.titleMedium)),
+            TextButton(
+              onPressed: () => context.push(AppRoutes.notifications),
+              child: const Text('View all'),
+            ),
+          ],
+        ),
         if (items.isEmpty)
           Text(
             'Nothing yet. Add people and records to get started.',
@@ -287,7 +627,7 @@ class _RecentActivity extends ConsumerWidget {
       final String who = byId[h.personId]?.fullName ?? h.type.label;
       out.add(
         _Activity(
-          initials: _initials(who),
+          icon: Icons.lightbulb_outline,
           tint: AppColors.avatarAmber,
           title: 'Hint · $who',
           subtitle: h.title,
@@ -308,7 +648,9 @@ class _RecentActivity extends ConsumerWidget {
     for (final r in records) {
       out.add(
         _Activity(
-          initials: _initials(r.title.isEmpty ? r.type.label : r.title),
+          icon: r.mediaKind == RecordMediaKind.image
+              ? Icons.image_outlined
+              : Icons.description_outlined,
           tint: AppColors.avatarBlue,
           title: r.displayTitle,
           subtitle: '${r.type.label} record',
@@ -327,7 +669,7 @@ class _RecentActivity extends ConsumerWidget {
       final bool isCreation = e.changedFields.isEmpty;
       out.add(
         _Activity(
-          initials: _initials(name),
+          icon: isCreation ? Icons.person_add_alt : Icons.edit_outlined,
           tint: AppColors.avatarGreen,
           title: isCreation ? 'Added · $name' : 'Edited · $name',
           subtitle: isCreation ? 'New person added to the tree' : e.reason,
@@ -341,25 +683,18 @@ class _RecentActivity extends ConsumerWidget {
     out.sort((a, b) => b.timestamp.compareTo(a.timestamp));
     return out.take(6).toList();
   }
-
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty);
-    if (parts.isEmpty) return '?';
-    if (parts.length == 1) return parts.first[0].toUpperCase();
-    return (parts.first[0] + parts.last[0]).toUpperCase();
-  }
 }
 
 class _Activity {
   const _Activity({
-    required this.initials,
+    required this.icon,
     required this.tint,
     required this.title,
     required this.subtitle,
     required this.timestamp,
     required this.onTap,
   });
-  final String initials;
+  final IconData icon;
   final Color tint;
   final String title;
   final String subtitle;
@@ -394,13 +729,14 @@ class _ActivityRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
         child: Row(
           children: <Widget>[
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: activity.tint,
-              child: Text(
-                activity.initials,
-                style: text.labelLarge?.copyWith(color: AppColors.textPrimary),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: activity.tint.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
+              child: Icon(activity.icon, size: 20, color: AppColors.textPrimary),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(
@@ -463,9 +799,9 @@ class _NearbyOpportunity extends ConsumerWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: Theme.of(context).colorScheme.surface,
               borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: Theme.of(context).dividerColor),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

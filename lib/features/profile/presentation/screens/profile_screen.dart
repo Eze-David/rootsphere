@@ -599,6 +599,11 @@ class _AccountSection extends ConsumerWidget {
                 label: 'Support messages',
                 onTap: () => context.push(AppRoutes.supportMessages),
               ),
+              _AccountTile(
+                icon: Icons.inventory_2_outlined,
+                label: 'Digital records repository',
+                onTap: () => context.push(AppRoutes.archiveRepository),
+              ),
             ],
             _AccountTile(
               icon: Icons.lock_outline,
@@ -1050,6 +1055,9 @@ class _ContactUsDialog extends ConsumerStatefulWidget {
   const _ContactUsDialog();
 
   static const String _supportEmail = 'contact.us@rootsphere.ink';
+  static const String _supportAddress =
+      'Zackson Plaza, No: 16, Gwani Street, Wuse District Zone 4, Abuja.';
+  static const String _supportPhone = '07087481625';
 
   @override
   ConsumerState<_ContactUsDialog> createState() => _ContactUsDialogState();
@@ -1104,9 +1112,29 @@ class _ContactUsDialogState extends ConsumerState<_ContactUsDialog> {
       const ClipboardData(text: _ContactUsDialog._supportEmail),
     );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Email address copied.')),
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Email address copied.')));
+  }
+
+  Future<void> _copyPhone() async {
+    await Clipboard.setData(
+      const ClipboardData(text: _ContactUsDialog._supportPhone),
     );
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Phone number copied.')));
+  }
+
+  Future<void> _copyAddress() async {
+    await Clipboard.setData(
+      const ClipboardData(text: _ContactUsDialog._supportAddress),
+    );
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Address copied.')));
   }
 
   @override
@@ -1135,26 +1163,20 @@ class _ContactUsDialogState extends ConsumerState<_ContactUsDialog> {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            InkWell(
+            _ContactRow(
+              icon: Icons.email_outlined,
+              text: _ContactUsDialog._supportEmail,
               onTap: _sending ? null : _copyEmail,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-                child: Row(
-                  children: <Widget>[
-                    Icon(
-                      Icons.copy_outlined,
-                      size: 18,
-                      color: AppColors.textSecondary,
-                    ),
-                    SizedBox(width: AppSpacing.sm),
-                    Text(
-                      'Or copy: ${_ContactUsDialog._supportEmail}',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
+            ),
+            _ContactRow(
+              icon: Icons.phone_outlined,
+              text: _ContactUsDialog._supportPhone,
+              onTap: _sending ? null : _copyPhone,
+            ),
+            _ContactRow(
+              icon: Icons.place_outlined,
+              text: _ContactUsDialog._supportAddress,
+              onTap: _sending ? null : _copyAddress,
             ),
           ],
         ),
@@ -1175,6 +1197,40 @@ class _ContactUsDialogState extends ConsumerState<_ContactUsDialog> {
               : const Text('Send'),
         ),
       ],
+    );
+  }
+}
+
+/// One tap-to-copy contact detail row (email/phone/address) in the Contact
+/// us dialog.
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({required this.icon, required this.text, this.onTap});
+
+  final IconData icon;
+  final String text;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -107,6 +107,33 @@ class FamilyTreeRepositorySupabase implements FamilyTreeRepository {
     }
   }
 
+  @override
+  Stream<String?> watchMyPersonId(String treeId) {
+    if (_uid.isEmpty) return Stream<String?>.value(null);
+    return _members
+        .stream(primaryKey: <String>['tree_id', 'user_id'])
+        .eq('tree_id', treeId)
+        .map((rows) {
+          for (final row in rows) {
+            if (row['user_id'] == _uid) return row['person_id'] as String?;
+          }
+          return null;
+        });
+  }
+
+  @override
+  Future<void> setMyPersonId(String treeId, String personId) async {
+    if (_uid.isEmpty) throw const AuthFailure('You must be signed in.');
+    try {
+      await _members
+          .update(<String, dynamic>{'person_id': personId})
+          .eq('tree_id', treeId)
+          .eq('user_id', _uid);
+    } on PostgrestException catch (e) {
+      throw ServerFailure(e.message);
+    }
+  }
+
   Future<int> _memberCount(String treeId) async {
     try {
       final List<dynamic> rows = await _members

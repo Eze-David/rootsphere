@@ -29,10 +29,24 @@ import 'global_record_detail_screen.dart';
 /// external provider (via the `records-search` edge function) and lists
 /// matches the user can open or save into their own records.
 class HistoricalRecordsSearchScreen extends ConsumerStatefulWidget {
-  const HistoricalRecordsSearchScreen({super.key, this.type});
+  const HistoricalRecordsSearchScreen({
+    super.key,
+    this.type,
+    this.embedded = false,
+    this.initialQuery,
+  });
 
   /// The record type to search, or null to search across all types.
   final RecordType? type;
+
+  /// True when hosted inline inside another screen's body (the Records
+  /// tab's "Records" mode) — skips this screen's own hero/back-button
+  /// AppBar, which would otherwise duplicate the host's chrome.
+  final bool embedded;
+
+  /// Seeds the first-name field and auto-runs a search on first build (used
+  /// by the dashboard's hero search box, which only has one freeform field).
+  final String? initialQuery;
 
   @override
   ConsumerState<HistoricalRecordsSearchScreen> createState() =>
@@ -72,6 +86,33 @@ class _HistoricalRecordsSearchScreenState
   // pattern as _globalMatches.
   List<GlobalRecordMatch> _globalRecordMatches = const <GlobalRecordMatch>[];
   final Set<String> _savedGlobalRecords = <String>{};
+
+  @override
+  void initState() {
+    super.initState();
+    final String? q = widget.initialQuery?.trim();
+    if (q != null && q.isNotEmpty) {
+      _firstName.text = q;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoricalRecordsSearchScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The Records tab stays mounted across bottom-nav switches (indexed
+    // stack), so a *second* dashboard hero search wouldn't reach initState —
+    // only a real change in initialQuery re-seeds/re-runs the search here.
+    final String? q = widget.initialQuery?.trim();
+    if (q != null && q.isNotEmpty && q != oldWidget.initialQuery?.trim()) {
+      _firstName.text = q;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -674,39 +715,8 @@ class _HistoricalRecordsSearchScreenState
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: ListView(
-        padding: EdgeInsets.zero,
-        children: <Widget>[
-          // The back button/title sit inside the scrolling hero (not a
-          // persistent Scaffold app bar) so they scroll away with the rest
-          // of the content instead of staying pinned at the top.
-          Stack(
-            children: <Widget>[
-              RecordsLibraryHero(
-                assets: _heroAssets(),
-                title: _heroTitle(),
-                subtitle: _heroSubtitle(),
-              ),
-              SafeArea(
-                bottom: false,
-                child: AppBar(
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  elevation: 0,
-                  title: const Text('Search records'),
-                  foregroundColor: Colors.white,
-                  titleTextStyle: Theme.of(context).textTheme.titleLarge
-                      ?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                ),
-              ),
-            ],
-          ),
-          Padding(
+
+    final Widget content = Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.lg,
               AppSpacing.xl,
@@ -742,7 +752,45 @@ class _HistoricalRecordsSearchScreenState
                 ..._buildResults(text),
               ],
             ),
+          );
+
+    if (widget.embedded) {
+      return ListView(padding: EdgeInsets.zero, children: <Widget>[content]);
+    }
+
+    return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: ListView(
+        padding: EdgeInsets.zero,
+        children: <Widget>[
+          // The back button/title sit inside the scrolling hero (not a
+          // persistent Scaffold app bar) so they scroll away with the rest
+          // of the content instead of staying pinned at the top.
+          Stack(
+            children: <Widget>[
+              RecordsLibraryHero(
+                assets: _heroAssets(),
+                title: _heroTitle(),
+                subtitle: _heroSubtitle(),
+              ),
+              SafeArea(
+                bottom: false,
+                child: AppBar(
+                  backgroundColor: Colors.transparent,
+                  surfaceTintColor: Colors.transparent,
+                  elevation: 0,
+                  title: const Text('Search records'),
+                  foregroundColor: Colors.white,
+                  titleTextStyle: Theme.of(context).textTheme.titleLarge
+                      ?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                ),
+              ),
+            ],
           ),
+          content,
         ],
       ),
     );

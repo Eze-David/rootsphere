@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,8 +13,21 @@ class FamilyTreeRepositoryLocal implements FamilyTreeRepository {
   FamilyTreeRepositoryLocal(this._prefs);
 
   final SharedPreferences _prefs;
+  final StreamController<Map<String, String>> _meController =
+      StreamController<Map<String, String>>.broadcast();
 
   static const String _kTrees = 'profile_linked_trees';
+  static const String _kMe = 'profile_tree_me_v1';
+
+  Map<String, String> _readMe() {
+    final String? raw = _prefs.getString(_kMe);
+    if (raw == null || raw.isEmpty) return <String, String>{};
+    try {
+      return Map<String, String>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return <String, String>{};
+    }
+  }
 
   List<FamilyTree> _read() {
     final String? raw = _prefs.getString(_kTrees);
@@ -85,6 +99,19 @@ class FamilyTreeRepositoryLocal implements FamilyTreeRepository {
     trees[index] = updated;
     await _write(trees);
     return updated;
+  }
+
+  @override
+  Stream<String?> watchMyPersonId(String treeId) {
+    scheduleMicrotask(() => _meController.add(_readMe()));
+    return _meController.stream.map((map) => map[treeId]);
+  }
+
+  @override
+  Future<void> setMyPersonId(String treeId, String personId) async {
+    final Map<String, String> me = _readMe()..[treeId] = personId;
+    await _prefs.setString(_kMe, jsonEncode(me));
+    _meController.add(me);
   }
 
   static FamilyTree _fromJson(Map<String, dynamic> json) {

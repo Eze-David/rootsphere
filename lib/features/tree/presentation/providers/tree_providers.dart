@@ -12,6 +12,7 @@ import '../../domain/entities/edit_history_entry.dart';
 import '../../domain/entities/person.dart';
 import '../../domain/repositories/tree_repository.dart';
 import '../layout/tree_layout.dart';
+import '../../../profile/presentation/providers/family_tree_provider.dart';
 
 /// Tree repository: Supabase-backed when configured, local JSON otherwise.
 /// The interface is identical, so the rest of the app is unaware which is used.
@@ -108,6 +109,13 @@ final activeTreeIdProvider = Provider<String>((ref) {
     if (uid != null && uid.isNotEmpty) return 't_$uid';
   }
   return 'okonkwo';
+});
+
+/// The person id the signed-in user has marked as "me" in the active tree,
+/// or null if unset — powers the dashboard's Family-at-a-glance preview.
+final myPersonIdForActiveTreeProvider = StreamProvider<String?>((ref) {
+  final String treeId = ref.watch(activeTreeIdProvider);
+  return ref.watch(familyTreeRepositoryProvider).watchMyPersonId(treeId);
 });
 
 /// The person the view is centred on. Null until persons load (then defaults

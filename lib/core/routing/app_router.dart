@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/archive/presentation/screens/archive_repository_screen.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/screens/auth_screen.dart';
 import '../../features/auth/presentation/screens/legal_document_screen.dart';
@@ -189,6 +190,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'support-messages',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const SupportMessagesScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.archiveRepository,
+        name: 'archive-repository',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, _) => const ArchiveRepositoryScreen(),
       ),
       GoRoute(
         path: '${AppRoutes.records}/search/:type',

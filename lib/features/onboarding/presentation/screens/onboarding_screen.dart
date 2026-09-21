@@ -652,13 +652,16 @@ class _ContactUsDialog extends StatelessWidget {
   const _ContactUsDialog();
 
   static const String _supportEmail = 'contact.us@rootsphere.ink';
+  static const String _supportAddress =
+      'Zackson Plaza, No: 16, Gwani Street, Wuse District Zone 4, Abuja.';
+  static const String _supportPhone = '07087481625';
 
-  Future<void> _copyEmail(BuildContext context) async {
-    await Clipboard.setData(const ClipboardData(text: _supportEmail));
+  Future<void> _copy(BuildContext context, String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
     if (!context.mounted) return;
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Email address copied.')));
+    ).showSnackBar(SnackBar(content: Text('$label copied.')));
   }
 
   @override
@@ -673,27 +676,20 @@ class _ContactUsDialog extends StatelessWidget {
             "Have a question or found an issue? We'd love to hear from you.",
           ),
           const SizedBox(height: AppSpacing.md),
-          InkWell(
-            onTap: () => _copyEmail(context),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Icon(
-                    Icons.copy_outlined,
-                    size: 18,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Text(
-                    _supportEmail,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                ],
-              ),
-            ),
+          _ContactRow(
+            icon: Icons.email_outlined,
+            text: _supportEmail,
+            onTap: () => _copy(context, _supportEmail, 'Email address'),
+          ),
+          _ContactRow(
+            icon: Icons.phone_outlined,
+            text: _supportPhone,
+            onTap: () => _copy(context, _supportPhone, 'Phone number'),
+          ),
+          _ContactRow(
+            icon: Icons.place_outlined,
+            text: _supportAddress,
+            onTap: () => _copy(context, _supportAddress, 'Address'),
           ),
         ],
       ),
@@ -703,6 +699,38 @@ class _ContactUsDialog extends StatelessWidget {
           child: const Text('Close'),
         ),
       ],
+    );
+  }
+}
+
+/// One tap-to-copy contact detail row (email/phone/address) in the Contact
+/// us dialog.
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({required this.icon, required this.text, this.onTap});
+
+  final IconData icon;
+  final String text;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color? color = Theme.of(context).textTheme.bodyMedium?.color;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

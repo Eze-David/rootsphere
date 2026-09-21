@@ -107,6 +107,11 @@ class NotificationsScreen extends ConsumerWidget {
       case NotificationType.supportMessage:
       case NotificationType.supportReply:
         context.push(AppRoutes.supportMessages);
+      case NotificationType.archiveAccessRequested:
+        context.push(AppRoutes.archiveRepository);
+      case NotificationType.archiveAccessApproved:
+      case NotificationType.archiveAccessRejected:
+        context.go(AppRoutes.records);
       case NotificationType.unknown:
         break;
     }
@@ -131,6 +136,9 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.opportunityCompanyRejected => Icons.error_outline,
     NotificationType.supportMessage => Icons.mail_outline,
     NotificationType.supportReply => Icons.reply_outlined,
+    NotificationType.archiveAccessRequested => Icons.lock_open_outlined,
+    NotificationType.archiveAccessApproved => Icons.check_circle_outline,
+    NotificationType.archiveAccessRejected => Icons.block_outlined,
     NotificationType.unknown => Icons.notifications_none,
   };
 

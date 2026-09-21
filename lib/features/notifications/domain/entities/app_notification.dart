@@ -12,6 +12,9 @@ enum NotificationType {
   opportunityCompanyRejected,
   supportMessage,
   supportReply,
+  archiveAccessRequested,
+  archiveAccessApproved,
+  archiveAccessRejected,
   unknown,
 }
 
@@ -43,6 +46,12 @@ NotificationType _typeFromString(String value) {
       return NotificationType.supportMessage;
     case 'support_reply':
       return NotificationType.supportReply;
+    case 'archive_access_requested':
+      return NotificationType.archiveAccessRequested;
+    case 'archive_access_approved':
+      return NotificationType.archiveAccessApproved;
+    case 'archive_access_rejected':
+      return NotificationType.archiveAccessRejected;
     default:
       return NotificationType.unknown;
   }
@@ -64,6 +73,7 @@ class AppNotification {
     this.treeId,
     this.personId,
     this.opportunityId,
+    this.archiveRecordId,
   });
 
   final String id;
@@ -76,6 +86,7 @@ class AppNotification {
   final String? treeId;
   final String? personId;
   final String? opportunityId;
+  final String? archiveRecordId;
 
   AppNotification copyWith({bool? read}) {
     return AppNotification(
@@ -89,6 +100,7 @@ class AppNotification {
       treeId: treeId,
       personId: personId,
       opportunityId: opportunityId,
+      archiveRecordId: archiveRecordId,
     );
   }
 
@@ -106,6 +118,7 @@ class AppNotification {
       treeId: json['tree_id'] as String?,
       personId: json['person_id'] as String?,
       opportunityId: json['opportunity_id'] as String?,
+      archiveRecordId: json['archive_record_id'] as String?,
     );
   }
 }

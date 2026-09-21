@@ -21,4 +21,11 @@ abstract class FamilyTreeRepository {
 
   /// Renames the tree with [id] to [name]. Only owners can rename.
   Future<FamilyTree> renameTree(String id, String name);
+
+  /// The person id the current user has marked as "me" in [treeId], or null
+  /// if unset — powers the dashboard's Family-at-a-glance preview.
+  Stream<String?> watchMyPersonId(String treeId);
+
+  /// Marks [personId] as the current user's own node in [treeId].
+  Future<void> setMyPersonId(String treeId, String personId);
 }
