@@ -250,6 +250,7 @@ class Record {
     this.aiTranslationLang,
     this.aiLocations = const <String>[],
     this.ownerId,
+    this.isPublic = false,
   });
 
   final String id;
@@ -290,6 +291,10 @@ class Record {
   /// from records merely visible to you (e.g. cross-tree, as an approved
   /// reviewer). Not writable by the client; set server-side on insert.
   final String? ownerId;
+
+  /// Public records are discoverable by every signed-in user via community
+  /// search; private ones are visible only to the tree's members and admins.
+  final bool isPublic;
 
   int? get year => date?.year;
 
@@ -381,6 +386,7 @@ class Record {
     Object? aiTranslationLang = _sentinel,
     List<String>? aiLocations,
     String? ownerId,
+    bool? isPublic,
   }) {
     return Record(
       id: id,
@@ -407,6 +413,7 @@ class Record {
           : aiTranslationLang as String?,
       aiLocations: aiLocations ?? this.aiLocations,
       ownerId: ownerId ?? this.ownerId,
+      isPublic: isPublic ?? this.isPublic,
     );
   }
 
@@ -429,6 +436,7 @@ class Record {
     'aiTranslationLang': aiTranslationLang,
     'aiLocations': aiLocations,
     'ownerId': ownerId,
+    'isPublic': isPublic,
   };
 
   factory Record.fromJson(Map<String, dynamic> json) {
@@ -460,6 +468,7 @@ class Record {
           .toList(),
       createdAt: parse(json['createdAt']),
       ownerId: json['ownerId'] as String?,
+      isPublic: json['isPublic'] as bool? ?? false,
     );
   }
 

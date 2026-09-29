@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/data/african_locations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../archive/domain/entities/archive_record.dart';
@@ -73,8 +74,11 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
   @override
   Widget build(BuildContext context) {
     final RecordType? type = ref.watch(catalogueTypeFilterProvider);
-    final String? location = ref.watch(catalogueLocationFilterProvider);
-    final List<String> locations = ref.watch(catalogueLocationsProvider);
+    final String? country = ref.watch(catalogueCountryFilterProvider);
+    final String? state = ref.watch(catalogueStateFilterProvider);
+    final List<String> states = country == null
+        ? const <String>[]
+        : (africanStatesProvinces[country] ?? const <String>[]);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -105,44 +109,72 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
+          DropdownButtonFormField<RecordType?>(
+            initialValue: type,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Record type'),
+            items: <DropdownMenuItem<RecordType?>>[
+              const DropdownMenuItem<RecordType?>(
+                value: null,
+                child: Text('All record types'),
+              ),
+              for (final RecordType t in RecordType.values)
+                DropdownMenuItem<RecordType?>(
+                  value: t,
+                  child: Text(t.label, overflow: TextOverflow.ellipsis),
+                ),
+            ],
+            onChanged: (t) =>
+                ref.read(catalogueTypeFilterProvider.notifier).state = t,
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: <Widget>[
+              // Same curated African country/state dataset the Records
+              // search screen uses (core/data/african_locations.dart) —
+              // not derived from whatever free text admins typed, which
+              // produced duplicate near-matches ("Nigeria"/"nigeria").
               Expanded(
-                child: DropdownButtonFormField<RecordType?>(
-                  initialValue: type,
+                child: DropdownButtonFormField<String?>(
+                  initialValue: country,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Record type'),
-                  items: <DropdownMenuItem<RecordType?>>[
-                    const DropdownMenuItem<RecordType?>(
+                  decoration: const InputDecoration(labelText: 'Country'),
+                  items: <DropdownMenuItem<String?>>[
+                    const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('All record types'),
+                      child: Text('All countries'),
                     ),
-                    for (final RecordType t in RecordType.values)
-                      DropdownMenuItem<RecordType?>(
-                        value: t,
-                        child: Text(t.label, overflow: TextOverflow.ellipsis),
-                      ),
+                    for (final String c in africanCountries)
+                      DropdownMenuItem<String?>(value: c, child: Text(c)),
                   ],
-                  onChanged: (t) =>
-                      ref.read(catalogueTypeFilterProvider.notifier).state = t,
+                  onChanged: (c) {
+                    ref.read(catalogueCountryFilterProvider.notifier).state = c;
+                    // A state/region from the previous country would no
+                    // longer be valid (or meaningful) for the new one.
+                    ref.read(catalogueStateFilterProvider.notifier).state = null;
+                  },
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: DropdownButtonFormField<String?>(
-                  initialValue: location,
+                  initialValue: state,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Location'),
+                  decoration: InputDecoration(
+                    labelText: 'State / region',
+                    hintText: country == null ? 'Select a country first' : null,
+                  ),
                   items: <DropdownMenuItem<String?>>[
                     const DropdownMenuItem<String?>(
                       value: null,
                       child: Text('All locations'),
                     ),
-                    for (final String l in locations)
-                      DropdownMenuItem<String?>(value: l, child: Text(l)),
+                    for (final String s in states)
+                      DropdownMenuItem<String?>(value: s, child: Text(s)),
                   ],
-                  onChanged: (l) =>
-                      ref.read(catalogueLocationFilterProvider.notifier).state = l,
+                  onChanged: country == null
+                      ? null
+                      : (s) => ref.read(catalogueStateFilterProvider.notifier).state = s,
                 ),
               ),
             ],
@@ -430,25 +462,29 @@ class _CatalogueEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              Icons.local_library_outlined,
-              size: 48,
-              color: AppColors.sunGold.withValues(alpha: 0.8),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
+    // A ScrollView (not just Center) — when the filter fields above push
+    // this tab's available height down to only a few dozen pixels (small
+    // screens, or the state/region row visible), the fixed icon+text
+    // content can be taller than what's left; scrolling avoids a hard
+    // RenderFlex overflow instead of trying to shrink content that's
+    // already fairly minimal.
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(AppSpacing.xl),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            Icons.local_library_outlined,
+            size: 40,
+            color: AppColors.sunGold.withValues(alpha: 0.8),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }

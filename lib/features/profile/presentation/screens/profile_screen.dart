@@ -1,7 +1,9 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../../../core/routing/app_routes.dart';
@@ -19,6 +21,8 @@ import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../domain/entities/family_tree.dart';
 import '../providers/family_tree_provider.dart';
 import '../providers/settings_provider.dart';
+import '../widgets/edit_profile_sheet.dart';
+import 'about_screen.dart';
 
 /// Full profile screen with family-tree linking, account management,
 /// settings, and sign-out.
@@ -73,59 +77,223 @@ class ProfileScreen extends ConsumerWidget {
 // User header
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _UserHeader extends StatelessWidget {
+class _UserHeader extends ConsumerStatefulWidget {
   const _UserHeader({this.user});
   final AppUser? user;
+
+  @override
+  ConsumerState<_UserHeader> createState() => _UserHeaderState();
+}
+
+class _UserHeaderState extends ConsumerState<_UserHeader> {
+  final ImagePicker _picker = ImagePicker();
+  bool _uploadingAvatar = false;
 
   /// "Guest" should mean "not signed in" — a signed-in account that just
   /// never got a `full_name` in its Supabase metadata (e.g. an older
   /// account, or a sign-up path that skipped it) isn't a guest, so fall back
   /// to the email's local part rather than mislabelling a real account.
   String get _name {
-    final AppUser? u = user;
+    final AppUser? u = widget.user;
     if (u == null) return 'Guest';
     if (u.displayName != null) return u.displayName!;
     final int at = u.email.indexOf('@');
     return at > 0 ? u.email.substring(0, at) : u.email;
   }
 
+  String get _initials {
+    final parts = _name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  Future<void> _quickChangeAvatar() async {
+    final AppUser? u = widget.user;
+    if (u == null) return;
+    final XFile? file = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1000,
+      maxHeight: 1000,
+      imageQuality: 85,
+    );
+    if (file == null || !mounted) return;
+
+    setState(() => _uploadingAvatar = true);
+    try {
+      final String url = await ref
+          .read(avatarStorageServiceProvider)
+          .uploadAvatar(file: file);
+      await ref.read(authControllerProvider.notifier).updateProfile(avatarUrl: url);
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  static const List<String> _months = <String>[
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _formatDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+
+  String _formatLastSignIn(DateTime? d) {
+    if (d == null) return '—';
+    final DateTime now = DateTime.now();
+    final bool isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+    return isToday ? 'Today' : _formatDate(d);
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
+    final AppUser? u = widget.user;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Row(
+        child: Column(
           children: <Widget>[
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: AppColors.cream,
-              backgroundImage: user?.avatarUrl != null
-                  ? NetworkImage(user!.avatarUrl!)
-                  : null,
-              child: user?.avatarUrl == null
-                  ? const Icon(Icons.person, size: 28, color: AppColors.primary)
-                  : null,
+            Stack(
+              clipBehavior: Clip.none,
+              children: <Widget>[
+                CircleAvatar(
+                  radius: 56,
+                  backgroundColor: AppColors.femaleTint,
+                  backgroundImage: u?.avatarUrl != null
+                      ? NetworkImage(u!.avatarUrl!)
+                      : null,
+                  child: u?.avatarUrl == null
+                      ? Text(
+                          _initials,
+                          style: text.headlineMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: InkWell(
+                    onTap: (u == null || _uploadingAvatar) ? null : _quickChangeAvatar,
+                    customBorder: const CircleBorder(),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Theme.of(context).dividerColor),
+                      ),
+                      child: _uploadingAvatar
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.camera_alt, size: 16),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    _name,
-                    style: text.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              _name,
+              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              u?.email ?? 'Not signed in',
+              style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+              textAlign: TextAlign.center,
+            ),
+            if ((u?.bio ?? '').isNotEmpty) ...<Widget>[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                u!.bio!,
+                textAlign: TextAlign.center,
+                style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+              ),
+            ],
+            const SizedBox(height: AppSpacing.md),
+            if (u != null)
+              OutlinedButton.icon(
+                onPressed: () => showEditProfileSheet(context, ref, u),
+                icon: const Icon(Icons.edit_outlined, size: 16),
+                label: const Text('Edit Profile'),
+                style: OutlinedButton.styleFrom(shape: const StadiumBorder()),
+              ),
+            const SizedBox(height: AppSpacing.lg),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Member since',
+                        style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        u?.createdAt != null ? _formatDate(u!.createdAt!) : '—',
+                        style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    user?.email ?? 'Not signed in',
-                    style: text.bodyMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'Last signed in',
+                        style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatLastSignIn(u?.lastSignInAt),
+                        style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
-                ],
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            const Divider(height: 1),
+            const SizedBox(height: AppSpacing.md),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text.rich(
+                TextSpan(
+                  style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  children: <InlineSpan>[
+                    const TextSpan(
+                      text: 'The content of this page should adhere to our ',
+                    ),
+                    TextSpan(
+                      text: 'community guidelines',
+                      style: const TextStyle(
+                        color: AppColors.link,
+                        decoration: TextDecoration.underline,
+                      ),
+                      // No standalone "community guidelines" document exists
+                      // yet — Terms of Service is the closest existing fit.
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LegalDocumentScreen.termsOfService(),
+                          ),
+                        ),
+                    ),
+                    const TextSpan(text: '.'),
+                  ],
+                ),
               ),
             ),
           ],
@@ -938,7 +1106,9 @@ class _SupportSection extends ConsumerWidget {
             _AccountTile(
               icon: Icons.info_outline,
               label: 'About App',
-              onTap: () => _showAboutUsDialog(context),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AboutScreen()),
+              ),
             ),
             _AccountTile(
               icon: Icons.diversity_3_outlined,
@@ -998,54 +1168,6 @@ class _SupportSection extends ConsumerWidget {
     );
   }
 
-  void _showAboutUsDialog(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('About App'),
-          content: const SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  'Rootsphere',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Discover, document and grow your family history.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-                SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Rootsphere is a family history app built around African '
-                  'ancestry research. Build an interactive family tree across '
-                  'ancestors, descendants, and pedigree views; collect birth, '
-                  'marriage, death, baptism, census, and other records in one '
-                  'place with OCR and an AI research assistant; and '
-                  'collaborate with the community to find, index, and verify '
-                  'records for opportunities near you.',
-                ),
-                SizedBox(height: AppSpacing.lg),
-                Text(
-                  'Version 1.0.0',
-                  style: TextStyle(color: AppColors.textTertiary),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
 
 /// A form so a user can write and submit a support message directly, rather

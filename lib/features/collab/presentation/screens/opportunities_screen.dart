@@ -77,7 +77,22 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Opportunities'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Image.asset(
+              'assets/images/rootsphere-logo-espresso-v6-cropped.png',
+              width: 32,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Text('RootSphere Collab'),
+          ],
+        ),
+        // No secondary label here — title (logo + "RootSphere Collab") plus
+        // 2 icon actions already fills a phone-width AppBar; a 3rd item
+        // caused a RenderFlex overflow. The hero card below already says
+        // "Collaboration Board", so nothing is lost by dropping it here.
         actions: <Widget>[
           IconButton(
             tooltip: 'My opportunities',
@@ -97,11 +112,6 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
               ),
             ),
           ),
-          IconButton(
-            tooltip: 'Add opportunity',
-            icon: const Icon(Icons.add),
-            onPressed: () => showAddOpportunitySheet(context),
-          ),
           const SizedBox(width: AppSpacing.xs),
         ],
       ),
@@ -115,9 +125,8 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
               AppSpacing.lg,
               0,
             ),
-            child: Text(
-              'Record gathering board — claim a task and help the community.',
-              style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+            child: _CollabHeroCard(
+              onNewOpportunity: () => showAddOpportunitySheet(context),
             ),
           ),
           Padding(
@@ -125,40 +134,7 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
               horizontal: AppSpacing.lg,
               vertical: AppSpacing.md,
             ),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SegmentedButton<OpportunityStatus?>(
-                segments: <ButtonSegment<OpportunityStatus?>>[
-                  ButtonSegment<OpportunityStatus?>(
-                    value: null,
-                    label: Text(
-                      'All (${counts.values.reduce((a, b) => a + b)})',
-                    ),
-                  ),
-                  ButtonSegment<OpportunityStatus?>(
-                    value: OpportunityStatus.open,
-                    label: Text('Open (${counts[OpportunityStatus.open]})'),
-                  ),
-                  ButtonSegment<OpportunityStatus?>(
-                    value: OpportunityStatus.claimed,
-                    label: Text(
-                      'Claimed (${counts[OpportunityStatus.claimed]})',
-                    ),
-                  ),
-                  ButtonSegment<OpportunityStatus?>(
-                    value: OpportunityStatus.verified,
-                    label: Text(
-                      'Verified (${counts[OpportunityStatus.verified]})',
-                    ),
-                  ),
-                ],
-                selected: <OpportunityStatus?>{filter},
-                onSelectionChanged: (selected) {
-                  ref.read(opportunityFilterProvider.notifier).state =
-                      selected.first;
-                },
-              ),
-            ),
+            child: _StepChipFilter(counts: counts, filter: filter),
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -206,6 +182,161 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
 
   String get _currentUserId {
     return Supabase.instance.client.auth.currentUser?.id ?? '';
+  }
+}
+
+class _CollabHeroCard extends StatelessWidget {
+  const _CollabHeroCard({required this.onNewOpportunity});
+  final VoidCallback onNewOpportunity;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  'Collaboration Board',
+                  style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Record gathering board — claim a task and help the community.',
+                  style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          FilledButton.icon(
+            onPressed: onNewOpportunity,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('New opportunity'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepChipFilter extends ConsumerWidget {
+  const _StepChipFilter({required this.counts, required this.filter});
+  final Map<OpportunityStatus, int> counts;
+  final OpportunityStatus? filter;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void select(OpportunityStatus? value) =>
+        ref.read(opportunityFilterProvider.notifier).state = value;
+
+    final int total = counts.values.fold(0, (a, b) => a + b);
+
+    return Wrap(
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
+      children: <Widget>[
+        _StepChip(
+          number: null,
+          label: 'All',
+          count: total,
+          selected: filter == null,
+          onTap: () => select(null),
+        ),
+        _StepChip(
+          number: 1,
+          label: 'Open',
+          count: counts[OpportunityStatus.open] ?? 0,
+          selected: filter == OpportunityStatus.open,
+          onTap: () => select(OpportunityStatus.open),
+        ),
+        _StepChip(
+          number: 2,
+          label: 'Claimed',
+          count: counts[OpportunityStatus.claimed] ?? 0,
+          selected: filter == OpportunityStatus.claimed,
+          onTap: () => select(OpportunityStatus.claimed),
+        ),
+        _StepChip(
+          number: 3,
+          label: 'Verified',
+          count: counts[OpportunityStatus.verified] ?? 0,
+          selected: filter == OpportunityStatus.verified,
+          onTap: () => select(OpportunityStatus.verified),
+        ),
+      ],
+    );
+  }
+}
+
+class _StepChip extends StatelessWidget {
+  const _StepChip({
+    required this.number,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final int? number;
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    final TextTheme text = theme.textTheme;
+    final Color accent = selected ? theme.colorScheme.primary : theme.dividerColor;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+      child: Container(
+        width: 96,
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+          border: Border.all(color: accent, width: selected ? 2 : 1),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              number == null ? '$count' : '$number',
+              style: text.titleMedium?.copyWith(
+                color: selected ? theme.colorScheme.primary : null,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              number == null ? label : '$label ($count)',
+              style: text.bodySmall,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

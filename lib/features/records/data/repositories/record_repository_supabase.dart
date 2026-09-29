@@ -108,6 +108,7 @@ class RecordRepositorySupabase implements RecordRepository {
     'ai_translation': r.aiTranslation,
     'ai_translation_lang': r.aiTranslationLang,
     'ai_locations': r.aiLocations,
+    'is_public': r.isPublic,
   };
 
   Record _fromRow(Map<String, dynamic> row) {
@@ -139,6 +140,7 @@ class RecordRepositorySupabase implements RecordRepository {
           .toList(),
       createdAt: parse(row['created_at']),
       ownerId: row['owner_id'] as String?,
+      isPublic: row['is_public'] as bool? ?? false,
     );
   }
 }

@@ -15,15 +15,9 @@ import '../../../records/presentation/providers/record_providers.dart';
 import '../../../tree/domain/entities/edit_history_entry.dart';
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
+import '../../../tree/presentation/widgets/person_editor_sheet.dart';
 import '../widgets/tree_progress_ring_painter.dart';
 import '../widgets/what_to_watch_section.dart';
-
-String _initialsOf(String name) {
-  final parts = name.trim().split(RegExp(r'\s+')).where((s) => s.isNotEmpty);
-  if (parts.isEmpty) return '?';
-  if (parts.length == 1) return parts.first[0].toUpperCase();
-  return (parts.first[0] + parts.last[0]).toUpperCase();
-}
 
 /// Home dashboard: a branded hero + search card, a tree-completeness ring,
 /// quick actions, a "family at a glance" preview, recent activity, and the
@@ -39,6 +33,20 @@ class DashboardScreen extends ConsumerWidget {
     final int unreadNotifications = ref.watch(unreadNotificationCountProvider);
 
     return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Image.asset(
+              'assets/images/rootsphere-logo-espresso-v6-cropped.png',
+              width: 32,
+              fit: BoxFit.contain,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            const Text('RootSphere'),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(
@@ -430,8 +438,75 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
+/// What single field is missing for a close relative, driving both the
+/// card's icon/tint and its "Add …" action — only the single highest-
+/// priority gap is shown per person, matching the mockup (one action per
+/// card, not a checklist).
+enum _GapKind { birthDate, birthPlace, marriage }
+
+class _Gap {
+  const _Gap({required this.person, required this.relation, required this.kind});
+  final Person person;
+  final String relation;
+  final _GapKind kind;
+
+  String get actionLabel => switch (kind) {
+    _GapKind.birthDate => 'Add birth',
+    _GapKind.birthPlace => 'Add birth place',
+    _GapKind.marriage => 'Add marriage',
+  };
+
+  bool get isMarriage => kind == _GapKind.marriage;
+}
+
 class _FamilyAtAGlance extends ConsumerWidget {
   const _FamilyAtAGlance();
+
+  /// Self, parents, and both sets of grandparents — resolved by walking
+  /// [Person.parentIds] up two generations from the signed-in user's own
+  /// marked node.
+  Map<String, Person> _closeRelatives(Person me, Map<String, Person> byId) {
+    Person? parentOfSex(List<String> parentIds, Sex sex) {
+      for (final String pid in parentIds) {
+        final Person? p = byId[pid];
+        if (p != null && p.sex == sex) return p;
+      }
+      return null;
+    }
+
+    final Map<String, Person> out = <String, Person>{'Self': me};
+    final Person? father = parentOfSex(me.parentIds, Sex.male);
+    final Person? mother = parentOfSex(me.parentIds, Sex.female);
+    if (father != null) out['Father'] = father;
+    if (mother != null) out['Mother'] = mother;
+
+    if (father != null) {
+      final Person? pgf = parentOfSex(father.parentIds, Sex.male);
+      final Person? pgm = parentOfSex(father.parentIds, Sex.female);
+      if (pgf != null) out['Paternal grandfather'] = pgf;
+      if (pgm != null) out['Paternal grandmother'] = pgm;
+    }
+    if (mother != null) {
+      final Person? mgf = parentOfSex(mother.parentIds, Sex.male);
+      final Person? mgm = parentOfSex(mother.parentIds, Sex.female);
+      if (mgf != null) out['Maternal grandfather'] = mgf;
+      if (mgm != null) out['Maternal grandmother'] = mgm;
+    }
+    return out;
+  }
+
+  _Gap? _topGap(Person person, String relation) {
+    if (person.birthDate == null) {
+      return _Gap(person: person, relation: relation, kind: _GapKind.birthDate);
+    }
+    if ((person.birthPlace ?? '').trim().isEmpty) {
+      return _Gap(person: person, relation: relation, kind: _GapKind.birthPlace);
+    }
+    if (person.spouseIds.isEmpty) {
+      return _Gap(person: person, relation: relation, kind: _GapKind.marriage);
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -440,147 +515,136 @@ class _FamilyAtAGlance extends ConsumerWidget {
     final Map<String, Person> byId = ref.watch(personMapProvider);
     final Person? me = myId == null ? null : byId[myId];
 
+    final List<_Gap> gaps = <_Gap>[];
+    if (me != null) {
+      _closeRelatives(me, byId).forEach((relation, person) {
+        final _Gap? gap = _topGap(person, relation);
+        if (gap != null) gaps.add(gap);
+      });
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(child: Text('Your family at a glance', style: text.titleMedium)),
-            if (me != null)
-              TextButton(
-                onPressed: () {
-                  setFocusPerson(ref, me.id);
-                  context.go(AppRoutes.tree);
-                },
-                child: const Text('Open full tree →'),
-              ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AppSpacing.lg),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: me == null ? const _MarkMeCta() : _FamilyRow(me: me, byId: byId),
-        ),
-      ],
-    );
-  }
-}
-
-class _MarkMeCta extends StatelessWidget {
-  const _MarkMeCta();
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Row(
-      children: <Widget>[
-        const Icon(Icons.person_pin_circle_outlined, color: AppColors.textTertiary),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: Text(
-            'Open your profile in the tree and choose "Mark as me" to see your family here.',
-            style: text.bodyMedium,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _FamilyRow extends StatelessWidget {
-  const _FamilyRow({required this.me, required this.byId});
-  final Person me;
-  final Map<String, Person> byId;
-
-  @override
-  Widget build(BuildContext context) {
-    Person? father;
-    Person? mother;
-    for (final String pid in me.parentIds) {
-      final Person? p = byId[pid];
-      if (p == null) continue;
-      if (p.sex == Sex.male) father ??= p;
-      if (p.sex == Sex.female) mother ??= p;
-    }
-    final Person? parent = father ?? mother;
-    final String parentLabel = father != null ? 'Father' : 'Mother';
-
-    Person? child;
-    String childLabel = 'Child';
-    for (final Person p in byId.values) {
-      if (p.parentIds.contains(me.id)) {
-        child = p;
-        childLabel = p.sex == Sex.male
-            ? 'Son'
-            : p.sex == Sex.female
-            ? 'Daughter'
-            : 'Child';
-        break;
-      }
-    }
-
-    final List<Widget> nodes = <Widget>[
-      if (parent != null) _FamilyNode(person: parent, label: parentLabel),
-      _FamilyNode(person: me, label: 'You', highlight: true),
-      if (child != null) _FamilyNode(person: child, label: childLabel),
-    ];
-
-    return Row(
-      children: <Widget>[
-        for (int i = 0; i < nodes.length; i++) ...<Widget>[
-          if (i > 0)
-            Expanded(
-              child: Container(height: 1, color: Theme.of(context).dividerColor),
-            ),
-          nodes[i],
-        ],
-      ],
-    );
-  }
-}
-
-class _FamilyNode extends StatelessWidget {
-  const _FamilyNode({
-    required this.person,
-    required this.label,
-    this.highlight = false,
-  });
-  final Person person;
-  final String label;
-  final bool highlight;
-
-  @override
-  Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: <Widget>[
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: highlight ? AppColors.sunGold : AppColors.avatarGreen,
-          child: Text(
-            _initialsOf(person.fullName),
-            style: text.titleSmall?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+        Text('Fill in the gaps', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
         const SizedBox(height: AppSpacing.xs),
         Text(
-          person.fullName,
-          style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          'Quick ways to add information so we can find more hints about your ancestors.',
+          style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
         ),
-        Text(label, style: text.bodySmall?.copyWith(color: AppColors.textTertiary)),
+        const SizedBox(height: AppSpacing.lg),
+        if (me == null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.person_pin_circle_outlined, color: AppColors.textTertiary),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    'Open your profile in the tree and choose "Mark as me" to see your family here.',
+                    style: text.bodyMedium,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (gaps.isEmpty)
+          Text(
+            'Nice — no obvious gaps in your closest relatives right now.',
+            style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+          )
+        else
+          SizedBox(
+            height: 220,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: gaps.length,
+              separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
+              itemBuilder: (context, index) => _GapCard(
+                gap: gaps[index],
+                onTap: () => showPersonEditorSheet(context, ref, existing: gaps[index].person),
+              ),
+            ),
+          ),
       ],
+    );
+  }
+}
+
+class _GapCard extends StatelessWidget {
+  const _GapCard({required this.gap, required this.onTap});
+  final _Gap gap;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final Color tint = gap.isMarriage ? AppColors.maleTint : AppColors.error;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+      child: Container(
+        width: 160,
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Container(
+              height: 84,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: tint.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(color: tint.withValues(alpha: 0.6)),
+              ),
+              alignment: Alignment.center,
+              child: Icon(
+                gap.isMarriage ? Icons.favorite_border : Icons.person_outline,
+                size: 32,
+                color: tint,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Missing info',
+              style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+            ),
+            Text(
+              gap.person.fullName,
+              style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              gap.relation,
+              style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const Spacer(),
+            Text(
+              gap.actionLabel,
+              style: text.bodyMedium?.copyWith(
+                color: AppColors.link,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

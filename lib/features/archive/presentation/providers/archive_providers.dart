@@ -109,30 +109,31 @@ final catalogueSearchProvider = StateProvider<String>((ref) => '');
 /// Active type filter on the Catalogue browser (null = "All").
 final catalogueTypeFilterProvider = StateProvider<RecordType?>((ref) => null);
 
-/// Active location (country or state/region) filter (null = "All").
-final catalogueLocationFilterProvider = StateProvider<String?>((ref) => null);
-
-/// Every distinct non-empty country/state-region value across published
-/// records, for the location filter dropdown.
-final catalogueLocationsProvider = Provider<List<String>>((ref) {
-  final List<ArchiveRecord> all = ref.watch(publishedArchiveRecordsProvider);
-  final Set<String> locations = <String>{};
-  for (final ArchiveRecord r in all) {
-    if (r.stateRegion.trim().isNotEmpty) locations.add(r.stateRegion.trim());
-    if (r.country.trim().isNotEmpty) locations.add(r.country.trim());
-  }
-  final List<String> sorted = locations.toList()..sort();
-  return sorted;
-});
+/// Active country/state-region filters — backed by the same curated African
+/// geography dataset (core/data/african_locations.dart) the Records search
+/// screen uses, rather than whatever free text admins happened to type on
+/// the Add record form (which produced duplicate near-matches like "Nigeria"
+/// / "Nigerian" / "nigeria"). null = "All".
+final catalogueCountryFilterProvider = StateProvider<String?>((ref) => null);
+final catalogueStateFilterProvider = StateProvider<String?>((ref) => null);
 
 bool _matchesCatalogueFilters(
   ArchiveRecord r,
   String query,
   RecordType? type,
-  String? location,
+  String? country,
+  String? state,
 ) {
   if (type != null && r.type != type) return false;
-  if (location != null && r.country != location && r.stateRegion != location) {
+  // Case-insensitive/trimmed — the curated dropdown options ("Nigeria")
+  // don't necessarily match the free text an admin typed on the Add record
+  // form ("nigeria") byte-for-byte.
+  if (country != null &&
+      r.country.trim().toLowerCase() != country.trim().toLowerCase()) {
+    return false;
+  }
+  if (state != null &&
+      r.stateRegion.trim().toLowerCase() != state.trim().toLowerCase()) {
     return false;
   }
   if (query.isEmpty) return true;
@@ -155,8 +156,11 @@ final filteredCatalogueRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
   final List<ArchiveRecord> all = ref.watch(publishedArchiveRecordsProvider);
   final String query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
   final RecordType? type = ref.watch(catalogueTypeFilterProvider);
-  final String? location = ref.watch(catalogueLocationFilterProvider);
-  return all.where((r) => _matchesCatalogueFilters(r, query, type, location)).toList();
+  final String? country = ref.watch(catalogueCountryFilterProvider);
+  final String? state = ref.watch(catalogueStateFilterProvider);
+  return all
+      .where((r) => _matchesCatalogueFilters(r, query, type, country, state))
+      .toList();
 });
 
 const Set<String> _avExtensions = <String>{'mp4', 'm4v', 'mov', 'mp3', 'm4a', 'wav'};
@@ -179,10 +183,11 @@ final catalogueFilmsProvider = Provider<List<ArchiveRecord>>((ref) {
 final filteredCatalogueFilmsProvider = Provider<List<ArchiveRecord>>((ref) {
   final String query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
   final RecordType? type = ref.watch(catalogueTypeFilterProvider);
-  final String? location = ref.watch(catalogueLocationFilterProvider);
+  final String? country = ref.watch(catalogueCountryFilterProvider);
+  final String? state = ref.watch(catalogueStateFilterProvider);
   return ref
       .watch(catalogueFilmsProvider)
-      .where((r) => _matchesCatalogueFilters(r, query, type, location))
+      .where((r) => _matchesCatalogueFilters(r, query, type, country, state))
       .toList();
 });
 
@@ -268,9 +273,10 @@ final savedArchiveRecordsListProvider = Provider<List<ArchiveRecord>>((ref) {
 final filteredSavedArchiveRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
   final String query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
   final RecordType? type = ref.watch(catalogueTypeFilterProvider);
-  final String? location = ref.watch(catalogueLocationFilterProvider);
+  final String? country = ref.watch(catalogueCountryFilterProvider);
+  final String? state = ref.watch(catalogueStateFilterProvider);
   return ref
       .watch(savedArchiveRecordsListProvider)
-      .where((r) => _matchesCatalogueFilters(r, query, type, location))
+      .where((r) => _matchesCatalogueFilters(r, query, type, country, state))
       .toList();
 });

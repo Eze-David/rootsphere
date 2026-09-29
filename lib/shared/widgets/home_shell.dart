@@ -27,14 +27,17 @@ class HomeShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: _onTap,
-        items: <BottomNavigationBarItem>[
+      // Material 3 NavigationBar — a themed pill indicator slides behind the
+      // active icon (see navigationBarTheme in app_theme.dart) instead of
+      // the old flat BottomNavigationBar's plain color swap.
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: navigationShell.currentIndex,
+        onDestinationSelected: _onTap,
+        destinations: <NavigationDestination>[
           for (final _Destination d in _destinations)
-            BottomNavigationBarItem(
+            NavigationDestination(
               icon: Icon(d.icon),
-              activeIcon: Icon(d.activeIcon),
+              selectedIcon: Icon(d.activeIcon),
               label: d.label,
             ),
         ],

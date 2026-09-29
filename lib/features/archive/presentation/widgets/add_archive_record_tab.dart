@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/data/african_locations.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -22,6 +23,19 @@ const List<String> _allowedExtensions = <String>[
   'm4a',
   'mov',
 ];
+
+/// Maps a stored value onto its curated spelling (case-insensitive), so an
+/// older free-text entry like "nigeria" loads as "Nigeria". A value with no
+/// curated match is returned as-is (and offered as an extra dropdown option)
+/// rather than dropped, so editing a legacy record never silently wipes it.
+String? _matchOption(String raw, List<String> options) {
+  final String v = raw.trim();
+  if (v.isEmpty) return null;
+  for (final String o in options) {
+    if (o.toLowerCase() == v.toLowerCase()) return o;
+  }
+  return v;
+}
 
 class _PendingFile {
   _PendingFile(this.file, this.kind);
@@ -45,8 +59,10 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
   final _formKey = GlobalKey<FormState>();
   final _title = TextEditingController();
   final _collection = TextEditingController();
-  final _country = TextEditingController();
-  final _stateRegion = TextEditingController();
+  // Picked from the curated list in core/data/african_locations.dart (same
+  // source as the Records search and Catalogue filters), not free text.
+  String? _country;
+  String? _stateRegion;
   final _locality = TextEditingController();
   final _dateStart = TextEditingController();
   final _dateEnd = TextEditingController();
@@ -86,8 +102,6 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
   void dispose() {
     _title.dispose();
     _collection.dispose();
-    _country.dispose();
-    _stateRegion.dispose();
     _locality.dispose();
     _dateStart.dispose();
     _dateEnd.dispose();
@@ -148,8 +162,11 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
   void _applyRecord(ArchiveRecord r) {
     _title.text = r.title;
     _collection.text = r.collection;
-    _country.text = r.country;
-    _stateRegion.text = r.stateRegion;
+    _country = _matchOption(r.country, africanCountries);
+    _stateRegion = _matchOption(
+      r.stateRegion,
+      africanStatesProvinces[_country] ?? const <String>[],
+    );
     _locality.text = r.locality;
     _dateStart.text = r.dateRangeStart?.toString() ?? '';
     _dateEnd.text = r.dateRangeEnd?.toString() ?? '';
@@ -176,8 +193,6 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
     _formKey.currentState?.reset();
     _title.clear();
     _collection.clear();
-    _country.clear();
-    _stateRegion.clear();
     _locality.clear();
     _dateStart.clear();
     _dateEnd.clear();
@@ -187,6 +202,8 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
     _description.clear();
     setState(() {
       _type = RecordType.birth;
+      _country = null;
+      _stateRegion = null;
       _pendingFiles.clear();
       _existingFiles = <ArchiveFile>[];
       _accessStatus = ArchiveAccessStatus.archive;
@@ -241,8 +258,8 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
         title: _title.text.trim(),
         type: _type,
         collection: _collection.text.trim(),
-        country: _country.text.trim(),
-        stateRegion: _stateRegion.text.trim(),
+        country: _country ?? '',
+        stateRegion: _stateRegion ?? '',
         locality: _locality.text.trim(),
         dateRangeStart: int.tryParse(_dateStart.text.trim()),
         dateRangeEnd: int.tryParse(_dateEnd.text.trim()),
@@ -334,6 +351,7 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: DropdownButtonFormField<RecordType>(
+                    key: ValueKey<RecordType>(_type),
                     initialValue: _type,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Record type'),
@@ -370,6 +388,7 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: DropdownButtonFormField<ArchiveAccessStatus>(
+                    key: ValueKey<ArchiveAccessStatus>(_accessStatus),
                     initialValue: _accessStatus,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Access level'),
@@ -399,18 +418,65 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
             Row(
               children: <Widget>[
                 Expanded(
-                  child: TextFormField(
-                    controller: _country,
-                    enabled: !_saving,
+                  child: DropdownButtonFormField<String>(
+                    // Keyed on the value: `initialValue` is only read once,
+                    // so loading a draft or resetting the form needs a
+                    // fresh field to show the new selection.
+                    key: ValueKey<String?>('country-$_country'),
+                    initialValue: _country,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Country'),
+                    items: <DropdownMenuItem<String>>[
+                      for (final String c in <String>[
+                        ...africanCountries,
+                        if (_country != null && !africanCountries.contains(_country))
+                          _country!,
+                      ])
+                        DropdownMenuItem<String>(
+                          value: c,
+                          child: Text(c, overflow: TextOverflow.ellipsis),
+                        ),
+                    ],
+                    onChanged: _saving
+                        ? null
+                        : (c) => setState(() {
+                            _country = c;
+                            // A region from the previous country isn't valid
+                            // for the new one.
+                            _stateRegion = null;
+                          }),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
-                  child: TextFormField(
-                    controller: _stateRegion,
-                    enabled: !_saving,
-                    decoration: const InputDecoration(labelText: 'State / region'),
+                  child: Builder(
+                    builder: (context) {
+                      final List<String> states =
+                          africanStatesProvinces[_country] ?? const <String>[];
+                      return DropdownButtonFormField<String>(
+                        key: ValueKey<String?>('state-$_country-$_stateRegion'),
+                        initialValue: _stateRegion,
+                        isExpanded: true,
+                        decoration: InputDecoration(
+                          labelText: 'State / region',
+                          hintText: _country == null ? 'Pick a country first' : null,
+                        ),
+                        items: <DropdownMenuItem<String>>[
+                          for (final String s in <String>[
+                            ...states,
+                            if (_stateRegion != null && !states.contains(_stateRegion))
+                              _stateRegion!,
+                          ])
+                            DropdownMenuItem<String>(
+                              value: s,
+                              child: Text(s, overflow: TextOverflow.ellipsis),
+                            ),
+                        ],
+                        onChanged: (_saving || _country == null)
+                            ? null
+                            : (s) => setState(() => _stateRegion = s),
+                      );
+                    },
                   ),
                 ),
               ],

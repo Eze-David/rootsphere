@@ -55,6 +55,7 @@ class _RecordUploadSheetState extends ConsumerState<_RecordUploadSheet> {
   late Set<String> _linkedIds;
 
   PlatformFile? _pickedFile;
+  late bool _isPublic;
   bool _runOcr = true;
   bool _saving = false;
   String? _statusMessage;
@@ -70,6 +71,7 @@ class _RecordUploadSheetState extends ConsumerState<_RecordUploadSheet> {
     _type = e?.type ?? widget.initialType ?? RecordType.birth;
     _date = e?.date;
     _linkedIds = <String>{...?e?.personIds};
+    _isPublic = e?.isPublic ?? false;
   }
 
   @override
@@ -173,6 +175,7 @@ class _RecordUploadSheetState extends ConsumerState<_RecordUploadSheet> {
                 ocrText: ocrText,
                 personIds: _linkedIds.toList(),
                 createdAt: widget.existing?.createdAt ?? DateTime.now(),
+                isPublic: _isPublic,
               );
 
       await ref.read(recordRepositoryProvider).upsertRecord(record);
@@ -215,6 +218,37 @@ class _RecordUploadSheetState extends ConsumerState<_RecordUploadSheet> {
                 file: _pickedFile,
                 existingName: widget.existing?.fileName,
                 onPick: _saving ? null : _pickFile,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              Text('VISIBILITY', style: text.labelSmall),
+              const SizedBox(height: AppSpacing.sm),
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<bool>(
+                  segments: const <ButtonSegment<bool>>[
+                    ButtonSegment<bool>(
+                      value: false,
+                      label: Text('Private'),
+                      icon: Icon(Icons.lock_outline),
+                    ),
+                    ButtonSegment<bool>(
+                      value: true,
+                      label: Text('Public'),
+                      icon: Icon(Icons.public),
+                    ),
+                  ],
+                  selected: <bool>{_isPublic},
+                  onSelectionChanged: _saving
+                      ? null
+                      : (s) => setState(() => _isPublic = s.first),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                _isPublic
+                    ? 'Anyone on Rootsphere can find this record in search.'
+                    : 'Only members of this family tree can see this record.',
+                style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: AppSpacing.lg),
               Text('TYPE', style: text.labelSmall),
@@ -372,9 +406,9 @@ class _FilePickerTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
-          color: AppColors.surface,
+          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: Theme.of(context).dividerColor),
         ),
         child: Row(
           children: <Widget>[

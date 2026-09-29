@@ -17,11 +17,12 @@ class RecordsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bool seesAllRecords = ref.watch(canSeeAllRecordsProvider);
     final RecordsViewMode mode = ref.watch(recordsViewModeProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      // Floats transparently over the hero image again — safe now that the
+      // hero has no title/subtitle text left to collide with it.
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -57,15 +58,14 @@ class RecordsScreen extends ConsumerWidget {
       body: Column(
         children: <Widget>[
           RecordsLibraryHero(
+            // The globe/Earth image (records_library_hero_2.jpg) is dropped
+            // from the rotation — its transparent PNG background looked like
+            // a checkerboard-tiled rendering glitch rather than a photo.
             assets: const <String>[
               'assets/images/records_library_hero.jpg',
-              'assets/images/records_library_hero_2.jpg',
               'assets/images/records_library_hero_3.jpg',
             ],
-            title: seesAllRecords ? 'All records' : 'Your records',
-            subtitle: seesAllRecords
-                ? 'Every record uploaded across Rootsphere — birth certificates, marriage registrations, census records, and more.'
-                : 'Birth certificates, marriage registrations, census records, and other official documents — all in one place.',
+            height: 160,
           ),
           const _RecordsModeToggle(),
           Expanded(

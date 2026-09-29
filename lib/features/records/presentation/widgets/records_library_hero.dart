@@ -16,13 +16,19 @@ class RecordsLibraryHero extends StatefulWidget {
   const RecordsLibraryHero({
     super.key,
     required this.assets,
-    required this.title,
+    this.title,
     this.subtitle,
+    this.height,
   });
 
   final List<String> assets;
-  final String title;
+  final String? title;
   final String? subtitle;
+
+  /// Overrides the default height (360 wide / 320 narrow) — e.g. a shorter
+  /// banner for screens that already have their own search/filter UI right
+  /// below and don't need a tall, title-less hero.
+  final double? height;
 
   static const Duration cycleDuration = Duration(seconds: 30);
 
@@ -72,7 +78,7 @@ class _RecordsLibraryHeroState extends State<RecordsLibraryHero> {
     final String asset = widget.assets[_index % widget.assets.length];
 
     return Container(
-      height: isWide ? 360 : 320,
+      height: widget.height ?? (isWide ? 360 : 320),
       width: double.infinity,
       clipBehavior: Clip.hardEdge,
       decoration: const BoxDecoration(),
@@ -141,38 +147,50 @@ class _RecordsLibraryHeroState extends State<RecordsLibraryHero> {
 }
 
 class _Headline extends StatelessWidget {
-  const _Headline({required this.title, this.subtitle});
+  const _Headline({this.title, this.subtitle});
 
-  final String title;
+  final String? title;
   final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
+    final bool hasTitle = (title ?? '').isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      // Anchored to the bottom rather than centred — the search screen
-      // overlays a back button/title at the top of this same hero, and
-      // centred text was drifting up close enough to read as cramped
-      // against it.
-      mainAxisAlignment: MainAxisAlignment.end,
+      // Bottom-anchored when there's a title (the search screen overlays a
+      // back button/title at the top of this same hero — see
+      // HistoricalRecordsSearchScreen — so content is deliberately kept low).
+      // A subtitle-only hero is short by design; centering reads better
+      // there than crowding text against the very bottom edge.
+      mainAxisAlignment: hasTitle ? MainAxisAlignment.end : MainAxisAlignment.center,
       children: <Widget>[
-        Text(
-          title,
-          style: GoogleFonts.playfairDisplay(
-            fontSize: 38,
-            fontWeight: FontWeight.w700,
-            height: 1.1,
-            color: Colors.white,
+        if (hasTitle)
+          Text(
+            title!,
+            style: GoogleFonts.playfairDisplay(
+              fontSize: 38,
+              fontWeight: FontWeight.w700,
+              height: 1.1,
+              color: Colors.white,
+            ),
           ),
-        ),
         if (subtitle != null) ...<Widget>[
-          const SizedBox(height: AppSpacing.md),
+          if (hasTitle) const SizedBox(height: AppSpacing.md),
           Text(
             subtitle!,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Colors.white.withValues(alpha: 0.9),
-              height: 1.5,
-            ),
+            // A title-less hero is short by design — clamp + shrink so a
+            // long subtitle is guaranteed to fit under the AppBar's safe
+            // area instead of relying on getting the exact height right.
+            maxLines: hasTitle ? null : 2,
+            overflow: hasTitle ? null : TextOverflow.ellipsis,
+            style:
+                (hasTitle
+                        ? Theme.of(context).textTheme.bodyLarge
+                        : Theme.of(context).textTheme.bodySmall)
+                    ?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      height: hasTitle ? 1.5 : 1.3,
+                    ),
           ),
         ],
       ],

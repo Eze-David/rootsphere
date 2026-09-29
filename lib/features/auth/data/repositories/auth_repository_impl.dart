@@ -69,6 +69,11 @@ class AuthRepositoryImpl implements AuthRepository {
       email: user.email ?? '',
       displayName: (name?.trim().isNotEmpty ?? false) ? name!.trim() : null,
       avatarUrl: meta['avatar_url'] as String?,
+      bio: meta['bio'] as String?,
+      createdAt: DateTime.tryParse(user.createdAt),
+      lastSignInAt: user.lastSignInAt == null
+          ? null
+          : DateTime.tryParse(user.lastSignInAt!),
     );
   }
 
@@ -276,6 +281,27 @@ class AuthRepositoryImpl implements AuthRepository {
     return _guard(
       () => _client.updateUser(UserAttributes(password: newPassword)),
     );
+  }
+
+  @override
+  Future<void> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+  }) {
+    return _guard(() async {
+      // Merge client-side (rather than sending only the changed keys) so
+      // this never depends on whether the server-side `data` update is a
+      // merge or a wholesale replace of user_metadata.
+      final Map<String, dynamic> merged = Map<String, dynamic>.from(
+        _client.currentUser?.userMetadata ?? <String, dynamic>{},
+      );
+      if (displayName != null) merged['full_name'] = displayName;
+      if (avatarUrl != null) merged['avatar_url'] = avatarUrl;
+      if (bio != null) merged['bio'] = bio;
+      await _client.updateUser(UserAttributes(data: merged));
+      return null;
+    });
   }
 
   @override

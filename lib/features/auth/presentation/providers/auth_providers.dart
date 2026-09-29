@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/services/avatar_storage_service.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
@@ -8,6 +9,11 @@ import '../../domain/repositories/auth_repository.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl();
 });
+
+/// Avatar upload service (Supabase Storage + local fallback).
+final avatarStorageServiceProvider = Provider<AvatarStorageService>(
+  (ref) => AvatarStorageService(),
+);
 
 /// Streams the current authenticated user (or null). Used by the router's
 /// redirect guard and by screens that need the active session.

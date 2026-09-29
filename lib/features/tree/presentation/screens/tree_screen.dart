@@ -7,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../shared/widgets/adaptive_image.dart';
 import '../../../../shared/widgets/error_retry_view.dart';
+import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../data/services/tree_pdf_service.dart';
 import '../../domain/entities/person.dart';
 import '../layout/tree_layout.dart';
@@ -617,6 +618,17 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     // Focus the new person so they're visible — whether they were linked via
     // the in-form "Add to tree" picker or added standalone.
     setFocusPerson(ref, created.id);
+
+    // This flow only ever runs on an empty tree (_EmptyTree's onAdd) — the
+    // very first person someone adds when starting a tree is, in the vast
+    // majority of cases, themselves. Auto-mark them as "me" so the dashboard's
+    // Fill-in-the-gaps/Family-at-a-glance work without an extra manual step;
+    // still overridable later via the person profile's "Mark as me" menu.
+    try {
+      await ref.read(familyTreeRepositoryProvider).setMyPersonId(treeId, created.id);
+    } catch (_) {
+      // Best-effort — never block adding the person over this.
+    }
   }
 
   Future<void> _printTree(TreeLayout layout, String treeId) async {
@@ -696,8 +708,9 @@ class _CanvasActionCluster extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        border: Border.all(color: Theme.of(context).dividerColor),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.15),

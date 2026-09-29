@@ -115,6 +115,30 @@ abstract class AppTheme {
         showUnselectedLabels: true,
         elevation: 0,
       ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: const Color(0xFF1C1917),
+        indicatorColor: AppColors.sunGold.withValues(alpha: 0.18),
+        elevation: 0,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.sunGold
+                : AppColors.textTertiary,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.sunGold
+                : AppColors.textTertiary,
+          ),
+        ),
+      ),
     );
   }
 
@@ -212,6 +236,30 @@ abstract class AppTheme {
         type: BottomNavigationBarType.fixed,
         showUnselectedLabels: true,
         elevation: 0,
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.background,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.12),
+        elevation: 0,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.textTertiary,
+          ),
+        ),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.textTertiary,
+          ),
+        ),
       ),
     );
   }

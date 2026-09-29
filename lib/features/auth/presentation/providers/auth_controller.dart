@@ -54,6 +54,20 @@ class AuthController extends AsyncNotifier<void> {
     return _run(() => _repo.updatePassword(newPassword));
   }
 
+  Future<bool> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+  }) {
+    return _run(
+      () => _repo.updateProfile(
+        displayName: displayName,
+        avatarUrl: avatarUrl,
+        bio: bio,
+      ),
+    );
+  }
+
   Future<bool> deleteAccount() => _run(_repo.deleteAccount);
 
   Future<bool> resendEmailConfirmation(String email) {

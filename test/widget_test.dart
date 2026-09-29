@@ -51,6 +51,13 @@ class _FakeSignedInAuthRepository implements AuthRepository {
   Future<void> updatePassword(String newPassword) => throw UnimplementedError();
 
   @override
+  Future<void> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+  }) => throw UnimplementedError();
+
+  @override
   Future<void> deleteAccount() => throw UnimplementedError();
 
   @override

@@ -41,6 +41,14 @@ abstract class AuthRepository {
   /// Updates the current user's password.
   Future<void> updatePassword(String newPassword);
 
+  /// Updates any of the current user's profile fields. A null parameter
+  /// leaves that field unchanged; pass an empty string to clear one.
+  Future<void> updateProfile({
+    String? displayName,
+    String? avatarUrl,
+    String? bio,
+  });
+
   /// Permanently deletes the current user's account.
   Future<void> deleteAccount();
 
