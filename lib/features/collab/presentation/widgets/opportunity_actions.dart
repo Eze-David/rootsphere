@@ -16,6 +16,7 @@ import '../screens/claim_workspace_screen.dart';
 import 'donate_dialog.dart';
 import 'opportunity_card.dart';
 import 'role_verification_sheet.dart';
+import 'researcher_undertaking_sheet.dart';
 
 /// The signed-in user's id, or '' when signed out — matches how every
 /// opportunity screen decides whether the viewer is the requester/claimer.
@@ -134,11 +135,19 @@ Future<void> showOpportunityDetail(
                 'Requested by ${opportunity.requesterName}',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
-              if (opportunity.claimerId != null &&
-                  !opportunity.isVerified) ...<Widget>[
+              if (opportunity.claimerId != null) ...<Widget>[
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   'Attended to by ${opportunity.claimerName ?? 'someone'}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+              ],
+              if (opportunity.isVerified) ...<Widget>[
+                const SizedBox(height: AppSpacing.xs),
+                // Only the requester can verify (enforced by the
+                // check_status_transition trigger), so they're the verifier.
+                Text(
+                  'Verified by ${opportunity.requesterName}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
@@ -448,6 +457,9 @@ Future<void> claimOpportunity(
   CollaborationOpportunity opportunity,
 ) async {
   try {
+    // One-time Code of Conduct acceptance before any claim (the database
+    // enforces this too — see 20261006000000_researcher_undertakings.sql).
+    if (!await ensureResearcherUndertaking(context)) return;
     await ref
         .read(opportunityControllerProvider.notifier)
         .claim(opportunity.id);
@@ -462,7 +474,9 @@ Future<void> claimOpportunity(
       // The database is the actual source of truth on qualification (the
       // pre-check below is just UX) — surface its rejection in plain
       // language instead of the raw Postgres error text.
-      final String message = e.toString().contains('not_qualified_for_role')
+      final String message = e.toString().contains('undertaking_required')
+          ? 'Please accept the Researcher Code of Conduct first.'
+          : e.toString().contains('not_qualified_for_role')
           ? "You're not verified for this role yet."
           : e.toString().contains('company_request_admin_only')
           ? 'Only the company can claim this request.'
@@ -611,7 +625,9 @@ Future<void> approveSubmission(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not approve: ${friendlyErrorMessage(e)}')),
+        SnackBar(
+          content: Text('Could not approve: ${friendlyErrorMessage(e)}'),
+        ),
       );
     }
   }
@@ -690,7 +706,9 @@ Future<void> unclaimOpportunity(
   } catch (e) {
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not unclaim: ${friendlyErrorMessage(e)}')),
+        SnackBar(
+          content: Text('Could not unclaim: ${friendlyErrorMessage(e)}'),
+        ),
       );
     }
   }
@@ -888,7 +906,11 @@ class _InfoBanner extends StatelessWidget {
       ),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 18, color: Theme.of(context).textTheme.bodyMedium?.color),
+          Icon(
+            icon,
+            size: 18,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(text, style: Theme.of(context).textTheme.bodyMedium),
@@ -921,9 +943,9 @@ class _SubmissionField extends StatelessWidget {
           Text(
             isEmpty ? 'Not provided' : value!,
             style: isEmpty
-                ? Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontStyle: FontStyle.italic,
-                  )
+                ? Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(fontStyle: FontStyle.italic)
                 : Theme.of(context).textTheme.bodyMedium,
           ),
         ],

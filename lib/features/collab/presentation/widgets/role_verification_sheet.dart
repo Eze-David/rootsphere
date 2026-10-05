@@ -171,10 +171,10 @@ class _RoleVerificationSheetState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(
-          SnackBar(content: Text('Could not submit: ${friendlyErrorMessage(e)}')),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not submit: ${friendlyErrorMessage(e)}'),
+          ),
         );
       }
     } finally {

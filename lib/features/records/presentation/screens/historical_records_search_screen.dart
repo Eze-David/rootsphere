@@ -646,6 +646,8 @@ class _HistoricalRecordsSearchScreenState
         return 'Find flight manifests';
       case RecordType.recruitmentAgency:
         return 'Find recruitment agency records';
+      case RecordType.familyTree:
+        return 'Find family trees';
       default:
         return 'Find your African ancestors';
     }
@@ -707,6 +709,8 @@ class _HistoricalRecordsSearchScreenState
         return 'Search airline passenger manifests and flight boarding records.';
       case RecordType.recruitmentAgency:
         return 'Search recruitment and employment agency registers and placement records.';
+      case RecordType.familyTree:
+        return 'Search family trees, pedigree charts and lineage records.';
       default:
         return 'Search for names in African records, family trees, cemeteries, and oral histories.';
     }

@@ -9,7 +9,6 @@ import '../../../../core/theme/app_spacing.dart';
 import '../../../tree/data/services/geocoding_service.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../../tree/presentation/widgets/osm_attribution.dart';
-import '../../domain/entities/contribution.dart';
 import '../../domain/entities/opportunity.dart';
 import '../providers/donation_providers.dart';
 import '../providers/opportunity_providers.dart';
@@ -123,24 +122,39 @@ class _OpportunitiesScreenState extends ConsumerState<OpportunitiesScreen> {
               AppSpacing.lg,
               AppSpacing.md,
               AppSpacing.lg,
-              0,
+              AppSpacing.md,
             ),
-            child: _CollabHeroCard(
-              onNewOpportunity: () => showAddOpportunitySheet(context),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final Widget hero = _CollabHeroCard(
+                  onNewOpportunity: () => showAddOpportunitySheet(context),
+                );
+                // Wide (web/tablet): board card and filters share one line.
+                if (constraints.maxWidth >= 900) {
+                  return Row(
+                    children: <Widget>[
+                      Expanded(child: hero),
+                      const SizedBox(width: AppSpacing.md),
+                      _StepChipFilter(counts: counts, filter: filter),
+                    ],
+                  );
+                }
+                // Narrow (phone): filters on their own single line below,
+                // sharing the width equally instead of wrapping.
+                return Column(
+                  children: <Widget>[
+                    hero,
+                    const SizedBox(height: AppSpacing.md),
+                    _StepChipFilter(
+                      counts: counts,
+                      filter: filter,
+                      expand: true,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.md,
-            ),
-            child: _StepChipFilter(counts: counts, filter: filter),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            child: _ContributionHeader(currentUserId: _currentUserId),
-          ),
-          const SizedBox(height: AppSpacing.md),
           Expanded(
             child: async.isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -209,12 +223,16 @@ class _CollabHeroCard extends StatelessWidget {
               children: <Widget>[
                 Text(
                   'Collaboration Board',
-                  style: text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: text.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Record gathering board — claim a task and help the community.',
-                  style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                  style: text.bodyMedium?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -232,9 +250,18 @@ class _CollabHeroCard extends StatelessWidget {
 }
 
 class _StepChipFilter extends ConsumerWidget {
-  const _StepChipFilter({required this.counts, required this.filter});
+  const _StepChipFilter({
+    required this.counts,
+    required this.filter,
+    this.expand = false,
+  });
   final Map<OpportunityStatus, int> counts;
   final OpportunityStatus? filter;
+
+  /// true = chips share the available width equally (always one line);
+  /// false = fixed-width chips sized to their content (for use inside a
+  /// Row where the width is unbounded).
+  final bool expand;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -242,39 +269,49 @@ class _StepChipFilter extends ConsumerWidget {
         ref.read(opportunityFilterProvider.notifier).state = value;
 
     final int total = counts.values.fold(0, (a, b) => a + b);
+    final double? chipWidth = expand ? null : 96;
 
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.sm,
+    final List<Widget> chips = <Widget>[
+      _StepChip(
+        number: null,
+        label: 'All',
+        count: total,
+        selected: filter == null,
+        onTap: () => select(null),
+      ),
+      _StepChip(
+        number: 1,
+        label: 'Open',
+        count: counts[OpportunityStatus.open] ?? 0,
+        selected: filter == OpportunityStatus.open,
+        onTap: () => select(OpportunityStatus.open),
+      ),
+      _StepChip(
+        number: 2,
+        label: 'Claimed',
+        count: counts[OpportunityStatus.claimed] ?? 0,
+        selected: filter == OpportunityStatus.claimed,
+        onTap: () => select(OpportunityStatus.claimed),
+      ),
+      _StepChip(
+        number: 3,
+        label: 'Verified',
+        count: counts[OpportunityStatus.verified] ?? 0,
+        selected: filter == OpportunityStatus.verified,
+        onTap: () => select(OpportunityStatus.verified),
+      ),
+    ];
+
+    return Row(
+      mainAxisSize: expand ? MainAxisSize.max : MainAxisSize.min,
       children: <Widget>[
-        _StepChip(
-          number: null,
-          label: 'All',
-          count: total,
-          selected: filter == null,
-          onTap: () => select(null),
-        ),
-        _StepChip(
-          number: 1,
-          label: 'Open',
-          count: counts[OpportunityStatus.open] ?? 0,
-          selected: filter == OpportunityStatus.open,
-          onTap: () => select(OpportunityStatus.open),
-        ),
-        _StepChip(
-          number: 2,
-          label: 'Claimed',
-          count: counts[OpportunityStatus.claimed] ?? 0,
-          selected: filter == OpportunityStatus.claimed,
-          onTap: () => select(OpportunityStatus.claimed),
-        ),
-        _StepChip(
-          number: 3,
-          label: 'Verified',
-          count: counts[OpportunityStatus.verified] ?? 0,
-          selected: filter == OpportunityStatus.verified,
-          onTap: () => select(OpportunityStatus.verified),
-        ),
+        for (int i = 0; i < chips.length; i++) ...<Widget>[
+          if (i > 0) const SizedBox(width: AppSpacing.sm),
+          if (expand)
+            Expanded(child: chips[i])
+          else
+            SizedBox(width: chipWidth, child: chips[i]),
+        ],
       ],
     );
   }
@@ -299,13 +336,14 @@ class _StepChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final TextTheme text = theme.textTheme;
-    final Color accent = selected ? theme.colorScheme.primary : theme.dividerColor;
+    final Color accent = selected
+        ? theme.colorScheme.primary
+        : theme.dividerColor;
 
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Container(
-        width: 96,
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.sm,
           vertical: AppSpacing.sm,
@@ -335,66 +373,6 @@ class _StepChip extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _ContributionHeader extends ConsumerWidget {
-  const _ContributionHeader({required this.currentUserId});
-  final String currentUserId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final TextTheme text = Theme.of(context).textTheme;
-    final my = ref.watch(myContributionProvider);
-    if (my == null) return const SizedBox.shrink();
-
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        // Theme-aware — was a fixed light cream box that stayed light (with
-        // unreadable text) in dark mode.
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(color: Theme.of(context).dividerColor),
-      ),
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text('Your contributions', style: text.labelSmall),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${my.verifiedCount} verified · ${my.claimedCount} claimed',
-                  style: text.bodyMedium,
-                ),
-                Text(
-                  '${my.reputation} reputation',
-                  style: text.bodySmall,
-                ),
-              ],
-            ),
-          ),
-          if (my.badges.isNotEmpty)
-            Row(
-              children: my.badges.take(3).map((badge) {
-                return Padding(
-                  padding: const EdgeInsets.only(left: AppSpacing.xs),
-                  child: Tooltip(
-                    message: '${badge.label}: ${badge.description}',
-                    child: Icon(
-                      badge.icon,
-                      color: Theme.of(context).colorScheme.primary,
-                      size: 22,
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-        ],
       ),
     );
   }

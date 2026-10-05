@@ -11,6 +11,7 @@ import '../../../auth/presentation/screens/legal_document_screen.dart';
 import '../../../collab/presentation/screens/donation_welcome_screen.dart';
 import '../../../collab/presentation/widgets/donate_dialog.dart';
 import '../providers/onboarding_provider.dart';
+import '../widgets/explainer_video_section.dart';
 
 /// The marketing landing page shown at rootsphere.ink before anyone signs
 /// in — a real scrolling website (hero, features, how-it-works, footer)
@@ -45,6 +46,7 @@ class OnboardingScreen extends ConsumerWidget {
             onSignIn: () => _enter(context, ref, signUp: false),
             onDonate: () => showDonateDialog(context, ref),
           ),
+          const ExplainerVideoSection(),
           Padding(
             padding: EdgeInsets.symmetric(
               horizontal: isWide ? 80 : AppSpacing.lg,

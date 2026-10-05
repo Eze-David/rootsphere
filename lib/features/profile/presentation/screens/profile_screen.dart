@@ -753,6 +753,11 @@ class _AccountSection extends ConsumerWidget {
                 onTap: () => context.push(AppRoutes.roleVerificationReview),
               ),
               _AccountTile(
+                icon: Icons.gavel_outlined,
+                label: 'Signed codes of conduct',
+                onTap: () => context.push(AppRoutes.researcherUndertakings),
+              ),
+              _AccountTile(
                 icon: Icons.apartment_outlined,
                 label: 'Company requests',
                 onTap: () => context.push(AppRoutes.companyRequests),

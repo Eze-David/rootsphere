@@ -1,3 +1,5 @@
+import 'research_request.dart';
+
 /// Structured details about the person an opportunity is researching —
 /// name variants, country, photos, and supporting documents. Kept separate
 /// from [CollaborationOpportunity] itself (and access-controlled server-side
@@ -13,6 +15,7 @@ class OpportunitySubject {
     this.additionalInfo,
     this.photoUrls = const <String>[],
     this.documentUrls = const <String>[],
+    this.request = const ResearchRequest(),
   });
 
   final String firstName;
@@ -24,6 +27,9 @@ class OpportunitySubject {
   final List<String> photoUrls;
   final List<String> documentUrls;
 
+  /// The rest of the Foundation's research request form.
+  final ResearchRequest request;
+
   bool get isEmpty =>
       firstName.trim().isEmpty &&
       middleName.trim().isEmpty &&
@@ -32,7 +38,8 @@ class OpportunitySubject {
       country.trim().isEmpty &&
       (additionalInfo ?? '').trim().isEmpty &&
       photoUrls.isEmpty &&
-      documentUrls.isEmpty;
+      documentUrls.isEmpty &&
+      request.isEmpty;
 
   String get fullName => <String>[
     firstName,
@@ -49,6 +56,7 @@ class OpportunitySubject {
     'additionalInfo': additionalInfo,
     'photoUrls': photoUrls,
     'documentUrls': documentUrls,
+    'request': request.toJson(),
   };
 
   factory OpportunitySubject.fromJson(Map<String, dynamic> json) {
@@ -66,6 +74,9 @@ class OpportunitySubject {
           (json['documentUrls'] as List<dynamic>? ?? const <dynamic>[])
               .map((e) => e.toString())
               .toList(),
+      request: ResearchRequest.fromJson(
+        json['request'] as Map<String, dynamic>?,
+      ),
     );
   }
 }

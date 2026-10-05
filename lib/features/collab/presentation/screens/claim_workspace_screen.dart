@@ -12,6 +12,7 @@ import '../../domain/entities/finder_submission.dart';
 import '../../domain/entities/indexer_submission.dart';
 import '../../domain/entities/opportunity.dart';
 import '../../domain/entities/opportunity_subject.dart';
+import '../../domain/entities/research_request.dart';
 import '../providers/opportunity_providers.dart';
 
 /// The workspace a claimer enters after claiming an opportunity.
@@ -91,10 +92,7 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
           style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.xs),
-        Text(
-          opportunity.requiredRole.description,
-          style: text.bodyMedium,
-        ),
+        Text(opportunity.requiredRole.description, style: text.bodyMedium),
         const SizedBox(height: AppSpacing.lg),
         _SubjectDetailsSection(opportunityId: opportunity.id),
         if (!opportunity.isClaimed) ...<Widget>[
@@ -224,7 +222,9 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not submit: ${friendlyErrorMessage(e)}')),
+          SnackBar(
+            content: Text('Could not submit: ${friendlyErrorMessage(e)}'),
+          ),
         );
       }
     } finally {
@@ -318,11 +318,7 @@ class _RejectionFeedback extends StatelessWidget {
         children: <Widget>[
           const Row(
             children: <Widget>[
-              Icon(
-                Icons.feedback_outlined,
-                size: 16,
-                color: AppColors.sunGold,
-              ),
+              Icon(Icons.feedback_outlined, size: 16, color: AppColors.sunGold),
               SizedBox(width: AppSpacing.xs),
               Text(
                 'Changes requested by the company',
@@ -417,6 +413,7 @@ class _SubjectDetailsSection extends ConsumerWidget {
     if (subject == null || subject.isEmpty) return const SizedBox.shrink();
 
     final TextTheme text = Theme.of(context).textTheme;
+    final ResearchRequest r = subject.request;
     // No outer padding here — this is embedded as a header item inside the
     // form's own ListView (see _WorkspaceBodyState.build), which already
     // pads every item uniformly. Wrapping it again doubled up the inset.
@@ -426,19 +423,61 @@ class _SubjectDetailsSection extends ConsumerWidget {
         initiallyExpanded: true,
         tilePadding: EdgeInsets.zero,
         childrenPadding: const EdgeInsets.only(bottom: AppSpacing.md),
-        title: Text('SUBJECT DETAILS', style: text.labelSmall),
+        title: Text('RESEARCH REQUEST', style: text.labelSmall),
+        subtitle: Text(
+          'Ref ${researchReferenceNumber(opportunityId)}',
+          style: text.bodySmall,
+        ),
         children: <Widget>[
-          if (subject.fullName.isNotEmpty)
-            _SubjectField(label: 'Name', value: subject.fullName),
-          if (subject.nickName.trim().isNotEmpty)
-            _SubjectField(label: 'Nickname', value: subject.nickName),
-          if (subject.country.trim().isNotEmpty)
-            _SubjectField(label: 'Country', value: subject.country),
-          if ((subject.additionalInfo ?? '').trim().isNotEmpty)
-            _SubjectField(
-              label: 'Additional info',
-              value: subject.additionalInfo!,
-            ),
+          ..._requestFields('A. Requester', <String, String>{
+            'Name': r.requesterName,
+            'Address': r.requesterAddress,
+            'Phone': r.requesterPhone,
+            'Email': r.requesterEmail,
+            'Preferred contact': r.contactMethods.join(', '),
+            'Relationship to subject': r.relationship,
+          }, text),
+          ..._requestFields('B. Person or family', <String, String>{
+            'Name': subject.fullName,
+            'Other names/spellings': subject.nickName,
+            'Country': subject.country,
+            'Approx. date of birth': r.birthDate,
+            'Place of birth/origin': r.birthPlace,
+            'Marriage': r.marriage,
+            'Death': r.death,
+            'Spouse(s)': r.spouses,
+            'Parents': r.parents,
+            'Other relatives': r.relatives,
+            'Ethnic group/community': r.ethnicGroup,
+            'Religion/church': r.religion,
+          }, text),
+          ..._requestFields('C. Research request', <String, String>{
+            'Main research question': r.researchQuestion,
+            'Information already known': subject.additionalInfo ?? '',
+            'Sources already checked': <String>[
+              ...r.sourcesChecked,
+              if (r.sourcesOther.trim().isNotEmpty) r.sourcesOther.trim(),
+            ].join(', '),
+          }, text),
+          ..._requestFields('D. Documents provided', <String, String>{
+            'Listed': r.documentsProvided,
+          }, text),
+          ..._requestFields('E. Desired output', <String, String>{
+            'Output': <String>[
+              ...r.desiredOutputs,
+              if (r.outputsOther.trim().isNotEmpty) r.outputsOther.trim(),
+            ].join(', '),
+          }, text),
+          if (r.declarationAccepted)
+            ..._requestFields('F. Declaration', <String, String>{
+              'Accepted': <String>[
+                if (r.requesterName.isNotEmpty) r.requesterName,
+                if (r.declaredAt != null)
+                  MaterialLocalizations.of(
+                    context,
+                  ).formatMediumDate(r.declaredAt!.toLocal()),
+              ].join(' · '),
+            }, text),
           if (subject.photoUrls.isNotEmpty) ...<Widget>[
             const SizedBox(height: AppSpacing.sm),
             Text('Photos', style: text.labelSmall),
@@ -492,6 +531,30 @@ class _SubjectDetailsSection extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// A labelled group of non-empty request answers; empty values are skipped
+/// and the heading is dropped entirely if nothing in the group was filled.
+List<Widget> _requestFields(
+  String heading,
+  Map<String, String> fields,
+  TextTheme text,
+) {
+  final List<MapEntry<String, String>> filled = fields.entries
+      .where((e) => e.value.trim().isNotEmpty)
+      .toList();
+  if (filled.isEmpty) return const <Widget>[];
+  return <Widget>[
+    Padding(
+      padding: const EdgeInsets.only(top: AppSpacing.sm, bottom: AppSpacing.sm),
+      child: Text(
+        heading,
+        style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    ),
+    for (final MapEntry<String, String> e in filled)
+      _SubjectField(label: e.key, value: e.value),
+  ];
 }
 
 class _SubjectField extends StatelessWidget {

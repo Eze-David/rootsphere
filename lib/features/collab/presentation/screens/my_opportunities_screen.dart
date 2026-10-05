@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../domain/entities/contribution.dart';
 import '../../domain/entities/opportunity.dart';
 import '../providers/opportunity_providers.dart';
 import '../widgets/opportunity_actions.dart';
@@ -36,28 +37,98 @@ class MyOpportunitiesScreen extends ConsumerWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Column(
           children: <Widget>[
-            _OpportunityList(
-              opportunities: claimed,
-              currentUserId: uid,
-              emptyIcon: Icons.volunteer_activism_outlined,
-              emptyTitle: 'Nothing claimed yet',
-              emptySubtitle:
-                  "Opportunities you claim from the board show up here so "
-                  "you can track what you've taken on.",
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.lg,
+                AppSpacing.lg,
+                0,
+              ),
+              child: _ContributionHeader(),
             ),
-            _OpportunityList(
-              opportunities: requested,
-              currentUserId: uid,
-              emptyIcon: Icons.campaign_outlined,
-              emptyTitle: 'Nothing requested yet',
-              emptySubtitle:
-                  'Opportunities you post for the community to help with '
-                  'show up here.',
+            Expanded(
+              child: TabBarView(
+                children: <Widget>[
+                  _OpportunityList(
+                    opportunities: claimed,
+                    currentUserId: uid,
+                    emptyIcon: Icons.volunteer_activism_outlined,
+                    emptyTitle: 'Nothing claimed yet',
+                    emptySubtitle:
+                        "Opportunities you claim from the board show up here so "
+                        "you can track what you've taken on.",
+                  ),
+                  _OpportunityList(
+                    opportunities: requested,
+                    currentUserId: uid,
+                    emptyIcon: Icons.campaign_outlined,
+                    emptyTitle: 'Nothing requested yet',
+                    emptySubtitle:
+                        'Opportunities you post for the community to help with '
+                        'show up here.',
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ContributionHeader extends ConsumerWidget {
+  const _ContributionHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final my = ref.watch(myContributionProvider);
+    if (my == null) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text('Your contributions', style: text.labelSmall),
+                const SizedBox(height: AppSpacing.xs),
+                Text(
+                  '${my.verifiedCount} verified · ${my.claimedCount} claimed',
+                  style: text.bodyMedium,
+                ),
+                Text('${my.reputation} reputation', style: text.bodySmall),
+              ],
+            ),
+          ),
+          if (my.badges.isNotEmpty)
+            Row(
+              children: my.badges.take(3).map((badge) {
+                return Padding(
+                  padding: const EdgeInsets.only(left: AppSpacing.xs),
+                  child: Tooltip(
+                    message: '${badge.label}: ${badge.description}',
+                    child: Icon(
+                      badge.icon,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 22,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+        ],
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../domain/entities/finder_submission.dart';
 import '../../domain/entities/indexer_submission.dart';
 import '../../domain/entities/opportunity.dart';
 import '../../domain/entities/opportunity_subject.dart';
+import '../../domain/entities/research_request.dart';
 import '../../domain/repositories/opportunity_repository.dart';
 
 /// Supabase-backed [OpportunityRepository].
@@ -342,6 +343,7 @@ class OpportunityRepositorySupabase implements OpportunityRepository {
         'additional_info': subject.additionalInfo,
         'photo_urls': subject.photoUrls,
         'document_urls': subject.documentUrls,
+        'research_request': subject.request.toJson(),
       }, onConflict: 'opportunity_id');
     } on PostgrestException catch (e) {
       throw ServerFailure(e.message);
@@ -363,6 +365,9 @@ class OpportunityRepositorySupabase implements OpportunityRepository {
           (row['document_urls'] as List<dynamic>? ?? const <dynamic>[])
               .map((e) => e.toString())
               .toList(),
+      request: ResearchRequest.fromJson(
+        row['research_request'] as Map<String, dynamic>?,
+      ),
     );
   }
 

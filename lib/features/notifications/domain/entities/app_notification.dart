@@ -15,6 +15,7 @@ enum NotificationType {
   archiveAccessRequested,
   archiveAccessApproved,
   archiveAccessRejected,
+  researcherUndertaking,
   unknown,
 }
 
@@ -52,6 +53,8 @@ NotificationType _typeFromString(String value) {
       return NotificationType.archiveAccessApproved;
     case 'archive_access_rejected':
       return NotificationType.archiveAccessRejected;
+    case 'researcher_undertaking':
+      return NotificationType.researcherUndertaking;
     default:
       return NotificationType.unknown;
   }

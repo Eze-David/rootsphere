@@ -13,6 +13,7 @@ import '../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../../features/collab/presentation/screens/donation_thank_you_screen.dart';
 import '../../features/collab/presentation/screens/opportunities_screen.dart';
 import '../../features/collab/presentation/screens/company_requests_screen.dart';
+import '../../features/collab/presentation/screens/researcher_undertakings_screen.dart';
 import '../../features/collab/presentation/screens/role_verification_review_screen.dart';
 import '../../features/collab/presentation/screens/submission_review_screen.dart';
 import '../../features/support/presentation/screens/support_messages_screen.dart';
@@ -162,6 +163,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'notifications',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.researcherUndertakings,
+        name: 'researcher-undertakings',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, _) => const ResearcherUndertakingsScreen(),
       ),
       GoRoute(
         path: AppRoutes.roleVerificationReview,

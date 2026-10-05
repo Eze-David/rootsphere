@@ -173,10 +173,7 @@ class OpportunityCard extends StatelessWidget {
                         ),
                         if (opportunity.description.isNotEmpty) ...<Widget>[
                           const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            opportunity.description,
-                            style: text.bodyMedium,
-                          ),
+                          Text(opportunity.description, style: text.bodyMedium),
                         ],
                       ],
                     ),
@@ -224,7 +221,10 @@ class OpportunityCard extends StatelessWidget {
                         color: text.bodySmall?.color,
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Text(opportunity.requiredRole.label, style: text.bodySmall),
+                      Text(
+                        opportunity.requiredRole.label,
+                        style: text.bodySmall,
+                      ),
                     ],
                   ),
                 ],
@@ -245,7 +245,12 @@ class OpportunityCard extends StatelessWidget {
                       style: text.bodySmall,
                     ),
                   ] else if (opportunity.isVerified) ...<Widget>[
-                    Text('Verified', style: text.bodySmall),
+                    // Only the requester can verify (enforced by the
+                    // check_status_transition trigger), so they're the verifier.
+                    Text(
+                      'Verified by ${opportunity.requesterName}',
+                      style: text.bodySmall,
+                    ),
                   ],
                 ],
               ),

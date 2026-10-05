@@ -38,6 +38,10 @@ abstract class AppRoutes {
   /// Admin-only "Contact us" inbox, pushed over the shell: `/admin/support`.
   static const String supportMessages = '/admin/support';
 
+  /// Admin-only list of signed Researcher Code of Conduct undertakings,
+  /// pushed over the shell: `/admin/undertakings`.
+  static const String researcherUndertakings = '/admin/undertakings';
+
   /// Admin-only Digital Records Repository (curated civil/historical records
   /// catalogue), pushed over the shell: `/admin/archive`.
   static const String archiveRepository = '/admin/archive';

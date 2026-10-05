@@ -30,6 +30,7 @@ enum RecordType {
   hospital,
   flightManifest,
   recruitmentAgency,
+  familyTree,
   other,
 }
 
@@ -91,6 +92,8 @@ extension RecordTypeX on RecordType {
         return 'Flight manifest';
       case RecordType.recruitmentAgency:
         return 'Recruitment agency';
+      case RecordType.familyTree:
+        return 'Family tree';
       case RecordType.other:
         return 'Other';
     }
@@ -153,6 +156,8 @@ extension RecordTypeX on RecordType {
         return 'Flight manifest';
       case RecordType.recruitmentAgency:
         return 'Recruitment agency record';
+      case RecordType.familyTree:
+        return 'Family tree';
       case RecordType.other:
         return 'Record';
     }
@@ -214,6 +219,8 @@ extension RecordTypeX on RecordType {
         return Icons.flight_outlined;
       case RecordType.recruitmentAgency:
         return Icons.work_outline;
+      case RecordType.familyTree:
+        return Icons.account_tree_outlined;
       case RecordType.other:
         return Icons.article_outlined;
     }
