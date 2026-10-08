@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -12,6 +13,7 @@ import '../../data/services/apple_iap_donation_service.dart';
 import '../../domain/entities/donation.dart';
 import '../providers/donation_providers.dart';
 import 'donation_review_screen.dart';
+import '../../../auth/presentation/screens/legal_document_screen.dart';
 
 /// Second step of the donation wizard — "Choose How You Would Like to Make
 /// a Difference": pick a Donation Type (One-Time / Monthly / Annually) and
@@ -291,12 +293,22 @@ class _DonationDetailsScreenState extends ConsumerState<DonationDetailsScreen> {
                         'This subscription option isn\'t available right '
                         'now.',
                       )
-                    else
+                    else ...<Widget>[
+                      Text(
+                        _selectedAppleSubscriptionTier!.title,
+                        style: text.bodyMedium,
+                      ),
                       Text(
                         '${_selectedAppleSubscriptionTier!.price} / '
                         '${_interval!.label.toLowerCase()}',
                         style: text.titleMedium,
                       ),
+                      const SizedBox(height: AppSpacing.sm),
+                      // App Store Guideline 3.1.2: auto-renewal terms plus
+                      // working Terms of Use (EULA) and Privacy Policy links
+                      // must be shown where the subscription is sold.
+                      const _SubscriptionDisclosure(),
+                    ],
                   ] else ...<Widget>[
                     Wrap(
                       spacing: AppSpacing.sm,
@@ -409,6 +421,52 @@ class _DonationDetailsScreenState extends ConsumerState<DonationDetailsScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Apple's standard EULA, which RootSphere's subscriptions use.
+const String _appleStandardEula =
+    'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+class _SubscriptionDisclosure extends StatelessWidget {
+  const _SubscriptionDisclosure();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final Color muted = Theme.of(context).colorScheme.onSurfaceVariant;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Payment is charged to your Apple ID at confirmation of purchase. '
+          'The subscription renews automatically at the same price unless '
+          'it is cancelled at least 24 hours before the end of the current '
+          'period. You can manage or cancel it at any time in your Apple ID '
+          'account settings (Settings › your name › Subscriptions).',
+          style: text.bodySmall?.copyWith(color: muted),
+        ),
+        Wrap(
+          children: <Widget>[
+            TextButton(
+              onPressed: () => launchUrl(
+                Uri.parse(_appleStandardEula),
+                mode: LaunchMode.externalApplication,
+              ),
+              child: const Text('Terms of Use (EULA)'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const LegalDocumentScreen.privacyPolicy(),
+                ),
+              ),
+              child: const Text('Privacy Policy'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
