@@ -17,6 +17,8 @@ import 'donate_dialog.dart';
 import 'opportunity_card.dart';
 import 'role_verification_sheet.dart';
 import 'researcher_undertaking_sheet.dart';
+import 'print_research_request_button.dart';
+import 'quotation_panel.dart';
 
 /// The signed-in user's id, or '' when signed out — matches how every
 /// opportunity screen decides whether the viewer is the requester/claimer.
@@ -151,6 +153,9 @@ Future<void> showOpportunityDetail(
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
               ],
+              const SizedBox(height: AppSpacing.md),
+              PrintResearchRequestButton(opportunity: opportunity),
+              QuotationPanel(opportunity: opportunity),
               if (opportunity.status == OpportunityStatus.claimed &&
                   (opportunity.companyFeedback ?? '').isNotEmpty) ...<Widget>[
                 const SizedBox(height: AppSpacing.md),
@@ -474,7 +479,9 @@ Future<void> claimOpportunity(
       // The database is the actual source of truth on qualification (the
       // pre-check below is just UX) — surface its rejection in plain
       // language instead of the raw Postgres error text.
-      final String message = e.toString().contains('undertaking_required')
+      final String message = e.toString().contains('awaiting_quotation')
+          ? "This request isn't available until its quotation is paid."
+          : e.toString().contains('undertaking_required')
           ? 'Please accept the Researcher Code of Conduct first.'
           : e.toString().contains('not_qualified_for_role')
           ? "You're not verified for this role yet."
@@ -968,6 +975,9 @@ class _ClaimSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Nobody can claim until the quotation is paid (enforced server-side
+    // too — see check_claim_qualification).
+    if (opportunity.isHeldForQuote) return const SizedBox.shrink();
     final bool isAdmin = ref.watch(isPlatformAdminProvider).value ?? false;
     if (isAdmin) {
       return SizedBox(

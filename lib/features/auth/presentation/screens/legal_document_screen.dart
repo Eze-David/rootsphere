@@ -15,19 +15,19 @@ class LegalDocumentScreen extends StatelessWidget {
   });
 
   const LegalDocumentScreen.termsOfService({super.key})
-      : title = 'Terms of Service',
-        intro = LegalDocuments.termsOfServiceIntro,
-        sections = LegalDocuments.termsOfService;
+    : title = 'Terms of Service',
+      intro = LegalDocuments.termsOfServiceIntro,
+      sections = LegalDocuments.termsOfService;
 
   const LegalDocumentScreen.privacyPolicy({super.key})
-      : title = 'Privacy Policy',
-        intro = LegalDocuments.privacyPolicyIntro,
-        sections = LegalDocuments.privacyPolicy;
+    : title = 'Privacy Policy',
+      intro = LegalDocuments.privacyPolicyIntro,
+      sections = LegalDocuments.privacyPolicy;
 
   const LegalDocumentScreen.ourFoundation({super.key})
-      : title = 'Our Foundation',
-        intro = LegalDocuments.ourFoundationIntro,
-        sections = LegalDocuments.ourFoundation;
+    : title = 'Our Foundation',
+      intro = LegalDocuments.ourFoundationIntro,
+      sections = LegalDocuments.ourFoundation;
 
   final String title;
   final String intro;

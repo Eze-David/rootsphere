@@ -124,23 +124,37 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
       final String url = await ref
           .read(avatarStorageServiceProvider)
           .uploadAvatar(file: file);
-      await ref.read(authControllerProvider.notifier).updateProfile(avatarUrl: url);
+      await ref
+          .read(authControllerProvider.notifier)
+          .updateProfile(avatarUrl: url);
     } finally {
       if (mounted) setState(() => _uploadingAvatar = false);
     }
   }
 
   static const List<String> _months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
-  String _formatDate(DateTime d) => '${d.day} ${_months[d.month - 1]} ${d.year}';
+  String _formatDate(DateTime d) =>
+      '${d.day} ${_months[d.month - 1]} ${d.year}';
 
   String _formatLastSignIn(DateTime? d) {
     if (d == null) return '—';
     final DateTime now = DateTime.now();
-    final bool isToday = d.year == now.year && d.month == now.month && d.day == now.day;
+    final bool isToday =
+        d.year == now.year && d.month == now.month && d.day == now.day;
     return isToday ? 'Today' : _formatDate(d);
   }
 
@@ -177,14 +191,18 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
                   right: -4,
                   bottom: -4,
                   child: InkWell(
-                    onTap: (u == null || _uploadingAvatar) ? null : _quickChangeAvatar,
+                    onTap: (u == null || _uploadingAvatar)
+                        ? null
+                        : _quickChangeAvatar,
                     customBorder: const CircleBorder(),
                     child: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: Theme.of(context).scaffoldBackgroundColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Theme.of(context).dividerColor),
+                        border: Border.all(
+                          color: Theme.of(context).dividerColor,
+                        ),
                       ),
                       child: _uploadingAvatar
                           ? const SizedBox(
@@ -236,12 +254,16 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
                     children: <Widget>[
                       Text(
                         'Member since',
-                        style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: text.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         u?.createdAt != null ? _formatDate(u!.createdAt!) : '—',
-                        style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                        style: text.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -252,12 +274,16 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
                     children: <Widget>[
                       Text(
                         'Last signed in',
-                        style: text.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                        style: text.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         _formatLastSignIn(u?.lastSignInAt),
-                        style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                        style: text.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -271,7 +297,9 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
               alignment: Alignment.centerLeft,
               child: Text.rich(
                 TextSpan(
-                  style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
+                  style: text.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                   children: <InlineSpan>[
                     const TextSpan(
                       text: 'The content of this page should adhere to our ',
@@ -287,7 +315,8 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
                       recognizer: TapGestureRecognizer()
                         ..onTap = () => Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => const LegalDocumentScreen.termsOfService(),
+                            builder: (_) =>
+                                const LegalDocumentScreen.termsOfService(),
                           ),
                         ),
                     ),
@@ -753,6 +782,11 @@ class _AccountSection extends ConsumerWidget {
                 onTap: () => context.push(AppRoutes.roleVerificationReview),
               ),
               _AccountTile(
+                icon: Icons.request_quote_outlined,
+                label: 'Research quotations',
+                onTap: () => context.push(AppRoutes.researchQuotations),
+              ),
+              _AccountTile(
                 icon: Icons.gavel_outlined,
                 label: 'Signed codes of conduct',
                 onTap: () => context.push(AppRoutes.researcherUndertakings),
@@ -823,66 +857,130 @@ class _AccountSection extends ConsumerWidget {
 
   void _showChangePasswordDialog(BuildContext context, WidgetRef ref) {
     final formKey = GlobalKey<FormState>();
+    final currentController = TextEditingController();
     final passController = TextEditingController();
     final confirmController = TextEditingController();
+    // Google/Apple-only accounts have no existing password to confirm.
+    final bool needsCurrent = ref.read(authRepositoryProvider).hasPasswordLogin;
+    String? error;
+    bool saving = false;
 
     showDialog<void>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Change password'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: <Widget>[
-                TextFormField(
-                  controller: passController,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'New password'),
-                  validator: (v) {
-                    if ((v ?? '').length < 8)
-                      return 'Use at least 8 characters.';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: confirmController,
-                  obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Confirm password',
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) => AlertDialog(
+            title: const Text('Change password'),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (needsCurrent) ...<Widget>[
+                    TextFormField(
+                      controller: currentController,
+                      obscureText: true,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Current password',
+                      ),
+                      validator: (v) => (v ?? '').isEmpty
+                          ? 'Enter your current password.'
+                          : null,
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                  TextFormField(
+                    controller: passController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'New password',
+                    ),
+                    validator: (v) {
+                      if ((v ?? '').length < 8)
+                        return 'Use at least 8 characters.';
+                      return null;
+                    },
                   ),
-                  validator: (v) {
-                    if (v != passController.text)
-                      return 'Passwords do not match.';
-                    return null;
-                  },
-                ),
-              ],
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: confirmController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Confirm password',
+                    ),
+                    validator: (v) {
+                      if (v != passController.text)
+                        return 'Passwords do not match.';
+                      return null;
+                    },
+                  ),
+                  if (error != null) ...<Widget>[
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      error!,
+                      style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(ctx).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: saving
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        if (needsCurrent &&
+                            currentController.text == passController.text) {
+                          setDialogState(
+                            () => error =
+                                'Choose a password different from your '
+                                'current one.',
+                          );
+                          return;
+                        }
+                        setDialogState(() {
+                          saving = true;
+                          error = null;
+                        });
+                        final AuthController controller = ref.read(
+                          authControllerProvider.notifier,
+                        );
+                        final bool ok = await controller.updatePassword(
+                          passController.text,
+                          currentPassword: needsCurrent
+                              ? currentController.text
+                              : null,
+                        );
+                        if (!ctx.mounted) return;
+                        if (ok) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Password updated.')),
+                          );
+                        } else {
+                          final Object? e = ref
+                              .read(authControllerProvider)
+                              .error;
+                          setDialogState(() {
+                            saving = false;
+                            error = e is Failure
+                                ? e.message
+                                : 'Could not update your password.';
+                          });
+                        }
+                      },
+                child: const Text('Update'),
+              ),
+            ],
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (!formKey.currentState!.validate()) return;
-                final ok = await ref
-                    .read(authControllerProvider.notifier)
-                    .updatePassword(passController.text);
-                if (ctx.mounted && ok) {
-                  Navigator.pop(ctx);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Password updated.')),
-                  );
-                }
-              },
-              child: const Text('Update'),
-            ),
-          ],
         );
       },
     );
@@ -1172,7 +1270,6 @@ class _SupportSection extends ConsumerWidget {
       builder: (_) => const _ContactUsDialog(),
     );
   }
-
 }
 
 /// A form so a user can write and submit a support message directly, rather

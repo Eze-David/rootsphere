@@ -403,6 +403,7 @@ class OpportunityRepositorySupabase implements OpportunityRepository {
       resultUrl: row['result_url'] as String?,
       forCompany: row['for_company'] as bool? ?? false,
       companyFeedback: row['company_feedback'] as String?,
+      quoteState: quoteStateFromDb(row['quote_state'] as String?),
       createdAt: row['created_at'] == null
           ? null
           : DateTime.tryParse(row['created_at'].toString()),

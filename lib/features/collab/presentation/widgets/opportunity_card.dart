@@ -116,6 +116,46 @@ class CompanyRequestBadge extends StatelessWidget {
   }
 }
 
+/// Quotation step of a held request (only its requester and admins ever
+/// see held requests, so only they see this).
+class _QuoteBadge extends StatelessWidget {
+  const _QuoteBadge({required this.state});
+  final QuoteState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusXl),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(
+            Icons.request_quote_outlined,
+            size: 14,
+            color: scheme.onSurfaceVariant,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            state.label,
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// A card representing a single opportunity on the collaboration board.
 class OpportunityCard extends StatelessWidget {
   const OpportunityCard({
@@ -190,6 +230,10 @@ class OpportunityCard extends StatelessWidget {
                         const SizedBox(height: AppSpacing.xs),
                         const CompanyRequestBadge(),
                       ],
+                      if (opportunity.isHeldForQuote) ...<Widget>[
+                        const SizedBox(height: AppSpacing.xs),
+                        _QuoteBadge(state: opportunity.quoteState!),
+                      ],
                     ],
                   ),
                 ],
@@ -261,7 +305,9 @@ class OpportunityCard extends StatelessWidget {
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: AppSpacing.sm,
                   children: <Widget>[
-                    if (opportunity.isOpen && !isRequester)
+                    if (opportunity.isOpen &&
+                        !isRequester &&
+                        !opportunity.isHeldForQuote)
                       TextButton.icon(
                         onPressed: onClaim,
                         icon: const Icon(Icons.arrow_forward, size: 18),
@@ -352,7 +398,9 @@ class OpportunityCard extends StatelessWidget {
   }
 
   bool get _showActions {
-    if (opportunity.isOpen && opportunity.requesterId != currentUserId) {
+    if (opportunity.isOpen &&
+        opportunity.requesterId != currentUserId &&
+        !opportunity.isHeldForQuote) {
       return true;
     }
     if (opportunity.claimerId == currentUserId && !opportunity.isVerified) {

@@ -27,6 +27,32 @@ extension OpportunityStatusX on OpportunityStatus {
   }
 }
 
+/// Where a research request is in RootSphere's quotation step (see
+/// 20261014000000_research_quotations.sql). New requests are held off the
+/// board until the requester accepts and pays a quotation; `null` means the
+/// request was never held (posted before quoting existed, or by an admin).
+enum QuoteState { awaitingQuote, quoted, accepted, declined, paid }
+
+QuoteState? quoteStateFromDb(String? value) => switch (value) {
+  'awaiting_quote' => QuoteState.awaitingQuote,
+  'quoted' => QuoteState.quoted,
+  'accepted' => QuoteState.accepted,
+  'declined' => QuoteState.declined,
+  'paid' => QuoteState.paid,
+  _ => null,
+};
+
+extension QuoteStateX on QuoteState {
+  /// Short badge label, worded for the requester.
+  String get label => switch (this) {
+    QuoteState.awaitingQuote => 'Awaiting quotation',
+    QuoteState.quoted => 'Quotation ready',
+    QuoteState.accepted => 'Awaiting payment',
+    QuoteState.declined => 'Quotation declined',
+    QuoteState.paid => 'Paid',
+  };
+}
+
 /// The `status` column uses snake_case (matching this codebase's other
 /// text-enum columns, e.g. notification `type`), which doesn't match Dart's
 /// camelCase enum names — mapped explicitly rather than via `.name` so
@@ -116,6 +142,7 @@ class CollaborationOpportunity {
     this.resultUrl,
     this.forCompany = false,
     this.companyFeedback,
+    this.quoteState,
     this.createdAt,
     this.claimedAt,
     this.submittedAt,
@@ -166,6 +193,13 @@ class CollaborationOpportunity {
   /// Set by the company when it rejects a submission back to the claimer
   /// (status returns to `claimed`) — explains what needs fixing.
   final String? companyFeedback;
+
+  /// Quotation step — see [QuoteState].
+  final QuoteState? quoteState;
+
+  /// Held back from researchers until its quotation is paid.
+  bool get isHeldForQuote =>
+      quoteState != null && quoteState != QuoteState.paid;
 
   final DateTime? createdAt;
   final DateTime? claimedAt;
@@ -235,6 +269,7 @@ class CollaborationOpportunity {
       companyFeedback: companyFeedback == _sentinel
           ? this.companyFeedback
           : companyFeedback as String?,
+      quoteState: quoteState,
       createdAt: createdAt,
       claimedAt: claimedAt == _sentinel
           ? this.claimedAt
@@ -273,6 +308,7 @@ class CollaborationOpportunity {
     'resultUrl': resultUrl,
     'forCompany': forCompany,
     'companyFeedback': companyFeedback,
+    'quoteState': quoteState?.name,
     'createdAt': createdAt?.toIso8601String(),
     'claimedAt': claimedAt?.toIso8601String(),
     'submittedAt': submittedAt?.toIso8601String(),
@@ -315,6 +351,9 @@ class CollaborationOpportunity {
       resultUrl: json['resultUrl'] as String?,
       forCompany: json['forCompany'] as bool? ?? false,
       companyFeedback: json['companyFeedback'] as String?,
+      quoteState: QuoteState.values
+          .where((q) => q.name == json['quoteState'])
+          .firstOrNull,
       createdAt: json['createdAt'] == null
           ? null
           : DateTime.tryParse(json['createdAt'].toString()),

@@ -114,6 +114,37 @@ class NotificationsScreen extends ConsumerWidget {
         context.go(AppRoutes.records);
       case NotificationType.researcherUndertaking:
         context.push(AppRoutes.researcherUndertakings);
+      // Admin-side quotation events open the quotations queue; the
+      // requester's open the request itself on the Collab tab. A paid
+      // notification goes to both, so route by who's reading it.
+      case NotificationType.quotationRequested:
+      case NotificationType.quotationAccepted:
+      case NotificationType.quotationDeclined:
+        context.push(
+          n.opportunityId == null
+              ? AppRoutes.researchQuotations
+              : '${AppRoutes.researchQuotations}?openId=${n.opportunityId}',
+        );
+      case NotificationType.quotationSent:
+        context.go(
+          n.opportunityId == null
+              ? AppRoutes.collab
+              : '${AppRoutes.collab}?openId=${n.opportunityId}',
+        );
+      case NotificationType.quotationPaid:
+        if (n.title == 'Quotation paid') {
+          context.push(
+            n.opportunityId == null
+                ? AppRoutes.researchQuotations
+                : '${AppRoutes.researchQuotations}?openId=${n.opportunityId}',
+          );
+        } else {
+          context.go(
+            n.opportunityId == null
+                ? AppRoutes.collab
+                : '${AppRoutes.collab}?openId=${n.opportunityId}',
+          );
+        }
       case NotificationType.unknown:
         break;
     }
@@ -142,6 +173,11 @@ class _NotificationTile extends StatelessWidget {
     NotificationType.archiveAccessApproved => Icons.check_circle_outline,
     NotificationType.archiveAccessRejected => Icons.block_outlined,
     NotificationType.researcherUndertaking => Icons.gavel_outlined,
+    NotificationType.quotationRequested => Icons.request_quote_outlined,
+    NotificationType.quotationSent => Icons.request_quote_outlined,
+    NotificationType.quotationAccepted => Icons.thumb_up_outlined,
+    NotificationType.quotationDeclined => Icons.thumb_down_outlined,
+    NotificationType.quotationPaid => Icons.payments_outlined,
     NotificationType.unknown => Icons.notifications_none,
   };
 

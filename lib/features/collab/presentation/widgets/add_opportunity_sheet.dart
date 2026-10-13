@@ -252,8 +252,12 @@ class _AddOpportunitySheetState extends ConsumerState<_AddOpportunitySheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '${_sendToCompany ? 'Sent to the company' : 'Request posted'}'
-              ' · Ref ${researchReferenceNumber(opportunity.id)}',
+              opportunity.isHeldForQuote
+                  ? 'Request submitted · Ref '
+                        '${researchReferenceNumber(opportunity.id)}. '
+                        "We'll review it and send you a quotation."
+                  : '${_sendToCompany ? 'Sent to the company' : 'Request posted'}'
+                        ' · Ref ${researchReferenceNumber(opportunity.id)}',
             ),
           ),
         );

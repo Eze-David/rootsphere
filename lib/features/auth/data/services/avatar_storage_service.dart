@@ -51,7 +51,10 @@ class AvatarStorageService {
           .uploadBinary(
             objectPath,
             bytes,
-            fileOptions: FileOptions(contentType: _contentType(ext), upsert: true),
+            fileOptions: FileOptions(
+              contentType: _contentType(ext),
+              upsert: true,
+            ),
           );
       // Cache-bust — the path never changes, so without a query param the
       // old image would keep showing from cache after a re-upload.
@@ -71,7 +74,8 @@ class AvatarStorageService {
     final Directory docs = await getApplicationDocumentsDirectory();
     final Directory dir = Directory('${docs.path}/avatar');
     if (!await dir.exists()) await dir.create(recursive: true);
-    final String dest = '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final String dest =
+        '${dir.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext';
     final File created = await File(dest).writeAsBytes(bytes);
     return created.path;
   }

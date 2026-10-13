@@ -42,6 +42,10 @@ abstract class AppRoutes {
   /// pushed over the shell: `/admin/undertakings`.
   static const String researcherUndertakings = '/admin/undertakings';
 
+  /// Admin-only research quotation queue, pushed over the shell:
+  /// `/admin/quotations` (optionally `?openId=`).
+  static const String researchQuotations = '/admin/quotations';
+
   /// Admin-only Digital Records Repository (curated civil/historical records
   /// catalogue), pushed over the shell: `/admin/archive`.
   static const String archiveRepository = '/admin/archive';

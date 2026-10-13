@@ -38,8 +38,14 @@ abstract class AuthRepository {
 
   Future<void> signOut();
 
-  /// Updates the current user's password.
-  Future<void> updatePassword(String newPassword);
+  /// Whether the signed-in account has an email/password login (Google- or
+  /// Apple-only accounts don't, so they have no current password to enter).
+  bool get hasPasswordLogin;
+
+  /// Updates the current user's password. When [currentPassword] is given
+  /// it's verified first and an [AuthFailure] is thrown if it's wrong; the
+  /// recovery-link flow omits it since the user has forgotten it.
+  Future<void> updatePassword(String newPassword, {String? currentPassword});
 
   /// Updates any of the current user's profile fields. A null parameter
   /// leaves that field unchanged; pass an empty string to clear one.

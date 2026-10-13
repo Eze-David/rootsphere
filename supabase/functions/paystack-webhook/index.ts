@@ -1,4 +1,5 @@
-// Rootsphere — Paystack webhook receiver for donations (one-time + recurring).
+// Rootsphere — Paystack webhook receiver for donations (one-time + recurring)
+// and research quotation payments (references prefixed "quo_").
 //
 // This is the *only* place a donation is ever marked "completed" — the
 // client-facing `create-donation-transaction`/`create-donation-subscription`
@@ -181,6 +182,18 @@ async function insertRenewalDonation(
   });
 }
 
+async function markQuotationPaid(reference: string): Promise<void> {
+  const url = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !serviceKey) return;
+
+  await fetch(`${url}/rest/v1/rpc/mark_quotation_paid`, {
+    method: "POST",
+    headers: restHeaders(serviceKey),
+    body: JSON.stringify({ p_reference: reference }),
+  });
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
@@ -210,6 +223,15 @@ Deno.serve(async (req: Request) => {
   const reference = typeof data?.reference === "string" ? data.reference : null;
   const plan = data?.plan as Record<string, unknown> | undefined;
   const planCode = typeof plan?.plan_code === "string" ? plan.plan_code : null;
+
+  // Research quotation payments (see create-quotation-payment) — handled
+  // entirely by mark_quotation_paid, which is idempotent.
+  if (reference && reference.startsWith("quo_")) {
+    if (event.event === "charge.success") {
+      await markQuotationPaid(reference);
+    }
+    return new Response("ok", { status: 200 });
+  }
 
   switch (event.event) {
     case "charge.success": {

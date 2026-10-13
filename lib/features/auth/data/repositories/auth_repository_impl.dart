@@ -277,10 +277,29 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> signOut() => _guard(() => _client.signOut());
 
   @override
-  Future<void> updatePassword(String newPassword) {
-    return _guard(
-      () => _client.updateUser(UserAttributes(password: newPassword)),
-    );
+  bool get hasPasswordLogin {
+    final Object? providers = _client.currentUser?.appMetadata['providers'];
+    return providers is List && providers.contains('email');
+  }
+
+  @override
+  Future<void> updatePassword(String newPassword, {String? currentPassword}) {
+    return _guard(() async {
+      if (currentPassword != null) {
+        final String? email = _client.currentUser?.email;
+        if (email == null) throw const AuthFailure('You must be signed in.');
+        try {
+          await _client.signInWithPassword(
+            email: email,
+            password: currentPassword,
+          );
+        } on AuthException {
+          throw const AuthFailure('Your current password is incorrect.');
+        }
+      }
+      await _client.updateUser(UserAttributes(password: newPassword));
+      return null;
+    });
   }
 
   @override

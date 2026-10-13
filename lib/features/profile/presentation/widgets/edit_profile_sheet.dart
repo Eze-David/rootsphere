@@ -26,7 +26,9 @@ Future<void> showEditProfileSheet(
     showDragHandle: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (_) => _EditProfileSheet(user: user),
   );
@@ -104,10 +106,15 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
           );
       if (ok && mounted) Navigator.of(context).pop();
       if (!ok && mounted) {
-        setState(() => _error = 'Could not save your profile. Please try again.');
+        setState(
+          () => _error = 'Could not save your profile. Please try again.',
+        );
       }
     } catch (e) {
-      setState(() => _error = e is Failure ? e.message : 'Could not save your profile.');
+      setState(
+        () =>
+            _error = e is Failure ? e.message : 'Could not save your profile.',
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -144,7 +151,11 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
                       backgroundColor: AppColors.cream,
                       backgroundImage: avatarImage,
                       child: avatarImage == null
-                          ? const Icon(Icons.person, size: 40, color: AppColors.primary)
+                          ? const Icon(
+                              Icons.person,
+                              size: 40,
+                              color: AppColors.primary,
+                            )
                           : null,
                     ),
                     Positioned(
@@ -192,7 +203,10 @@ class _EditProfileSheetState extends ConsumerState<_EditProfileSheet> {
             ),
             if (_error != null) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
-              Text(_error!, style: text.bodySmall?.copyWith(color: AppColors.error)),
+              Text(
+                _error!,
+                style: text.bodySmall?.copyWith(color: AppColors.error),
+              ),
             ],
             const SizedBox(height: AppSpacing.md),
             SizedBox(

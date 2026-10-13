@@ -16,6 +16,11 @@ enum NotificationType {
   archiveAccessApproved,
   archiveAccessRejected,
   researcherUndertaking,
+  quotationRequested,
+  quotationSent,
+  quotationAccepted,
+  quotationDeclined,
+  quotationPaid,
   unknown,
 }
 
@@ -55,6 +60,16 @@ NotificationType _typeFromString(String value) {
       return NotificationType.archiveAccessRejected;
     case 'researcher_undertaking':
       return NotificationType.researcherUndertaking;
+    case 'quotation_requested':
+      return NotificationType.quotationRequested;
+    case 'quotation_sent':
+      return NotificationType.quotationSent;
+    case 'quotation_accepted':
+      return NotificationType.quotationAccepted;
+    case 'quotation_declined':
+      return NotificationType.quotationDeclined;
+    case 'quotation_paid':
+      return NotificationType.quotationPaid;
     default:
       return NotificationType.unknown;
   }

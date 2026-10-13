@@ -40,6 +40,13 @@ class AppUser {
       other.lastSignInAt == lastSignInAt;
 
   @override
-  int get hashCode =>
-      Object.hash(id, email, displayName, avatarUrl, bio, createdAt, lastSignInAt);
+  int get hashCode => Object.hash(
+    id,
+    email,
+    displayName,
+    avatarUrl,
+    bio,
+    createdAt,
+    lastSignInAt,
+  );
 }

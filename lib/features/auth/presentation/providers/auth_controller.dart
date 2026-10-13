@@ -44,14 +44,16 @@ class AuthController extends AsyncNotifier<void> {
   }
 
   Future<bool> signOut() => _run(() async {
-        await _repo.signOut();
-        // Global (not per-account) device setting — must not leak into
-        // whichever account signs in next. See clearSelectedTreeId.
-        clearSelectedTreeId(ref);
-      });
+    await _repo.signOut();
+    // Global (not per-account) device setting — must not leak into
+    // whichever account signs in next. See clearSelectedTreeId.
+    clearSelectedTreeId(ref);
+  });
 
-  Future<bool> updatePassword(String newPassword) {
-    return _run(() => _repo.updatePassword(newPassword));
+  Future<bool> updatePassword(String newPassword, {String? currentPassword}) {
+    return _run(
+      () => _repo.updatePassword(newPassword, currentPassword: currentPassword),
+    );
   }
 
   Future<bool> updateProfile({

@@ -162,10 +162,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     children: <Widget>[
                       IconButton(
                         onPressed: () => context.go(AppRoutes.onboarding),
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: Colors.white,
-                        ),
+                        icon: const Icon(Icons.arrow_back, color: Colors.white),
                       ),
                     ],
                   ),
@@ -502,8 +499,7 @@ class _AuthFieldState extends State<_AuthField> {
                           size: 20,
                           color: text.bodyMedium?.color,
                         ),
-                        onPressed: () =>
-                            setState(() => _obscured = !_obscured),
+                        onPressed: () => setState(() => _obscured = !_obscured),
                       )
                     : (showCheck
                           ? const Icon(

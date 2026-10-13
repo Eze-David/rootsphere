@@ -33,6 +33,7 @@ import '../../shared/widgets/placeholder_screen.dart';
 import 'app_routes.dart';
 import 'go_router_refresh_stream.dart';
 import 'last_tab_provider.dart';
+import '../../features/collab/presentation/screens/research_quotations_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -163,6 +164,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'notifications',
         parentNavigatorKey: _rootNavigatorKey,
         builder: (_, _) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.researchQuotations,
+        name: 'research-quotations',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (_, state) => ResearchQuotationsScreen(
+          openOpportunityId: state.uri.queryParameters['openId'],
+        ),
       ),
       GoRoute(
         path: AppRoutes.researcherUndertakings,

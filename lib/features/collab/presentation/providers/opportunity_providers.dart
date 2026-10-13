@@ -57,8 +57,10 @@ final filteredOpportunitiesProvider = Provider<List<CollaborationOpportunity>>((
 ) {
   final async = ref.watch(opportunitiesProvider);
   final filter = ref.watch(opportunityFilterProvider);
+  // Requests held for a quotation stay off the board until paid — the
+  // requester tracks them in My opportunities, admins in Quotations.
   final opportunities = (async.value ?? const <CollaborationOpportunity>[])
-      .where((o) => !o.forCompany)
+      .where((o) => !o.forCompany && !o.isHeldForQuote)
       .toList();
   if (filter == null) return opportunities;
   return opportunities.where((o) => o.status == filter).toList();
@@ -69,7 +71,7 @@ final filteredOpportunitiesProvider = Provider<List<CollaborationOpportunity>>((
 final opportunityCountsProvider = Provider<Map<OpportunityStatus, int>>((ref) {
   final async = ref.watch(opportunitiesProvider);
   final opportunities = (async.value ?? const <CollaborationOpportunity>[])
-      .where((o) => !o.forCompany)
+      .where((o) => !o.forCompany && !o.isHeldForQuote)
       .toList();
   return <OpportunityStatus, int>{
     OpportunityStatus.open: opportunities
@@ -110,8 +112,19 @@ final companyOpportunitiesProvider = Provider<List<CollaborationOpportunity>>((
   ref,
 ) {
   final async = ref.watch(opportunitiesProvider);
+  final String? uid = ref.watch(authStateProvider).value?.id;
   return (async.value ?? const <CollaborationOpportunity>[])
-      .where((o) => o.forCompany)
+      .where((o) => o.forCompany && (!o.isHeldForQuote || o.requesterId == uid))
+      .toList();
+});
+
+/// Every request going through the quotation step (any state) — admins'
+/// Quotations screen. RLS shows held requests only to their requester and
+/// admins, so for an admin this is the full queue.
+final quoteRequestsProvider = Provider<List<CollaborationOpportunity>>((ref) {
+  final async = ref.watch(opportunitiesProvider);
+  return (async.value ?? const <CollaborationOpportunity>[])
+      .where((o) => o.quoteState != null)
       .toList();
 });
 

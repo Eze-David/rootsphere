@@ -14,6 +14,7 @@ import '../../domain/entities/opportunity.dart';
 import '../../domain/entities/opportunity_subject.dart';
 import '../../domain/entities/research_request.dart';
 import '../providers/opportunity_providers.dart';
+import '../widgets/print_research_request_button.dart';
 
 /// The workspace a claimer enters after claiming an opportunity.
 ///
@@ -94,7 +95,7 @@ class _WorkspaceBodyState extends ConsumerState<_WorkspaceBody> {
         const SizedBox(height: AppSpacing.xs),
         Text(opportunity.requiredRole.description, style: text.bodyMedium),
         const SizedBox(height: AppSpacing.lg),
-        _SubjectDetailsSection(opportunityId: opportunity.id),
+        _SubjectDetailsSection(opportunity: opportunity),
         if (!opportunity.isClaimed) ...<Widget>[
           const SizedBox(height: AppSpacing.md),
           _WorkspaceStatusBanner(opportunity: opportunity),
@@ -401,8 +402,10 @@ Future<void> _openSubjectFile(BuildContext context, String url, String title) {
 /// and platform admins (see 20260722070000_opportunity_subjects.sql). Not
 /// shown on the public board, the detail sheet, or the card.
 class _SubjectDetailsSection extends ConsumerWidget {
-  const _SubjectDetailsSection({required this.opportunityId});
-  final String opportunityId;
+  const _SubjectDetailsSection({required this.opportunity});
+  final CollaborationOpportunity opportunity;
+
+  String get opportunityId => opportunity.id;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -429,6 +432,10 @@ class _SubjectDetailsSection extends ConsumerWidget {
           style: text.bodySmall,
         ),
         children: <Widget>[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: PrintResearchRequestButton(opportunity: opportunity),
+          ),
           ..._requestFields('A. Requester', <String, String>{
             'Name': r.requesterName,
             'Address': r.requesterAddress,
