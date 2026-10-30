@@ -54,9 +54,7 @@ class _PlaceholderSlotWidgetState extends State<PlaceholderSlotWidget> {
               children: <Widget>[
                 plus,
                 const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(widget.label, style: labelStyle),
-                ),
+                Expanded(child: Text(widget.label, style: labelStyle)),
               ],
             ),
           )
@@ -65,7 +63,11 @@ class _PlaceholderSlotWidgetState extends State<PlaceholderSlotWidget> {
             children: <Widget>[
               plus,
               const SizedBox(height: AppSpacing.sm),
-              Text(widget.label, textAlign: TextAlign.center, style: labelStyle),
+              Text(
+                widget.label,
+                textAlign: TextAlign.center,
+                style: labelStyle,
+              ),
             ],
           );
 
@@ -203,10 +205,7 @@ class SpouseFamilyBadge extends StatelessWidget {
 
 /// Paints a dashed rounded rectangle that fills the available size.
 class _DashedRRectPainter extends CustomPainter {
-  _DashedRRectPainter({
-    required this.color,
-    required this.radius,
-  });
+  _DashedRRectPainter({required this.color, required this.radius});
 
   final Color color;
   final double radius;

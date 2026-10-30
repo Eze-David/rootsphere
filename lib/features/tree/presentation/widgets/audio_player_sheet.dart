@@ -13,8 +13,9 @@ Future<void> showAudioPlayerSheet(
   return showModalBottomSheet<void>(
     context: context,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (_) => _AudioPlayerSheet(reference: reference),
   );
@@ -79,10 +80,11 @@ class _AudioPlayerSheetState extends State<_AudioPlayerSheet> {
   @override
   Widget build(BuildContext context) {
     final TextTheme text = Theme.of(context).textTheme;
-    final double max =
-        _duration.inMilliseconds.toDouble().clamp(1, double.infinity);
-    final double value =
-        _position.inMilliseconds.toDouble().clamp(0, max);
+    final double max = _duration.inMilliseconds.toDouble().clamp(
+      1,
+      double.infinity,
+    );
+    final double value = _position.inMilliseconds.toDouble().clamp(0, max);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.xl),

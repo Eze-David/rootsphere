@@ -115,9 +115,13 @@ class ArchiveRepositoryLocal implements ArchiveRepository {
   String _generateRef(ArchiveRecord r) {
     _seq += 1;
     String code(String s) {
-      final String letters = s.replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
+      final String letters = s
+          .replaceAll(RegExp(r'[^a-zA-Z]'), '')
+          .toUpperCase();
       if (letters.isEmpty) return 'GEN';
-      final String head = letters.length >= 3 ? letters.substring(0, 3) : letters;
+      final String head = letters.length >= 3
+          ? letters.substring(0, 3)
+          : letters;
       return head.padRight(3, 'X');
     }
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 
@@ -23,7 +22,7 @@ import '../../domain/entities/person.dart';
 import '../../domain/entities/timeline_event.dart';
 import '../providers/tree_providers.dart';
 import '../widgets/audio_player_sheet.dart';
-import '../widgets/osm_attribution.dart';
+import '../../../../shared/widgets/rootsphere_google_map.dart';
 import '../widgets/person_actions_sheet.dart';
 import '../widgets/person_editor_sheet.dart';
 import 'tree_map_screen.dart';
@@ -732,61 +731,27 @@ class _LocationMapCardState extends ConsumerState<_LocationMapCard> {
       onTap: () => _expand(context),
       child: Stack(
         children: <Widget>[
-          IgnorePointer(
-            // flutter_map needs bounded, non-zero constraints to compute tile
-            // ranges. Both unbounded (infinite) and a genuine 0×0 size — the
-            // latter happens when native platform resolution isn't available
-            // yet on the very first frame(s) — produce Infinity/NaN and
-            // crash; `isFinite` alone doesn't catch zero, so check explicitly.
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final bool sizeReady =
-                    constraints.maxWidth.isFinite &&
-                    constraints.maxHeight.isFinite &&
-                    constraints.maxWidth > 0 &&
-                    constraints.maxHeight > 0;
-                if (!sizeReady) {
-                  return const SizedBox.shrink();
-                }
-                return FlutterMap(
-                  options: MapOptions(
-                    initialCenter: point,
-                    initialZoom: 12,
-                    minZoom: 2,
-                    maxZoom: 18,
-                  ),
-                  children: <Widget>[
-                    TileLayer(
-                      // See tree_map_screen.dart — the raw OSM tile server
-                      // throttles real app traffic; CARTO's free CDN doesn't.
-                      urlTemplate:
-                          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                      subdomains: const <String>['a', 'b', 'c', 'd'],
-                      userAgentPackageName: 'com.rootsphere.app',
-                      // Avoids "setState() called during build" from the
-                      // default fade-in animation.
-                      tileDisplay: const TileDisplay.instantaneous(),
-                    ),
-                    MarkerLayer(
-                      markers: <Marker>[
-                        Marker(
-                          point: point,
-                          width: 40,
-                          height: 40,
-                          child: Icon(
-                            Icons.location_on,
-                            color: _hovered
-                                ? AppColors.sunGold
-                                : AppColors.primary,
-                            size: _hovered ? 40 : 36,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const OsmAttribution(),
-                  ],
-                );
-              },
+          // A non-interactive preview; the whole card is the tap target
+          // (the transparent layer below sits above the native map view so
+          // taps reach this GestureDetector on every platform).
+          RootsphereGoogleMap(
+            interactive: false,
+            focus: point,
+            zoom: 12,
+            pins: <MapPin>[
+              MapPin(
+                id: widget.personId,
+                position: point,
+                title: widget.location,
+                highlighted: _hovered,
+              ),
+            ],
+          ),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _expand(context),
+              child: const ColoredBox(color: Colors.transparent),
             ),
           ),
           Positioned(
@@ -1299,7 +1264,9 @@ class _ProfileOverflowMenu extends ConsumerWidget {
                 .setMyPersonId(person.treeId, person.id);
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Marked as you on the dashboard.')),
+                const SnackBar(
+                  content: Text('Marked as you on the dashboard.'),
+                ),
               );
             }
         }

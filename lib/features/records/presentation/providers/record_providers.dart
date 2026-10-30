@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/config/supabase_config.dart';
+import '../../../../core/offline/offline_providers.dart';
 import '../../../../core/storage/preferences_provider.dart';
 import '../../../collab/domain/entities/opportunity.dart';
 import '../../../collab/domain/entities/role_verification.dart';
@@ -9,6 +10,7 @@ import '../../../collab/presentation/providers/role_verification_providers.dart'
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../data/repositories/record_repository_local.dart';
+import '../../data/repositories/record_repository_offline.dart';
 import '../../data/repositories/record_repository_supabase.dart';
 import '../../data/services/global_people_service.dart';
 import '../../data/services/global_records_service.dart';
@@ -21,10 +23,16 @@ import '../../domain/entities/historical_record.dart';
 import '../../domain/entities/record.dart';
 import '../../domain/repositories/record_repository.dart';
 
-/// Record repository: Supabase-backed when configured, local JSON otherwise.
+/// Record repository: Supabase-backed (with an offline copy for reading) when
+/// configured, local JSON otherwise.
 final recordRepositoryProvider = Provider<RecordRepository>((ref) {
   if (SupabaseConfig.isReady) {
-    return RecordRepositorySupabase(SupabaseConfig.client);
+    return RecordRepositoryOffline(
+      remote: RecordRepositorySupabase(SupabaseConfig.client),
+      cache: ref.watch(offlineCacheProvider),
+      currentUid: () => SupabaseConfig.client.auth.currentUser?.id ?? '',
+      onlineChanges: watchOnline,
+    );
   }
   final prefs = ref.watch(sharedPreferencesProvider);
   return RecordRepositoryLocal(prefs);
@@ -126,16 +134,14 @@ final filteredRecordsProvider = Provider<List<Record>>((ref) {
 /// title/repository/OCR-text matching) the per-category search screens use
 /// for their "COMMUNITY RECORDS" section, so the main library search reaches
 /// just as far, not only the signed-in user's own visible records.
-final communityRecordSearchProvider = FutureProvider.family<
-  List<GlobalRecordMatch>,
-  String
->((ref, query) async {
-  final String q = query.trim();
-  if (q.isEmpty) return const <GlobalRecordMatch>[];
-  return ref
-      .read(globalRecordsServiceProvider)
-      .search(RecordSearchQuery(firstName: q));
-});
+final communityRecordSearchProvider =
+    FutureProvider.family<List<GlobalRecordMatch>, String>((ref, query) async {
+      final String q = query.trim();
+      if (q.isEmpty) return const <GlobalRecordMatch>[];
+      return ref
+          .read(globalRecordsServiceProvider)
+          .search(RecordSearchQuery(firstName: q));
+    });
 
 /// Cross-tree people matching the same free-text search box, via the OR-based
 /// `search_persons_global_freetext` RPC (see [GlobalPeopleService.searchFreeText])

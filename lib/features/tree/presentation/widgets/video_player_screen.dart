@@ -27,15 +27,18 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
     _controller = widget.reference.startsWith('http')
         ? VideoPlayerController.networkUrl(Uri.parse(widget.reference))
         : VideoPlayerController.file(File(widget.reference));
-    _controller.initialize().then((_) {
-      if (!mounted) return;
-      setState(() => _ready = true);
-      _controller
-        ..setLooping(false)
-        ..play();
-    }).catchError((_) {
-      if (mounted) setState(() => _failed = true);
-    });
+    _controller
+        .initialize()
+        .then((_) {
+          if (!mounted) return;
+          setState(() => _ready = true);
+          _controller
+            ..setLooping(false)
+            ..play();
+        })
+        .catchError((_) {
+          if (mounted) setState(() => _failed = true);
+        });
   }
 
   @override

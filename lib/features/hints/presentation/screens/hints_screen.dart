@@ -23,8 +23,9 @@ class _HintsScreenState extends ConsumerState<HintsScreen> {
 
   Future<void> _accept(Hint hint) async {
     setState(() => _busyId = hint.id);
-    final String message =
-        await ref.read(hintControllerProvider.notifier).accept(hint);
+    final String message = await ref
+        .read(hintControllerProvider.notifier)
+        .accept(hint);
     if (mounted) {
       setState(() => _busyId = null);
       ScaffoldMessenger.of(context)
@@ -78,8 +79,11 @@ class _HintsScreenState extends ConsumerState<HintsScreen> {
               ),
               child: Row(
                 children: <Widget>[
-                  const Icon(Icons.info_outline,
-                      size: 16, color: AppColors.textSecondary),
+                  const Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.textSecondary,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(child: Text(ui.message!, style: text.bodySmall)),
                 ],
@@ -130,8 +134,11 @@ class _EmptyState extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
-            const Icon(Icons.auto_awesome_outlined,
-                size: 48, color: AppColors.textTertiary),
+            const Icon(
+              Icons.auto_awesome_outlined,
+              size: 48,
+              color: AppColors.textTertiary,
+            ),
             const SizedBox(height: AppSpacing.md),
             Text('No hints right now', style: text.titleMedium),
             const SizedBox(height: AppSpacing.xs),
@@ -145,9 +152,7 @@ class _EmptyState extends ConsumerWidget {
             FilledButton.icon(
               onPressed: () =>
                   ref.read(hintControllerProvider.notifier).generate(),
-              style: FilledButton.styleFrom(
-                backgroundColor: AppColors.primary,
-              ),
+              style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
               icon: const Icon(Icons.auto_awesome),
               label: const Text('Generate hints'),
             ),

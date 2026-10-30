@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,8 +22,9 @@ Future<void> showPersonActionsSheet(
     isScrollControlled: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (sheetContext) => _ActionsList(person: person, ref: ref),
   );
@@ -61,7 +63,7 @@ class _ActionsList extends StatelessWidget {
                 backgroundColor: AppColors.cream,
                 backgroundImage:
                     (person.photoUrl != null && person.photoUrl!.isNotEmpty)
-                    ? NetworkImage(person.photoUrl!)
+                    ? CachedNetworkImageProvider(person.photoUrl!)
                     : null,
                 child: (person.photoUrl != null && person.photoUrl!.isNotEmpty)
                     ? null
@@ -100,14 +102,12 @@ class _ActionsList extends StatelessWidget {
                     _Action(
                       icon: Icons.escalator_warning_outlined,
                       label: 'Add parent',
-                      onTap: () =>
-                          _addRelative(context, PersonRelation.parent),
+                      onTap: () => _addRelative(context, PersonRelation.parent),
                     ),
                     _Action(
                       icon: Icons.favorite_border,
                       label: 'Add spouse',
-                      onTap: () =>
-                          _addRelative(context, PersonRelation.spouse),
+                      onTap: () => _addRelative(context, PersonRelation.spouse),
                     ),
                     if (person.parentIds.isNotEmpty)
                       _Action(
@@ -164,7 +164,10 @@ class _ActionsList extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),

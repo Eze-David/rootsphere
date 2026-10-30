@@ -18,7 +18,14 @@ import '../../domain/entities/archive_record.dart';
 import '../providers/archive_providers.dart';
 
 const Set<String> _imageExtensions = <String>{
-  'jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'tif', 'tiff',
+  'jpg',
+  'jpeg',
+  'png',
+  'gif',
+  'webp',
+  'heic',
+  'tif',
+  'tiff',
 };
 const Set<String> _videoExtensions = <String>{'mp4', 'm4v', 'mov'};
 const Set<String> _audioExtensions = <String>{'mp3', 'm4a', 'wav'};
@@ -48,7 +55,9 @@ Future<ArchiveDetailAction?> showArchiveRecordDetail(
     showDragHandle: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (_) => _ArchiveRecordDetailSheet(record: record),
   );
@@ -92,7 +101,11 @@ class _ArchiveRecordDetailSheetState
     if (_imageExtensions.contains(ext)) {
       await showFullscreenImage(context, file.url);
     } else if (ext == 'pdf') {
-      await showFullscreenPdf(context, reference: file.url, title: file.fileName);
+      await showFullscreenPdf(
+        context,
+        reference: file.url,
+        title: file.fileName,
+      );
     } else if (_videoExtensions.contains(ext)) {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -102,7 +115,11 @@ class _ArchiveRecordDetailSheetState
     } else if (_audioExtensions.contains(ext)) {
       await showAudioPlayerSheet(context, reference: file.url);
     } else {
-      await showFullscreenDocumentText(context, url: file.url, title: file.fileName);
+      await showFullscreenDocumentText(
+        context,
+        url: file.url,
+        title: file.fileName,
+      );
     }
   }
 
@@ -130,7 +147,9 @@ class _ArchiveRecordDetailSheetState
           .request(widget.record.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Access requested — an admin will review it.')),
+          const SnackBar(
+            content: Text('Access requested — an admin will review it.'),
+          ),
         );
       }
     } finally {
@@ -148,7 +167,8 @@ class _ArchiveRecordDetailSheetState
   }
 
   Future<void> _attachToTree() async {
-    final List<Person> persons = ref.read(personsProvider).value ?? const <Person>[];
+    final List<Person> persons =
+        ref.read(personsProvider).value ?? const <Person>[];
     if (persons.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Add someone to your tree first.')),
@@ -245,11 +265,16 @@ class _ArchiveRecordDetailSheetState
                   if (r.collection.isNotEmpty) r.collection,
                   '${r.files.length} image${r.files.length == 1 ? '' : 's'}',
                 ].join(' · '),
-                style: text.bodyMedium?.copyWith(color: AppColors.textSecondary),
+                style: text.bodyMedium?.copyWith(
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
-            _DetailRow(label: 'Reference', value: r.recordRef ?? 'Not yet assigned'),
+            _DetailRow(
+              label: 'Reference',
+              value: r.recordRef ?? 'Not yet assigned',
+            ),
             _DetailRow(label: 'Access', value: r.accessStatus.label),
             _DetailRow(label: 'Format', value: _format),
             const _DetailRow(
@@ -291,7 +316,9 @@ class _ArchiveRecordDetailSheetState
                       onPressed: null,
                       icon: const Icon(Icons.image_not_supported_outlined),
                       label: Text(
-                        r.files.isEmpty ? 'No files attached yet' : 'Not digitized yet',
+                        r.files.isEmpty
+                            ? 'No files attached yet'
+                            : 'Not digitized yet',
                       ),
                     ),
             ),
@@ -315,7 +342,8 @@ class _ArchiveRecordDetailSheetState
             ),
             if (isAdmin &&
                 (r.reviewStatus == ArchiveReviewStatus.draft ||
-                    r.reviewStatus == ArchiveReviewStatus.rejected)) ...<Widget>[
+                    r.reviewStatus ==
+                        ArchiveReviewStatus.rejected)) ...<Widget>[
               const SizedBox(height: AppSpacing.sm),
               SizedBox(
                 width: double.infinity,
@@ -354,7 +382,8 @@ class _PermissionCta extends StatelessWidget {
         label: 'Access request pending',
       );
     }
-    final bool wasRejected = request?.status == ArchiveAccessRequestStatus.rejected;
+    final bool wasRejected =
+        request?.status == ArchiveAccessRequestStatus.rejected;
     return FilledButton.icon(
       onPressed: busy ? null : onRequest,
       icon: const Icon(Icons.lock_open_outlined),
@@ -371,7 +400,10 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -403,7 +435,10 @@ class _DetailRow extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 90,
-            child: Text(label, style: text.bodySmall?.copyWith(color: AppColors.textTertiary)),
+            child: Text(
+              label,
+              style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+            ),
           ),
           Expanded(child: Text(value, style: text.bodyMedium)),
         ],

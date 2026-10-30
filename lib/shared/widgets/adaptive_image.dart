@@ -1,5 +1,6 @@
 import 'dart:io' show File;
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
@@ -26,6 +27,18 @@ class AdaptiveImage extends StatelessWidget {
   bool get _isNetwork =>
       reference.startsWith('http') || reference.startsWith('blob:');
 
+  Widget _loading() => Container(
+    width: width,
+    height: height,
+    color: AppColors.surface,
+    alignment: Alignment.center,
+    child: const SizedBox(
+      height: 20,
+      width: 20,
+      child: CircularProgressIndicator(strokeWidth: 2),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final Widget errorWidget = Container(
@@ -39,27 +52,26 @@ class AdaptiveImage extends StatelessWidget {
       ),
     );
 
-    if (_isNetwork) {
+    if (reference.startsWith('blob:')) {
       return Image.network(
         reference,
         width: width,
         height: height,
         fit: fit,
         errorBuilder: (_, _, _) => errorWidget,
-        loadingBuilder: (context, child, progress) {
-          if (progress == null) return child;
-          return Container(
-            width: width,
-            height: height,
-            color: AppColors.surface,
-            alignment: Alignment.center,
-            child: const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        },
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : _loading(),
+      );
+    }
+    if (_isNetwork) {
+      // Kept on disk once loaded, so photos still show offline.
+      return CachedNetworkImage(
+        imageUrl: reference,
+        width: width,
+        height: height,
+        fit: fit,
+        errorWidget: (_, _, _) => errorWidget,
+        placeholder: (_, _) => _loading(),
       );
     }
 

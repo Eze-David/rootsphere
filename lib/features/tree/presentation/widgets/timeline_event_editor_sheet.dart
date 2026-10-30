@@ -24,8 +24,9 @@ Future<void> showTimelineEventEditorSheet(
     showDragHandle: true,
     backgroundColor: Theme.of(context).scaffoldBackgroundColor,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (_) => _EventEditor(person: person, existing: existing),
   );
@@ -84,16 +85,17 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
-    final String id = widget.existing?.id ??
-        DateTime.now().microsecondsSinceEpoch.toString();
+    final String id =
+        widget.existing?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     final event = TimelineEvent(
       id: id,
       type: _type,
       title: _title.text.trim(),
       date: _date,
       place: _place.text.trim().isEmpty ? null : _place.text.trim(),
-      description:
-          _description.text.trim().isEmpty ? null : _description.text.trim(),
+      description: _description.text.trim().isEmpty
+          ? null
+          : _description.text.trim(),
     );
 
     final events = <TimelineEvent>[...widget.person.events];
@@ -146,8 +148,10 @@ class _EventEditorState extends ConsumerState<_EventEditor> {
                   if (_isEdit)
                     IconButton(
                       tooltip: 'Delete event',
-                      icon: const Icon(Icons.delete_outline,
-                          color: AppColors.error),
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        color: AppColors.error,
+                      ),
                       onPressed: _saving ? null : _delete,
                     ),
                 ],

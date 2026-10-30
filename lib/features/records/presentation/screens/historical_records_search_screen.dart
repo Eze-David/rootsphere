@@ -12,6 +12,7 @@ import '../widgets/global_person_card.dart';
 import '../widgets/global_record_card.dart';
 import '../widgets/historical_result_card.dart';
 import '../widgets/records_library_hero.dart';
+import '../widgets/web_search_section.dart';
 import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../../tree/domain/entities/person.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
@@ -721,42 +722,42 @@ class _HistoricalRecordsSearchScreenState
     final TextTheme text = Theme.of(context).textTheme;
 
     final Widget content = Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xl,
-              AppSpacing.lg,
-              AppSpacing.xl,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                _SearchCard(
-                  firstNameController: _firstName,
-                  lastNameController: _lastName,
-                  yearController: _year,
-                  selectedType: _type,
-                  onTypeChanged: (v) => setState(() {
-                    _type = v;
-                    // Stale results no longer match the newly-picked
-                    // category — make that obvious rather than silently
-                    // showing them until the next search.
-                    _hasSearched = false;
-                  }),
-                  selectedCountry: _country,
-                  selectedBirthPlace: _birthPlace,
-                  onCountryChanged: (v) => setState(() {
-                    _country = v;
-                    _birthPlace = '';
-                  }),
-                  onBirthPlaceChanged: (v) => setState(() => _birthPlace = v),
-                  searching: _searching,
-                  onSearch: _search,
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                ..._buildResults(text),
-              ],
-            ),
-          );
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.xl,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          _SearchCard(
+            firstNameController: _firstName,
+            lastNameController: _lastName,
+            yearController: _year,
+            selectedType: _type,
+            onTypeChanged: (v) => setState(() {
+              _type = v;
+              // Stale results no longer match the newly-picked
+              // category — make that obvious rather than silently
+              // showing them until the next search.
+              _hasSearched = false;
+            }),
+            selectedCountry: _country,
+            selectedBirthPlace: _birthPlace,
+            onCountryChanged: (v) => setState(() {
+              _country = v;
+              _birthPlace = '';
+            }),
+            onBirthPlaceChanged: (v) => setState(() => _birthPlace = v),
+            searching: _searching,
+            onSearch: _search,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          ..._buildResults(text),
+        ],
+      ),
+    );
 
     if (widget.embedded) {
       return ListView(padding: EdgeInsets.zero, children: <Widget>[content]);
@@ -810,12 +811,7 @@ class _HistoricalRecordsSearchScreenState
     out.add(Text('FROM YOUR TREES', style: text.labelSmall));
     out.add(const SizedBox(height: AppSpacing.sm));
     if (localCount == 0) {
-      out.add(
-        Text(
-          'No matches in your trees.',
-          style: text.bodyMedium,
-        ),
-      );
+      out.add(Text('No matches in your trees.', style: text.bodyMedium));
     } else {
       for (final p in _localPeople) {
         out.add(
@@ -853,12 +849,7 @@ class _HistoricalRecordsSearchScreenState
     out.add(Text('ACROSS ALL TREES', style: text.labelSmall));
     out.add(const SizedBox(height: AppSpacing.sm));
     if (_globalMatches.isEmpty) {
-      out.add(
-        Text(
-          'No matches in other trees.',
-          style: text.bodyMedium,
-        ),
-      );
+      out.add(Text('No matches in other trees.', style: text.bodyMedium));
     } else {
       for (final m in _globalMatches) {
         out.add(
@@ -877,10 +868,7 @@ class _HistoricalRecordsSearchScreenState
     out.add(const SizedBox(height: AppSpacing.sm));
     if (_globalRecordMatches.isEmpty) {
       out.add(
-        Text(
-          'No community-uploaded records match.',
-          style: text.bodyMedium,
-        ),
+        Text('No community-uploaded records match.', style: text.bodyMedium),
       );
     } else {
       for (final m in _globalRecordMatches) {
@@ -937,6 +925,22 @@ class _HistoricalRecordsSearchScreenState
         );
       }
     }
+
+    // ── The web (Google, Wikipedia, FamilySearch, …) ───────────────────────
+    out.add(const SizedBox(height: AppSpacing.xl));
+    out.add(
+      WebSearchSection(
+        firstName: _firstName.text,
+        lastName: _lastName.text,
+        year: int.tryParse(_year.text.trim()),
+        place: <String>[
+          _birthPlace.trim(),
+          _place.text.trim(),
+        ].where((s) => s.isNotEmpty).join(', '),
+        country: _country,
+        type: _type,
+      ),
+    );
 
     return out;
   }

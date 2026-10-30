@@ -36,17 +36,15 @@ class SupportMessageRepositorySupabase implements SupportMessageRepository {
         .stream(primaryKey: <String>['id'])
         .order('created_at')
         .map(
-          (rows) => rows.map(SupportMessage.fromJson).toList().reversed
-              .toList(),
+          (rows) =>
+              rows.map(SupportMessage.fromJson).toList().reversed.toList(),
         );
   }
 
   @override
   Future<void> markResolved(String id) async {
     try {
-      await _table
-          .update(<String, dynamic>{'status': 'resolved'})
-          .eq('id', id);
+      await _table.update(<String, dynamic>{'status': 'resolved'}).eq('id', id);
     } on PostgrestException catch (e) {
       throw ServerFailure(e.message);
     }

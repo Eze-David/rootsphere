@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../archive/presentation/providers/archive_providers.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../domain/repositories/auth_repository.dart';
 import 'auth_providers.dart';
@@ -44,10 +46,16 @@ class AuthController extends AsyncNotifier<void> {
   }
 
   Future<bool> signOut() => _run(() async {
+    // Last chance to send changes made offline under this account
+    // (anything still queued waits until it signs back in).
+    await ref.read(offlineTreeRepositoryProvider)?.flush();
+    await ref.read(offlineArchiveRepositoryProvider)?.flush();
     await _repo.signOut();
     // Global (not per-account) device setting — must not leak into
     // whichever account signs in next. See clearSelectedTreeId.
     clearSelectedTreeId(ref);
+    // Cached copies of this account's data, likewise.
+    await ref.read(offlineCacheProvider).clear();
   });
 
   Future<bool> updatePassword(String newPassword, {String? currentPassword}) {

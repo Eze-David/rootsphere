@@ -72,7 +72,11 @@ class GlobalRecordMatch {
     final List<String> parts = <String>[];
     final String subject = title.trim();
     final String typeLabel = type.label;
-    parts.add(subject.isNotEmpty ? '$typeLabel record for $subject' : '$typeLabel record');
+    parts.add(
+      subject.isNotEmpty
+          ? '$typeLabel record for $subject'
+          : '$typeLabel record',
+    );
     if (repository.trim().isNotEmpty) parts.add(repository.trim());
     if (year != null) parts.add('$year');
     return '${parts.join(', ')}.';

@@ -1,5 +1,13 @@
 /// A single dated life event shown on a person's timeline (brief §Phase 2).
-enum LifeEventType { birth, baptism, marriage, residence, occupation, death, custom }
+enum LifeEventType {
+  birth,
+  baptism,
+  marriage,
+  residence,
+  occupation,
+  death,
+  custom,
+}
 
 class TimelineEvent {
   const TimelineEvent({

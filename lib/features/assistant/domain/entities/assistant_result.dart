@@ -43,7 +43,11 @@ class AncestorSuggestion {
 
 /// A single entry in an AI-generated biographical timeline.
 class TimelineEntry {
-  const TimelineEntry({this.year, required this.title, required this.description});
+  const TimelineEntry({
+    this.year,
+    required this.title,
+    required this.description,
+  });
 
   final int? year;
   final String title;
@@ -81,7 +85,10 @@ class MissingRecordSuggestion {
 
 /// A concrete next research step.
 class ResearchRecommendation {
-  const ResearchRecommendation({required this.title, required this.description});
+  const ResearchRecommendation({
+    required this.title,
+    required this.description,
+  });
 
   final String title;
   final String description;

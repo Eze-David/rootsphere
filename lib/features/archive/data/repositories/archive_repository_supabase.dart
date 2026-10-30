@@ -47,10 +47,9 @@ class ArchiveRepositorySupabase implements ArchiveRepository {
   @override
   Future<void> submitForReview(String id) async {
     try {
-      await _table.update(<String, dynamic>{'review_status': 'pending_review'}).eq(
-        'id',
-        id,
-      );
+      await _table
+          .update(<String, dynamic>{'review_status': 'pending_review'})
+          .eq('id', id);
     } on PostgrestException catch (e) {
       throw ServerFailure(e.message);
     }
@@ -160,6 +159,9 @@ class ArchiveRepositorySupabase implements ArchiveRepository {
     final List<String> parts = v.split('_');
     if (parts.length == 1) return parts.first;
     return parts.first +
-        parts.skip(1).map((p) => p.isEmpty ? '' : p[0].toUpperCase() + p.substring(1)).join();
+        parts
+            .skip(1)
+            .map((p) => p.isEmpty ? '' : p[0].toUpperCase() + p.substring(1))
+            .join();
   }
 }

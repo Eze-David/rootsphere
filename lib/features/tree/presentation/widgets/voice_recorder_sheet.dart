@@ -17,8 +17,9 @@ Future<String?> showVoiceRecorderSheet(BuildContext context) {
     isDismissible: false,
     enableDrag: false,
     shape: const RoundedRectangleBorder(
-      borderRadius:
-          BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(AppSpacing.radiusLg),
+      ),
     ),
     builder: (_) => const _VoiceRecorderSheet(),
   );
@@ -96,8 +97,14 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
   }
 
   String get _formatted {
-    final String m = _elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final String s = _elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final String m = _elapsed.inMinutes
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
+    final String s = _elapsed.inSeconds
+        .remainder(60)
+        .toString()
+        .padLeft(2, '0');
     return '$m:$s';
   }
 
@@ -113,10 +120,17 @@ class _VoiceRecorderSheetState extends State<_VoiceRecorderSheet> {
             Text('Voice note', style: text.titleLarge),
             const SizedBox(height: AppSpacing.xl),
             if (_error != null) ...<Widget>[
-              const Icon(Icons.mic_off_outlined,
-                  size: 48, color: AppColors.textTertiary),
+              const Icon(
+                Icons.mic_off_outlined,
+                size: 48,
+                color: AppColors.textTertiary,
+              ),
               const SizedBox(height: AppSpacing.md),
-              Text(_error!, textAlign: TextAlign.center, style: text.bodyMedium),
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: text.bodyMedium,
+              ),
               const SizedBox(height: AppSpacing.xl),
               OutlinedButton(
                 onPressed: () => Navigator.pop(context),
@@ -183,8 +197,7 @@ class _PulsingMicState extends State<_PulsingMic>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final double scale =
-            widget.active ? 1 + (_controller.value * 0.15) : 1;
+        final double scale = widget.active ? 1 + (_controller.value * 0.15) : 1;
         return Container(
           width: 96 * scale,
           height: 96 * scale,

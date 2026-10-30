@@ -1,6 +1,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import '../../../../core/data/african_locations.dart';
 import '../../../../core/error/failure.dart';
@@ -11,6 +13,7 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../tree/data/services/geocoding_service.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
 import '../../data/services/opportunity_subject_storage_service.dart';
+import '../../data/services/research_request_pdf_service.dart';
 import '../../domain/entities/opportunity.dart';
 import '../../domain/entities/opportunity_subject.dart';
 import '../../domain/entities/research_request.dart';
@@ -106,6 +109,16 @@ class _AddOpportunitySheetState extends ConsumerState<_AddOpportunitySheet> {
   CollaborationRole _selectedRole = CollaborationRole.finder;
   bool _sendToCompany = false;
   bool _submitting = false;
+  bool _printing = false;
+
+  // Same completeness rule as `_submit`'s validation — the print button
+  // activates exactly when a submit would succeed.
+  bool get _isFormComplete =>
+      _titleController.text.trim().isNotEmpty &&
+      _descriptionController.text.trim().isNotEmpty &&
+      _requesterNameController.text.trim().isNotEmpty &&
+      _questionController.text.trim().isNotEmpty &&
+      _declarationAccepted;
 
   List<TextEditingController> get _controllers => <TextEditingController>[
     _titleController,
@@ -338,6 +351,92 @@ class _AddOpportunitySheetState extends ConsumerState<_AddOpportunitySheet> {
         );
   }
 
+  /// Prints the form as filled in so far, before it's submitted. Builds a
+  /// throwaway [CollaborationOpportunity]/[OpportunitySubject] pair from the
+  /// current field values — there's no saved opportunity to print yet, so
+  /// `id: 'DRAFT'` stands in for the reference number the PDF would
+  /// otherwise show.
+  Future<void> _printPreview() async {
+    if (!_isFormComplete) return;
+    setState(() => _printing = true);
+    try {
+      final AppUser? user = ref.read(authStateProvider).value;
+      final String treeId = ref.read(activeTreeIdProvider);
+      String t(TextEditingController c) => c.text.trim();
+      final String additionalInfo = t(_additionalInfoController);
+      final String location = t(_locationController);
+
+      final CollaborationOpportunity draft = CollaborationOpportunity(
+        id: 'DRAFT',
+        treeId: treeId,
+        title: t(_titleController),
+        description: t(_descriptionController),
+        requesterId: user?.id ?? '',
+        requesterName: t(_requesterNameController),
+        location: location.isEmpty ? null : location,
+        requiredRole: _selectedRole,
+        forCompany: _sendToCompany,
+      );
+      final OpportunitySubject subject = OpportunitySubject(
+        firstName: t(_firstNameController),
+        middleName: t(_middleNameController),
+        lastName: t(_lastNameController),
+        nickName: t(_nickNameController),
+        country: _country,
+        additionalInfo: additionalInfo.isEmpty ? null : additionalInfo,
+        request: ResearchRequest(
+          requesterName: t(_requesterNameController),
+          requesterAddress: t(_addressController),
+          requesterPhone: t(_phoneController),
+          requesterEmail: t(_emailController),
+          contactMethods: _contactMethods.toList(),
+          relationship: t(_relationshipController),
+          birthDate: t(_birthDateController),
+          birthPlace: t(_birthPlaceController),
+          marriage: t(_marriageController),
+          death: t(_deathController),
+          spouses: t(_spousesController),
+          parents: t(_parentsController),
+          relatives: t(_relativesController),
+          ethnicGroup: t(_ethnicGroupController),
+          religion: t(_religionController),
+          researchQuestion: t(_questionController),
+          sourcesChecked: _sourcesChecked.toList(),
+          sourcesOther: t(_sourcesOtherController),
+          documentsProvided: t(_documentsListController),
+          desiredOutputs: _desiredOutputs.toList(),
+          outputsOther: t(_outputsOtherController),
+          declarationAccepted: _declarationAccepted,
+          declaredAt: DateTime.now(),
+        ),
+      );
+
+      final bool launched = await Printing.layoutPdf(
+        format: PdfPageFormat.a4,
+        name: 'Research Request (draft).pdf',
+        onLayout: (PdfPageFormat format) => ResearchRequestPdfService.build(
+          opportunity: draft,
+          subject: subject,
+          format: format,
+        ),
+      );
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Printing was cancelled.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        _showError(
+          'Could not prepare the form. Check your internet connection '
+          'and try again.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _printing = false);
+    }
+  }
+
   Widget _field(
     TextEditingController controller,
     String label, {
@@ -409,21 +508,63 @@ class _AddOpportunitySheetState extends ConsumerState<_AddOpportunitySheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(
-              'ROOTSPHERE FAMILY HISTORY FOUNDATION',
-              style: text.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.primary,
-                letterSpacing: 0.8,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Research Request',
-              style: text.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            Text(
-              'Family History & Genealogy Research Request Form',
-              style: text.bodySmall?.copyWith(color: muted),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        'ROOTSPHERE FAMILY HISTORY FOUNDATION',
+                        style: text.labelSmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Research Request',
+                        style: text.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        'Family History & Genealogy Research Request Form',
+                        style: text.bodySmall?.copyWith(color: muted),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                // Always visible; only enabled once the required fields
+                // (title, summary, requester name, question, declaration)
+                // are filled in — same rule `_submit` validates against.
+                ListenableBuilder(
+                  listenable: Listenable.merge(<Listenable>[
+                    _titleController,
+                    _descriptionController,
+                    _requesterNameController,
+                    _questionController,
+                  ]),
+                  builder: (_, _) {
+                    final bool enabled = _isFormComplete && !_printing;
+                    return IconButton.outlined(
+                      tooltip: _isFormComplete
+                          ? 'Print form'
+                          : 'Fill in the required fields to print',
+                      onPressed: enabled ? _printPreview : null,
+                      icon: _printing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.print_outlined, size: 18),
+                    );
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.lg),
 

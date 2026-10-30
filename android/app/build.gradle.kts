@@ -14,6 +14,13 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// API keys kept out of git: android/secrets.properties (MAPS_API_KEY=...).
+val secretProperties = Properties()
+val secretPropertiesFile = rootProject.file("secrets.properties")
+if (secretPropertiesFile.exists()) {
+    secretProperties.load(FileInputStream(secretPropertiesFile))
+}
+
 android {
     namespace = "com.rootsphere.rootsphere"
     compileSdk = flutter.compileSdkVersion
@@ -37,6 +44,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["mapsApiKey"] =
+            secretProperties.getProperty("MAPS_API_KEY", "")
     }
 
     signingConfigs {

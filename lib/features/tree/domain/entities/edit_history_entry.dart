@@ -48,15 +48,15 @@ class EditHistoryEntry {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'treeId': treeId,
-        'personId': personId,
-        'reason': reason,
-        'editorId': editorId,
-        'editorName': editorName,
-        'changedFields': changedFields,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'id': id,
+    'treeId': treeId,
+    'personId': personId,
+    'reason': reason,
+    'editorId': editorId,
+    'editorName': editorName,
+    'changedFields': changedFields,
+    'createdAt': createdAt.toIso8601String(),
+  };
 
   factory EditHistoryEntry.fromJson(Map<String, dynamic> json) {
     return EditHistoryEntry(
@@ -72,7 +72,7 @@ class EditHistoryEntry {
               .toList(),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-              DateTime.now(),
+          DateTime.now(),
     );
   }
 }

@@ -10,10 +10,18 @@ import '../../../../core/error/failure.dart';
 
 /// The outcome of storing an archive attachment.
 class StoredArchiveFile {
-  const StoredArchiveFile({required this.url, required this.fileName});
+  const StoredArchiveFile({
+    required this.url,
+    required this.fileName,
+    this.awaitingUpload = false,
+  });
 
   final String url;
   final String fileName;
+
+  /// True when [url] is a file on this device kept for upload once the
+  /// network is back (see [ArchiveStorageService.uploadOrKeepForLater]).
+  final bool awaitingUpload;
 }
 
 /// Uploads Digital Records Repository attachments (scans, photos, audio,
@@ -56,6 +64,71 @@ class ArchiveStorageService {
       bytes: bytes,
       ext: ext,
     );
+  }
+
+  /// Like [uploadArchiveFile], but when the device is offline the file is kept
+  /// on the device instead, and its local path returned with
+  /// [StoredArchiveFile.awaitingUpload] set. The offline archive repository
+  /// uploads such files (see [isAwaitingUpload]) before the record syncs.
+  /// The web has no file system to keep it in, so it still needs a
+  /// connection there.
+  Future<StoredArchiveFile> uploadOrKeepForLater({
+    required String recordId,
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    try {
+      return await uploadArchiveFile(
+        recordId: recordId,
+        fileName: fileName,
+        bytes: bytes,
+      );
+    } on NetworkFailure {
+      if (kIsWeb) {
+        throw const NetworkFailure(
+          "You're offline. Attachments can't be added on the web until "
+          'you reconnect.',
+        );
+      }
+      final StoredArchiveFile kept = await _persistLocally(
+        recordId: recordId,
+        fileName: fileName,
+        bytes: bytes,
+        ext: _extension(fileName),
+        folder: 'archive_pending_uploads',
+      );
+      return StoredArchiveFile(
+        url: kept.url,
+        fileName: fileName,
+        awaitingUpload: true,
+      );
+    }
+  }
+
+  /// Whether [reference] is a device file waiting to be uploaded (only
+  /// possible with Supabase configured — otherwise every file is local).
+  bool isAwaitingUpload(String reference) =>
+      SupabaseConfig.isReady && !reference.startsWith('http');
+
+  /// Uploads a file kept by [uploadOrKeepForLater] and deletes the local
+  /// copy, returning the uploaded file's URL.
+  Future<String> uploadKeptFile({
+    required String recordId,
+    required String fileName,
+    required String path,
+  }) async {
+    final File file = File(path);
+    final StoredArchiveFile stored = await uploadArchiveFile(
+      recordId: recordId,
+      fileName: fileName,
+      bytes: await file.readAsBytes(),
+    );
+    try {
+      await file.delete();
+    } catch (_) {
+      // Best-effort cleanup.
+    }
+    return stored.url;
   }
 
   /// Best-effort removal of a previously uploaded attachment.
@@ -108,9 +181,12 @@ class ArchiveStorageService {
           .from(bucket)
           .createSignedUrl(objectPath, 60 * 60 * 24 * 7);
       return StoredArchiveFile(url: url, fileName: fileName);
-    } on StorageException catch (e) {
-      throw ServerFailure('Upload failed: ${e.message}');
-    } catch (_) {
+    } catch (e) {
+      // Kept distinct so callers can tell "offline" from a real failure.
+      if (isNetworkError(e)) throw const NetworkFailure();
+      if (e is StorageException) {
+        throw ServerFailure('Upload failed: ${e.message}');
+      }
       throw const ServerFailure('Upload failed. Please try again.');
     }
   }
@@ -122,9 +198,10 @@ class ArchiveStorageService {
     required String fileName,
     required Uint8List bytes,
     required String ext,
+    String folder = 'archive_records',
   }) async {
     final Directory docs = await getApplicationDocumentsDirectory();
-    final Directory dir = Directory('${docs.path}/archive_records/$recordId');
+    final Directory dir = Directory('${docs.path}/$folder/$recordId');
     if (!await dir.exists()) await dir.create(recursive: true);
     final String dest =
         '${dir.path}/${DateTime.now().microsecondsSinceEpoch}.$ext';
@@ -183,7 +260,10 @@ class ArchiveStorageService {
   /// Extracts the object path from a Supabase signed/public URL that
   /// contains `/object/<sign|public>/<bucket>/<path>`.
   String _objectPathFromPublicUrl(String url) {
-    for (final String marker in <String>['/sign/$bucket/', '/public/$bucket/']) {
+    for (final String marker in <String>[
+      '/sign/$bucket/',
+      '/public/$bucket/',
+    ]) {
       final int i = url.indexOf(marker);
       if (i >= 0) {
         final String rest = url.substring(i + marker.length);

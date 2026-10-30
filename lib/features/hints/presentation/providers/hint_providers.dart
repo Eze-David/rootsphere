@@ -24,8 +24,9 @@ final hintRepositoryProvider = Provider<HintRepository>((ref) {
 });
 
 /// Claude-backed hint generation (Supabase Edge Function).
-final hintGenerationServiceProvider =
-    Provider<HintGenerationService>((ref) => HintGenerationService());
+final hintGenerationServiceProvider = Provider<HintGenerationService>(
+  (ref) => HintGenerationService(),
+);
 
 /// Streams all hints in the active tree.
 final hintsProvider = StreamProvider<List<Hint>>((ref) {
@@ -37,8 +38,9 @@ final hintsProvider = StreamProvider<List<Hint>>((ref) {
 /// Pending hints only, ranked by confidence (highest first).
 final pendingHintsProvider = Provider<List<Hint>>((ref) {
   final List<Hint> all = ref.watch(hintsProvider).value ?? const <Hint>[];
-  final List<Hint> pending =
-      all.where((h) => h.status == HintStatus.pending).toList();
+  final List<Hint> pending = all
+      .where((h) => h.status == HintStatus.pending)
+      .toList();
   pending.sort((a, b) => b.confidence.compareTo(a.confidence));
   return pending;
 });
@@ -85,12 +87,9 @@ class HintController extends Notifier<HintsUiState> {
       final List<Record> records =
           ref.read(recordsProvider).value ?? const <Record>[];
 
-      final AiHintResult ai =
-          await ref.read(hintGenerationServiceProvider).generate(
-                treeId: treeId,
-                persons: people,
-                records: records,
-              );
+      final AiHintResult ai = await ref
+          .read(hintGenerationServiceProvider)
+          .generate(treeId: treeId, persons: people, records: records);
 
       final List<Hint> ranked = await HintProcessor.run(
         treeId: treeId,
@@ -143,7 +142,11 @@ class HintController extends Notifier<HintsUiState> {
       case HintType.missingData:
         final Person? p = byId[hint.personId];
         if (p == null) return 'Person not found.';
-        final Person updated = _applyField(p, hint.field!, hint.suggestedValue!);
+        final Person updated = _applyField(
+          p,
+          hint.field!,
+          hint.suggestedValue!,
+        );
         await treeRepo.upsertPerson(updated);
         return 'Updated ${p.fullName}.';
 
@@ -153,10 +156,10 @@ class HintController extends Notifier<HintsUiState> {
         if (r.personIds.contains(hint.personId)) {
           return 'Already linked.';
         }
-        await ref.read(recordRepositoryProvider).upsertRecord(
-              r.copyWith(
-                personIds: <String>[...r.personIds, hint.personId!],
-              ),
+        await ref
+            .read(recordRepositoryProvider)
+            .upsertRecord(
+              r.copyWith(personIds: <String>[...r.personIds, hint.personId!]),
             );
         return 'Record linked.';
 
@@ -219,25 +222,26 @@ class HintController extends Notifier<HintsUiState> {
   }
 
   Map<String, dynamic> _personSummary(Person p) => <String, dynamic>{
-        'id': p.id,
-        'name': p.fullName,
-        'sex': p.sex.name,
-        'birthYear': p.birthDate?.year,
-        'deathYear': p.deathDate?.year,
-        'birthPlace': p.birthPlace,
-        'deathPlace': p.deathPlace,
-        'parentIds': p.parentIds,
-        'spouseIds': p.spouseIds,
-      };
+    'id': p.id,
+    'name': p.fullName,
+    'sex': p.sex.name,
+    'birthYear': p.birthDate?.year,
+    'deathYear': p.deathDate?.year,
+    'birthPlace': p.birthPlace,
+    'deathPlace': p.deathPlace,
+    'parentIds': p.parentIds,
+    'spouseIds': p.spouseIds,
+  };
 
   Map<String, dynamic> _recordSummary(Record r) => <String, dynamic>{
-        'id': r.id,
-        'type': r.type.name,
-        'title': r.title,
-        'year': r.year,
-        'personIds': r.personIds,
-      };
+    'id': r.id,
+    'type': r.type.name,
+    'title': r.title,
+    'year': r.year,
+    'personIds': r.personIds,
+  };
 }
 
-final hintControllerProvider =
-    NotifierProvider<HintController, HintsUiState>(HintController.new);
+final hintControllerProvider = NotifierProvider<HintController, HintsUiState>(
+  HintController.new,
+);

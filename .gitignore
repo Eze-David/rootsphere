@@ -57,3 +57,6 @@ app.*.map.json
 **/*.jks
 **/*.keystore
 .vercel
+
+# API keys
+ios/Flutter/Secrets.xcconfig

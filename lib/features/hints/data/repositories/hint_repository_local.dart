@@ -27,9 +27,7 @@ class HintRepositoryLocal implements HintRepository {
     if (raw == null || raw.isEmpty) return <Hint>[];
     try {
       final List<dynamic> list = jsonDecode(raw) as List<dynamic>;
-      return list
-          .map((e) => Hint.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return list.map((e) => Hint.fromJson(e as Map<String, dynamic>)).toList();
     } catch (_) {
       return <Hint>[];
     }
@@ -75,25 +73,26 @@ class HintRepositoryLocal implements HintRepository {
   @override
   Future<void> replacePendingHints(String treeId, List<Hint> hints) async {
     // Keep the user's already-triaged hints; drop old pending ones.
-    final List<Hint> kept = _read(treeId)
-        .where((h) => h.status != HintStatus.pending)
-        .toList();
+    final List<Hint> kept = _read(
+      treeId,
+    ).where((h) => h.status != HintStatus.pending).toList();
     final Set<String> keptKeys = kept.map(_dedupeKey).toSet();
     // Avoid resurfacing a hint the user already accepted/dismissed.
-    final List<Hint> fresh =
-        hints.where((h) => !keptKeys.contains(_dedupeKey(h))).toList();
+    final List<Hint> fresh = hints
+        .where((h) => !keptKeys.contains(_dedupeKey(h)))
+        .toList();
     await _write(treeId, <Hint>[...kept, ...fresh]);
   }
 
   /// A stable identity for a hint independent of its random id, so a freshly
   /// generated hint matching a dismissed one isn't shown again.
   String _dedupeKey(Hint h) => <String>[
-        h.type.name,
-        h.personId ?? '',
-        h.relatedPersonId ?? '',
-        h.recordId ?? '',
-        h.field ?? '',
-      ].join('|');
+    h.type.name,
+    h.personId ?? '',
+    h.relatedPersonId ?? '',
+    h.recordId ?? '',
+    h.field ?? '',
+  ].join('|');
 
   @override
   Future<void> deleteHint(String treeId, String id) async {

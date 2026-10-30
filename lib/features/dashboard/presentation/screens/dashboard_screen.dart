@@ -56,7 +56,10 @@ class DashboardScreen extends ConsumerWidget {
             AppSpacing.xxl,
           ),
           children: <Widget>[
-            _HeroSearchCard(user: user, unreadNotifications: unreadNotifications),
+            _HeroSearchCard(
+              user: user,
+              unreadNotifications: unreadNotifications,
+            ),
             const SizedBox(height: AppSpacing.lg),
             _TreeProgressCard(people: people),
             const SizedBox(height: AppSpacing.xl),
@@ -77,7 +80,10 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _HeroSearchCard extends ConsumerStatefulWidget {
-  const _HeroSearchCard({required this.user, required this.unreadNotifications});
+  const _HeroSearchCard({
+    required this.user,
+    required this.unreadNotifications,
+  });
   final AppUser? user;
   final int unreadNotifications;
 
@@ -157,21 +163,34 @@ class _HeroSearchCardState extends ConsumerState<_HeroSearchCard> {
                 children: <Widget>[
                   IconButton(
                     onPressed: () => context.push(AppRoutes.notifications),
-                    icon: const Icon(Icons.notifications_none, color: Colors.white),
+                    icon: const Icon(
+                      Icons.notifications_none,
+                      color: Colors.white,
+                    ),
                   ),
                   if (widget.unreadNotifications > 0)
                     Positioned(
                       right: 4,
                       top: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.sunGold,
-                          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                          border: Border.all(color: AppColors.primary, width: 1.5),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusSm,
+                          ),
+                          border: Border.all(
+                            color: AppColors.primary,
+                            width: 1.5,
+                          ),
                         ),
                         child: Text(
-                          widget.unreadNotifications > 9 ? '9+' : '${widget.unreadNotifications}',
+                          widget.unreadNotifications > 9
+                              ? '9+'
+                              : '${widget.unreadNotifications}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -211,7 +230,9 @@ class _HeroSearchCardState extends ConsumerState<_HeroSearchCard> {
                     filled: true,
                     fillColor: Colors.white,
                     hintText: 'Search a person, place or record',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                    ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                       borderSide: BorderSide.none,
@@ -225,7 +246,10 @@ class _HeroSearchCardState extends ConsumerState<_HeroSearchCard> {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.sunGold,
                   foregroundColor: AppColors.textPrimary,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
+                  ),
                 ),
                 icon: const Icon(Icons.search, size: 18),
                 label: const Text('Search'),
@@ -295,13 +319,17 @@ class _TreeProgressCard extends StatelessWidget {
             child: CustomPaint(
               painter: TreeProgressRingPainter(
                 percent: percent,
-                trackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                trackColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 progressColor: AppColors.sunGold,
               ),
               child: Center(
                 child: Text(
                   '$pct%',
-                  style: text.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: text.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -425,7 +453,10 @@ class _QuickActionCard extends StatelessWidget {
               child: Icon(icon, size: 20),
             ),
             const SizedBox(height: AppSpacing.sm),
-            Text(title, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+            ),
             const SizedBox(height: 2),
             Text(
               subtitle,
@@ -445,7 +476,11 @@ class _QuickActionCard extends StatelessWidget {
 enum _GapKind { birthDate, birthPlace, marriage }
 
 class _Gap {
-  const _Gap({required this.person, required this.relation, required this.kind});
+  const _Gap({
+    required this.person,
+    required this.relation,
+    required this.kind,
+  });
   final Person person;
   final String relation;
   final _GapKind kind;
@@ -500,7 +535,11 @@ class _FamilyAtAGlance extends ConsumerWidget {
       return _Gap(person: person, relation: relation, kind: _GapKind.birthDate);
     }
     if ((person.birthPlace ?? '').trim().isEmpty) {
-      return _Gap(person: person, relation: relation, kind: _GapKind.birthPlace);
+      return _Gap(
+        person: person,
+        relation: relation,
+        kind: _GapKind.birthPlace,
+      );
     }
     if (person.spouseIds.isEmpty) {
       return _Gap(person: person, relation: relation, kind: _GapKind.marriage);
@@ -526,7 +565,10 @@ class _FamilyAtAGlance extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Text('Fill in the gaps', style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
+        Text(
+          'Fill in the gaps',
+          style: text.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
+        ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           'Quick ways to add information so we can find more hints about your ancestors.',
@@ -544,7 +586,10 @@ class _FamilyAtAGlance extends ConsumerWidget {
             ),
             child: Row(
               children: <Widget>[
-                const Icon(Icons.person_pin_circle_outlined, color: AppColors.textTertiary),
+                const Icon(
+                  Icons.person_pin_circle_outlined,
+                  color: AppColors.textTertiary,
+                ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
@@ -569,7 +614,11 @@ class _FamilyAtAGlance extends ConsumerWidget {
               separatorBuilder: (_, _) => const SizedBox(width: AppSpacing.md),
               itemBuilder: (context, index) => _GapCard(
                 gap: gaps[index],
-                onTap: () => showPersonEditorSheet(context, ref, existing: gaps[index].person),
+                onTap: () => showPersonEditorSheet(
+                  context,
+                  ref,
+                  existing: gaps[index].person,
+                ),
               ),
             ),
           ),
@@ -705,10 +754,10 @@ class _RecentActivity extends ConsumerWidget {
     // across every tree for admins/approved Finders/Indexers (see
     // canSeeAllRecordsProvider), which isn't "your" recent activity.
     final String? uid = ref.watch(authStateProvider).value?.id;
-    final List<Record> records = (ref.watch(recordsProvider).value ??
-            const <Record>[])
-        .where((r) => r.ownerId == uid)
-        .toList();
+    final List<Record> records =
+        (ref.watch(recordsProvider).value ?? const <Record>[])
+            .where((r) => r.ownerId == uid)
+            .toList();
     for (final r in records) {
       out.add(
         _Activity(
@@ -800,7 +849,11 @@ class _ActivityRow extends StatelessWidget {
                 color: activity.tint.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
-              child: Icon(activity.icon, size: 20, color: AppColors.textPrimary),
+              child: Icon(
+                activity.icon,
+                size: 20,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(width: AppSpacing.md),
             Expanded(

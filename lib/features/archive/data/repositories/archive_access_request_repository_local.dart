@@ -62,7 +62,9 @@ class ArchiveAccessRequestRepositoryLocal
       (r) => r['record_id'] == recordId && r['user_id'] == _demoUserId,
     );
     final Map<String, dynamic> row = <String, dynamic>{
-      'id': idx >= 0 ? raw[idx]['id'] : 'req_${DateTime.now().microsecondsSinceEpoch}',
+      'id': idx >= 0
+          ? raw[idx]['id']
+          : 'req_${DateTime.now().microsecondsSinceEpoch}',
       'record_id': recordId,
       'user_id': _demoUserId,
       'status': 'pending',

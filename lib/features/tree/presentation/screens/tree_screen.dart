@@ -625,7 +625,9 @@ class _TreeScreenState extends ConsumerState<TreeScreen> {
     // Fill-in-the-gaps/Family-at-a-glance work without an extra manual step;
     // still overridable later via the person profile's "Mark as me" menu.
     try {
-      await ref.read(familyTreeRepositoryProvider).setMyPersonId(treeId, created.id);
+      await ref
+          .read(familyTreeRepositoryProvider)
+          .setMyPersonId(treeId, created.id);
     } catch (_) {
       // Best-effort — never block adding the person over this.
     }

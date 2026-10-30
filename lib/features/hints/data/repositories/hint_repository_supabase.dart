@@ -29,8 +29,10 @@ class HintRepositorySupabase implements HintRepository {
   @override
   Future<List<Hint>> getHints(String treeId) async {
     try {
-      final List<Map<String, dynamic>> rows =
-          await _hints.select().eq('tree_id', treeId);
+      final List<Map<String, dynamic>> rows = await _hints.select().eq(
+        'tree_id',
+        treeId,
+      );
       return rows.map(_fromRow).toList();
     } on PostgrestException catch (e) {
       throw ServerFailure(e.message);
@@ -52,7 +54,9 @@ class HintRepositorySupabase implements HintRepository {
       // Drop existing pending hints, then insert the fresh set (skipping any
       // that match an already-triaged hint by identity).
       final List<Map<String, dynamic>> existing = await _hints
-          .select('type, person_id, related_person_id, record_id, field, status')
+          .select(
+            'type, person_id, related_person_id, record_id, field, status',
+          )
           .eq('tree_id', treeId);
       final Set<String> triagedKeys = existing
           .where((r) => (r['status'] as String?) != 'pending')
@@ -83,38 +87,38 @@ class HintRepositorySupabase implements HintRepository {
   // ── Mapping ──────────────────────────────────────────────────────────────
 
   String _dedupeKey(Hint h) => <String>[
-        h.type.name,
-        h.personId ?? '',
-        h.relatedPersonId ?? '',
-        h.recordId ?? '',
-        h.field ?? '',
-      ].join('|');
+    h.type.name,
+    h.personId ?? '',
+    h.relatedPersonId ?? '',
+    h.recordId ?? '',
+    h.field ?? '',
+  ].join('|');
 
   String _rowDedupeKey(Map<String, dynamic> r) => <String>[
-        r['type']?.toString() ?? '',
-        r['person_id']?.toString() ?? '',
-        r['related_person_id']?.toString() ?? '',
-        r['record_id']?.toString() ?? '',
-        r['field']?.toString() ?? '',
-      ].join('|');
+    r['type']?.toString() ?? '',
+    r['person_id']?.toString() ?? '',
+    r['related_person_id']?.toString() ?? '',
+    r['record_id']?.toString() ?? '',
+    r['field']?.toString() ?? '',
+  ].join('|');
 
   Map<String, dynamic> _toRow(Hint h) => <String, dynamic>{
-        'id': h.id,
-        'tree_id': h.treeId,
-        'owner_id': _uid,
-        'type': h.type.name,
-        'title': h.title,
-        'description': h.description,
-        'confidence': h.confidence,
-        'status': h.status.name,
-        'source': h.source,
-        'person_id': h.personId,
-        'related_person_id': h.relatedPersonId,
-        'record_id': h.recordId,
-        'field': h.field,
-        'suggested_value': h.suggestedValue,
-        'relation': h.relation?.name,
-      };
+    'id': h.id,
+    'tree_id': h.treeId,
+    'owner_id': _uid,
+    'type': h.type.name,
+    'title': h.title,
+    'description': h.description,
+    'confidence': h.confidence,
+    'status': h.status.name,
+    'source': h.source,
+    'person_id': h.personId,
+    'related_person_id': h.relatedPersonId,
+    'record_id': h.recordId,
+    'field': h.field,
+    'suggested_value': h.suggestedValue,
+    'relation': h.relation?.name,
+  };
 
   Hint _fromRow(Map<String, dynamic> row) {
     return Hint(

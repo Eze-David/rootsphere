@@ -131,22 +131,22 @@ class Hint {
   }
 
   Map<String, dynamic> toJson() => <String, dynamic>{
-        'id': id,
-        'treeId': treeId,
-        'type': type.name,
-        'title': title,
-        'description': description,
-        'confidence': confidence,
-        'status': status.name,
-        'source': source,
-        'personId': personId,
-        'relatedPersonId': relatedPersonId,
-        'recordId': recordId,
-        'field': field,
-        'suggestedValue': suggestedValue,
-        'relation': relation?.name,
-        'createdAt': createdAt?.toIso8601String(),
-      };
+    'id': id,
+    'treeId': treeId,
+    'type': type.name,
+    'title': title,
+    'description': description,
+    'confidence': confidence,
+    'status': status.name,
+    'source': source,
+    'personId': personId,
+    'relatedPersonId': relatedPersonId,
+    'recordId': recordId,
+    'field': field,
+    'suggestedValue': suggestedValue,
+    'relation': relation?.name,
+    'createdAt': createdAt?.toIso8601String(),
+  };
 
   factory Hint.fromJson(Map<String, dynamic> json) {
     return Hint(

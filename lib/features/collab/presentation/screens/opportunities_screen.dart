@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' show LatLng;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../tree/data/services/geocoding_service.dart';
 import '../../../tree/presentation/providers/tree_providers.dart';
-import '../../../tree/presentation/widgets/osm_attribution.dart';
+import '../../../../shared/widgets/rootsphere_google_map.dart';
 import '../../domain/entities/opportunity.dart';
 import '../providers/donation_providers.dart';
 import '../providers/opportunity_providers.dart';
@@ -472,55 +471,22 @@ class _OpportunityMapScreen extends ConsumerWidget {
                       ],
                     ),
                   )
-                // See TreeMapScreen for why this guard/config exists: a
-                // genuine 0×0 or unbounded layout pass throws Infinity/NaN in
-                // flutter_map's tile math, and the default tile fade-in
-                // throws "setState() called during build" on cached tiles.
-                : LayoutBuilder(
-                    builder: (context, constraints) {
-                      final bool sizeReady =
-                          constraints.maxWidth.isFinite &&
-                          constraints.maxHeight.isFinite &&
-                          constraints.maxWidth > 0 &&
-                          constraints.maxHeight > 0;
-                      if (!sizeReady) return const SizedBox.shrink();
-
-                      final LatLng centre = groups.first.point;
-                      final double zoom = groups.length > 1 ? 3 : 12;
-                      return FlutterMap(
-                        options: MapOptions(
-                          initialCenter: centre,
-                          initialZoom: zoom,
-                          minZoom: 2,
-                          maxZoom: 18,
+                : RootsphereGoogleMap(
+                    pins: <MapPin>[
+                      for (final g in groups)
+                        MapPin(
+                          id: g.opportunities.first.id,
+                          position: g.point,
+                          title: g.opportunities.length == 1
+                              ? g.opportunities.first.title
+                              : (g.opportunities.first.location ??
+                                    '${g.opportunities.length} opportunities'),
+                          snippet: g.opportunities.length == 1
+                              ? '${g.opportunities.first.status.label} — tap to open'
+                              : '${g.opportunities.length} opportunities — tap to see them',
+                          onTap: () => _onPinTap(context, g),
                         ),
-                        children: <Widget>[
-                          TileLayer(
-                            urlTemplate:
-                                'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
-                            subdomains: const <String>['a', 'b', 'c', 'd'],
-                            userAgentPackageName: 'com.rootsphere.app',
-                            tileDisplay: const TileDisplay.instantaneous(),
-                          ),
-                          MarkerLayer(
-                            markers: <Marker>[
-                              for (final g in groups)
-                                Marker(
-                                  point: g.point,
-                                  width: 60,
-                                  height: 44,
-                                  alignment: Alignment.topCenter,
-                                  child: _OppPin(
-                                    group: g,
-                                    onTap: () => _onPinTap(context, g),
-                                  ),
-                                ),
-                            ],
-                          ),
-                          const OsmAttribution(),
-                        ],
-                      );
-                    },
+                    ],
                   ),
           ),
         ],
@@ -683,56 +649,4 @@ class _OppGroup {
   _OppGroup({required this.opportunities, required this.point});
   final List<CollaborationOpportunity> opportunities;
   final LatLng point;
-}
-
-class _OppPin extends StatefulWidget {
-  const _OppPin({required this.group, required this.onTap});
-  final _OppGroup group;
-  final VoidCallback onTap;
-
-  @override
-  State<_OppPin> createState() => _OppPinState();
-}
-
-class _OppPinState extends State<_OppPin> {
-  bool _hovered = false;
-
-  @override
-  Widget build(BuildContext context) {
-    // Same hover treatment as the tree's cards/placeholder slots: swap to
-    // sunGold on hover rather than introducing a new highlight colour.
-    final Color pinColor = _hovered ? AppColors.sunGold : AppColors.primary;
-    return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
-      cursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            if (widget.group.opportunities.length > 1)
-              Container(
-                margin: const EdgeInsets.only(bottom: 2),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                decoration: BoxDecoration(
-                  color: pinColor,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
-                child: Text(
-                  '${widget.group.opportunities.length}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-            Icon(Icons.location_on, color: pinColor, size: _hovered ? 40 : 36),
-          ],
-        ),
-      ),
-    );
-  }
 }

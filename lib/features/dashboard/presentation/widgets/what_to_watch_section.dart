@@ -280,7 +280,10 @@ class _WatchCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Remove', style: TextStyle(color: AppColors.error)),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -289,7 +292,8 @@ class _WatchCard extends ConsumerWidget {
     await ref.read(watchRepositoryProvider).deleteItem(item.id);
     final storage = ref.read(watchStorageServiceProvider);
     await storage.deleteMedia(item.mediaUrl);
-    if (item.thumbnailUrl != null) await storage.deleteMedia(item.thumbnailUrl!);
+    if (item.thumbnailUrl != null)
+      await storage.deleteMedia(item.thumbnailUrl!);
   }
 }
 
@@ -353,21 +357,25 @@ class _AddWatchItemSheetState extends ConsumerState<_AddWatchItemSheet> {
       final String? thumbnailUrl = _type == WatchMediaType.video
           ? await storage.uploadMedia(itemId: id, file: _thumbnail!)
           : null;
-      await ref.read(watchRepositoryProvider).upsertItem(
-        WatchItem(
-          id: id,
-          mediaType: _type,
-          mediaUrl: mediaUrl,
-          thumbnailUrl: thumbnailUrl,
-          category: _categoryController.text.trim(),
-          title: _titleController.text.trim(),
-          createdAt: DateTime.now(),
-        ),
-      );
+      await ref
+          .read(watchRepositoryProvider)
+          .upsertItem(
+            WatchItem(
+              id: id,
+              mediaType: _type,
+              mediaUrl: mediaUrl,
+              thumbnailUrl: thumbnailUrl,
+              category: _categoryController.text.trim(),
+              title: _titleController.text.trim(),
+              createdAt: DateTime.now(),
+            ),
+          );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
-        final String msg = e is Failure ? e.message : 'Could not add this item.';
+        final String msg = e is Failure
+            ? e.message
+            : 'Could not add this item.';
         ScaffoldMessenger.of(context)
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(msg)));
@@ -422,7 +430,9 @@ class _AddWatchItemSheetState extends ConsumerState<_AddWatchItemSheet> {
               icon: const Icon(Icons.upload_outlined),
               label: Text(
                 _media == null
-                    ? (_type == WatchMediaType.image ? 'Choose photo' : 'Choose video')
+                    ? (_type == WatchMediaType.image
+                          ? 'Choose photo'
+                          : 'Choose video')
                     : 'Selected: ${_media!.name}',
               ),
             ),

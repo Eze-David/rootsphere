@@ -49,8 +49,6 @@ dependencies:
   record: ^6.2.1
   video_player: ^2.11.1
   audioplayers: ^6.7.1
-  flutter_map: ^8.2.2
-  latlong2: ^0.9.1
   pdf: ^3.11.3
   printing: ^5.14.2
   http: ^1.6.0
@@ -58,6 +56,9 @@ dependencies:
   sign_in_with_apple: ^7.0.1
   crypto: ^3.0.6
   in_app_purchase: ^3.3.0
+  google_maps_flutter: ^2.19.0
+  connectivity_plus: ^7.3.1
+  cached_network_image: ^4.0.5
 
 dev_dependencies:
   flutter_test:

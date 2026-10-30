@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -175,7 +176,7 @@ class _UserHeaderState extends ConsumerState<_UserHeader> {
                   radius: 56,
                   backgroundColor: AppColors.femaleTint,
                   backgroundImage: u?.avatarUrl != null
-                      ? NetworkImage(u!.avatarUrl!)
+                      ? CachedNetworkImageProvider(u!.avatarUrl!)
                       : null,
                   child: u?.avatarUrl == null
                       ? Text(

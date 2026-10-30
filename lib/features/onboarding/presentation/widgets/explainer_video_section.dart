@@ -4,7 +4,7 @@ import 'package:video_player/video_player.dart';
 
 /// The explainer video is hosted as a static file next to the web build
 /// (`web/videos/`) rather than bundled as a Flutter asset, so it doesn't add
-/// ~17 MB to the iOS/Android download. On web it's loaded from the same
+/// ~24 MB to the iOS/Android download. On web it's loaded from the same
 /// origin (rootsphere.ink or www.); native apps stream it from the site.
 Uri _videoUri(String file) => kIsWeb
     ? Uri.base.resolve('/videos/$file')

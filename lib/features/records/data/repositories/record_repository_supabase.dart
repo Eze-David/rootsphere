@@ -43,18 +43,17 @@ class RecordRepositorySupabase implements RecordRepository {
     // additionally grants select access across every tree, while everyone
     // else still only gets rows the existing `records_member_all` policy
     // already allows (i.e. their own trees).
-    return _records
-        .stream(primaryKey: <String>['id'])
-        .order('created_at')
-        .map((rows) {
-          final records = rows.map(_fromRow).toList();
-          records.sort((a, b) {
-            final DateTime ad = a.createdAt ?? DateTime(0);
-            final DateTime bd = b.createdAt ?? DateTime(0);
-            return bd.compareTo(ad);
-          });
-          return records;
-        });
+    return _records.stream(primaryKey: <String>['id']).order('created_at').map((
+      rows,
+    ) {
+      final records = rows.map(_fromRow).toList();
+      records.sort((a, b) {
+        final DateTime ad = a.createdAt ?? DateTime(0);
+        final DateTime bd = b.createdAt ?? DateTime(0);
+        return bd.compareTo(ad);
+      });
+      return records;
+    });
   }
 
   @override

@@ -48,9 +48,10 @@ class AssistantService {
       action: 'identifyLocations',
       scope: scope,
       body: <String, dynamic>{'text': text},
-      parse: (data) => ((data['locations'] as List<dynamic>?) ?? const <dynamic>[])
-          .map((e) => e.toString())
-          .toList(),
+      parse: (data) =>
+          ((data['locations'] as List<dynamic>?) ?? const <dynamic>[])
+              .map((e) => e.toString())
+              .toList(),
     );
   }
 
@@ -80,7 +81,11 @@ class AssistantService {
       },
       parse: (data) =>
           ((data['suggestions'] as List<dynamic>?) ?? const <dynamic>[])
-              .map((e) => AncestorSuggestion.fromJson(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => AncestorSuggestion.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList(),
     );
   }
@@ -99,13 +104,18 @@ class AssistantService {
         'events': events.map((e) => e.toJson()).toList(),
         'records': records.map(_recordSummary).toList(),
       },
-      parse: (data) => ((data['entries'] as List<dynamic>?) ?? const <dynamic>[])
-          .map((e) => TimelineEntry.fromJson(Map<String, dynamic>.from(e as Map)))
-          .toList(),
+      parse: (data) =>
+          ((data['entries'] as List<dynamic>?) ?? const <dynamic>[])
+              .map(
+                (e) =>
+                    TimelineEntry.fromJson(Map<String, dynamic>.from(e as Map)),
+              )
+              .toList(),
     );
   }
 
-  Future<AssistantResponse<List<MissingRecordSuggestion>>> suggestMissingRecords({
+  Future<AssistantResponse<List<MissingRecordSuggestion>>>
+  suggestMissingRecords({
     required String scope,
     required Person person,
     required List<RecordType> existingTypes,
@@ -119,13 +129,17 @@ class AssistantService {
       },
       parse: (data) =>
           ((data['suggestions'] as List<dynamic>?) ?? const <dynamic>[])
-              .map((e) =>
-                  MissingRecordSuggestion.fromJson(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => MissingRecordSuggestion.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList(),
     );
   }
 
-  Future<AssistantResponse<List<ResearchRecommendation>>> researchRecommendations({
+  Future<AssistantResponse<List<ResearchRecommendation>>>
+  researchRecommendations({
     required String scope,
     required Person person,
     required List<Person> relatives,
@@ -141,8 +155,11 @@ class AssistantService {
       },
       parse: (data) =>
           ((data['recommendations'] as List<dynamic>?) ?? const <dynamic>[])
-              .map((e) =>
-                  ResearchRecommendation.fromJson(Map<String, dynamic>.from(e as Map)))
+              .map(
+                (e) => ResearchRecommendation.fromJson(
+                  Map<String, dynamic>.from(e as Map),
+                ),
+              )
               .toList(),
     );
   }
@@ -181,7 +198,10 @@ class AssistantService {
       }
       final Map<String, dynamic> map = Map<String, dynamic>.from(data);
       if (map['available'] == false) {
-        return AssistantResponse(available: false, message: map['message']?.toString());
+        return AssistantResponse(
+          available: false,
+          message: map['message']?.toString(),
+        );
       }
       return AssistantResponse(available: true, data: parse(map));
     } on FunctionException catch (e) {
@@ -198,19 +218,19 @@ class AssistantService {
   }
 
   Map<String, dynamic> _personSummary(Person p) => <String, dynamic>{
-        'id': p.id,
-        'name': p.fullName,
-        'sex': p.sex.name,
-        'birthYear': p.birthDate?.year,
-        'deathYear': p.deathDate?.year,
-        'birthPlace': p.birthPlace,
-        'deathPlace': p.deathPlace,
-      };
+    'id': p.id,
+    'name': p.fullName,
+    'sex': p.sex.name,
+    'birthYear': p.birthDate?.year,
+    'deathYear': p.deathDate?.year,
+    'birthPlace': p.birthPlace,
+    'deathPlace': p.deathPlace,
+  };
 
   Map<String, dynamic> _recordSummary(Record r) => <String, dynamic>{
-        'id': r.id,
-        'type': r.type.name,
-        'title': r.title,
-        'year': r.year,
-      };
+    'id': r.id,
+    'type': r.type.name,
+    'title': r.title,
+    'year': r.year,
+  };
 }

@@ -40,8 +40,8 @@ class WatchRepositoryLocal implements WatchRepository {
 
   @override
   Stream<List<WatchItem>> watchItems() {
-    final controller =
-        _controller ??= StreamController<List<WatchItem>>.broadcast();
+    final controller = _controller ??=
+        StreamController<List<WatchItem>>.broadcast();
     scheduleMicrotask(() => controller.add(_read()));
     return controller.stream;
   }

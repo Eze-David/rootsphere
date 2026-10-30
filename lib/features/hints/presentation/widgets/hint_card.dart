@@ -44,18 +44,23 @@ class HintCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     alignment: Alignment.center,
-                    child: Icon(hint.type.icon,
-                        color: AppColors.primary, size: 20),
+                    child: Icon(
+                      hint.type.icon,
+                      color: AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: <Widget>[
-                        Text(hint.title,
-                            style: text.titleMedium,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis),
+                        Text(
+                          hint.title,
+                          style: text.titleMedium,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                         const SizedBox(height: 2),
                         Text(hint.type.label, style: text.bodySmall),
                       ],
@@ -76,8 +81,11 @@ class HintCard extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          const Icon(Icons.auto_awesome,
-                              size: 12, color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.auto_awesome,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 4),
                           Text('AI', style: text.labelSmall),
                         ],
@@ -108,7 +116,9 @@ class HintCard extends StatelessWidget {
                             ),
                           )
                         : Text(
-                            hint.type == HintType.duplicate ? 'Review' : 'Accept',
+                            hint.type == HintType.duplicate
+                                ? 'Review'
+                                : 'Accept',
                           ),
                   ),
                 ],
@@ -131,10 +141,13 @@ class _ConfidenceChip extends StatelessWidget {
     final Color color = confidence >= 80
         ? AppColors.statusVerified
         : confidence >= 60
-            ? AppColors.statusOpen
-            : AppColors.statusClaimed;
+        ? AppColors.statusOpen
+        : AppColors.statusClaimed;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 4,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),

@@ -2,9 +2,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/config/supabase_config.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/outbox.dart';
 import '../../../../core/storage/preferences_provider.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/tree_repository_local.dart';
+import '../../data/repositories/tree_repository_offline.dart';
 import '../../data/repositories/tree_repository_supabase.dart';
 import '../../data/services/geocoding_service.dart';
 import '../../data/services/photo_storage_service.dart';
@@ -14,14 +17,43 @@ import '../../domain/repositories/tree_repository.dart';
 import '../layout/tree_layout.dart';
 import '../../../profile/presentation/providers/family_tree_provider.dart';
 
-/// Tree repository: Supabase-backed when configured, local JSON otherwise.
-/// The interface is identical, so the rest of the app is unaware which is used.
+/// Tree repository: Supabase-backed (behind an offline cache + sync queue)
+/// when configured, local JSON otherwise. The interface is identical, so the
+/// rest of the app is unaware which is used.
 final treeRepositoryProvider = Provider<TreeRepository>((ref) {
-  if (SupabaseConfig.isReady) {
-    return TreeRepositorySupabase(SupabaseConfig.client);
-  }
+  final TreeRepositoryOffline? offline = ref.watch(
+    offlineTreeRepositoryProvider,
+  );
+  if (offline != null) return offline;
   final prefs = ref.watch(sharedPreferencesProvider);
   return TreeRepositoryLocal(prefs);
+});
+
+/// The offline-first tree repository, or null when Supabase isn't configured
+/// (the local repository is already fully on-device then).
+final offlineTreeRepositoryProvider = Provider<TreeRepositoryOffline?>((ref) {
+  if (!SupabaseConfig.isReady) return null;
+  final TreeRepositoryOffline repo = TreeRepositoryOffline(
+    remote: TreeRepositorySupabase(SupabaseConfig.client),
+    prefs: ref.watch(sharedPreferencesProvider),
+    cache: ref.watch(offlineCacheProvider),
+    currentUid: () => SupabaseConfig.client.auth.currentUser?.id ?? '',
+    onlineChanges: watchOnline(),
+  );
+  ref.onDispose(repo.dispose);
+  // Changes queued before the app was closed belong to an account; send them
+  // once that account's session is back.
+  ref.listen(authStateProvider, (_, next) {
+    if (next.value != null) repo.flush();
+  }, fireImmediately: true);
+  return repo;
+});
+
+/// Queued tree changes waiting for the network (drives the offline banner).
+final treeSyncStatusProvider = StreamProvider<SyncStatus>((ref) {
+  final TreeRepositoryOffline? repo = ref.watch(offlineTreeRepositoryProvider);
+  if (repo == null) return Stream<SyncStatus>.value(const SyncStatus());
+  return repo.watchStatus();
 });
 
 /// Photo upload/storage service (Supabase Storage + local fallback).
@@ -30,8 +62,9 @@ final photoStorageServiceProvider = Provider<PhotoStorageService>((ref) {
 });
 
 /// Place-name → coordinates lookup (Supabase Edge Function, cached).
-final geocodingServiceProvider =
-    Provider<GeocodingService>((ref) => GeocodingService());
+final geocodingServiceProvider = Provider<GeocodingService>(
+  (ref) => GeocodingService(),
+);
 
 /// Resolved coordinates for a person's location string, cached while a
 /// screen has it in view so rebuilds don't re-geocode. `autoDispose` (rather
@@ -42,13 +75,10 @@ final geocodingServiceProvider =
 /// retries instead of staying pin-less for the rest of the session. A
 /// genuine not-found result (null, no throw) still just falls back to a
 /// plain placeholder.
-final geocodeProvider =
-    FutureProvider.autoDispose.family<GeocodeResult?, String>((
-  ref,
-  location,
-) {
-  return ref.watch(geocodingServiceProvider).geocode(location);
-});
+final geocodeProvider = FutureProvider.autoDispose
+    .family<GeocodeResult?, String>((ref, location) {
+      return ref.watch(geocodingServiceProvider).geocode(location);
+    });
 
 const String _selectedTreeIdPrefsKey = 'selected_tree_id';
 
@@ -133,7 +163,9 @@ void setFocusPerson(WidgetRef ref, String? personId) {
   ref.read(focusPersonIdProvider.notifier).state = personId;
   if (personId == null || personId.isEmpty) return;
   final String treeId = ref.read(activeTreeIdProvider);
-  ref.read(sharedPreferencesProvider).setString(_lastFocusPrefsKey(treeId), personId);
+  ref
+      .read(sharedPreferencesProvider)
+      .setString(_lastFocusPrefsKey(treeId), personId);
 }
 
 /// Which layout the renderer should produce. The redesigned ancestor pedigree
@@ -143,13 +175,15 @@ final treeModeProvider = StateProvider<TreeMode>((ref) => TreeMode.ancestors);
 
 /// Ids of people whose ancestors are currently collapsed (hidden) in the
 /// kinship view. Toggled by the chevrons on the tree.
-final collapsedAncestorsProvider =
-    StateProvider<Set<String>>((ref) => <String>{});
+final collapsedAncestorsProvider = StateProvider<Set<String>>(
+  (ref) => <String>{},
+);
 
 /// Whether the ancestor pedigree grows upward (vertical) or rightward
 /// (horizontal). Chosen from the app-bar "view" control.
-final treeOrientationProvider =
-    StateProvider<TreeOrientation>((ref) => TreeOrientation.vertical);
+final treeOrientationProvider = StateProvider<TreeOrientation>(
+  (ref) => TreeOrientation.vertical,
+);
 
 /// Graph (the interactive pan/zoom canvas) vs. a flat alphabetical list of
 /// everyone in the tree — an alternative to the graph for quickly scanning
@@ -157,8 +191,9 @@ final treeOrientationProvider =
 /// which only matters once back in graph mode.
 enum TreeViewMode { graph, list }
 
-final treeViewModeProvider =
-    StateProvider<TreeViewMode>((ref) => TreeViewMode.graph);
+final treeViewModeProvider = StateProvider<TreeViewMode>(
+  (ref) => TreeViewMode.graph,
+);
 
 /// Streams all persons in the active tree.
 final personsProvider = StreamProvider<List<Person>>((ref) {
@@ -180,17 +215,21 @@ final personByIdProvider = Provider.family<Person?, String>((ref, id) {
 
 /// Edit history (audit log) for a given person, newest first.
 final personEditHistoryProvider =
-    FutureProvider.family<List<EditHistoryEntry>, String>((ref, personId) async {
-  // Rebuild when the person changes so a fresh edit shows immediately.
-  ref.watch(personByIdProvider(personId));
-  final repo = ref.watch(treeRepositoryProvider);
-  return repo.getEditHistory(personId);
-});
+    FutureProvider.family<List<EditHistoryEntry>, String>((
+      ref,
+      personId,
+    ) async {
+      // Rebuild when the person changes so a fresh edit shows immediately.
+      ref.watch(personByIdProvider(personId));
+      final repo = ref.watch(treeRepositoryProvider);
+      return repo.getEditHistory(personId);
+    });
 
 /// Recent person activity (additions + edits) across the whole active tree,
 /// newest first — powers the dashboard's Recent Activity feed.
-final recentTreeActivityProvider =
-    FutureProvider<List<EditHistoryEntry>>((ref) async {
+final recentTreeActivityProvider = FutureProvider<List<EditHistoryEntry>>((
+  ref,
+) async {
   // Rebuild whenever the tree's people change (e.g. right after someone new
   // is added) so the feed doesn't need a manual refresh.
   ref.watch(personsProvider);
@@ -214,8 +253,9 @@ final resolvedFocusIdProvider = Provider<String?>((ref) {
   }
 
   final String treeId = ref.watch(activeTreeIdProvider);
-  final String? remembered =
-      ref.watch(sharedPreferencesProvider).getString(_lastFocusPrefsKey(treeId));
+  final String? remembered = ref
+      .watch(sharedPreferencesProvider)
+      .getString(_lastFocusPrefsKey(treeId));
   if (remembered != null && persons.any((p) => p.id == remembered)) {
     return remembered;
   }

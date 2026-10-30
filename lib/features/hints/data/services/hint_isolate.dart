@@ -21,15 +21,13 @@ class HintProcessor {
     required List<Map<String, dynamic>> records,
     required List<Hint> aiHints,
   }) async {
-    final List<Map<String, dynamic>> ranked = await compute(
-      rankHintsIsolate,
-      <String, dynamic>{
-        'treeId': treeId,
-        'people': people,
-        'records': records,
-        'aiHints': aiHints.map((h) => h.toJson()).toList(),
-      },
-    );
+    final List<Map<String, dynamic>> ranked =
+        await compute(rankHintsIsolate, <String, dynamic>{
+          'treeId': treeId,
+          'people': people,
+          'records': records,
+          'aiHints': aiHints.map((h) => h.toJson()).toList(),
+        });
     return ranked.map(Hint.fromJson).toList();
   }
 }
@@ -47,7 +45,8 @@ List<Map<String, dynamic>> rankHintsIsolate(Map<String, dynamic> payload) {
 
   // Merge AI + local, de-duplicating by stable identity (AI wins on a tie so
   // its richer descriptions / suggested values are preserved).
-  final Map<String, Map<String, dynamic>> byKey = <String, Map<String, dynamic>>{};
+  final Map<String, Map<String, dynamic>> byKey =
+      <String, Map<String, dynamic>>{};
   for (final h in local) {
     byKey[_dedupeKey(h)] = h;
   }
@@ -70,12 +69,12 @@ List<Map<String, dynamic>> _maps(dynamic v) =>
         .toList();
 
 String _dedupeKey(Map<String, dynamic> h) => <String>[
-      h['type']?.toString() ?? '',
-      h['personId']?.toString() ?? '',
-      h['relatedPersonId']?.toString() ?? '',
-      h['recordId']?.toString() ?? '',
-      h['field']?.toString() ?? '',
-    ].join('|');
+  h['type']?.toString() ?? '',
+  h['personId']?.toString() ?? '',
+  h['relatedPersonId']?.toString() ?? '',
+  h['recordId']?.toString() ?? '',
+  h['field']?.toString() ?? '',
+].join('|');
 
 // ── Heuristics ───────────────────────────────────────────────────────────────
 
@@ -89,37 +88,42 @@ List<Map<String, dynamic>> _missingDataHints(
     final String id = p['id'] as String? ?? '';
     if (id.isEmpty) continue;
 
-    final bool central = ((p['spouseIds'] as List<dynamic>?)?.isNotEmpty ?? false) ||
+    final bool central =
+        ((p['spouseIds'] as List<dynamic>?)?.isNotEmpty ?? false) ||
         ((p['parentIds'] as List<dynamic>?)?.isNotEmpty ?? false);
 
     if (p['birthYear'] == null) {
-      out.add(_hint(
-        id: 'local_birth_$id',
-        treeId: treeId,
-        type: 'missingData',
-        title: 'Add a birth date for $name',
-        description:
-            '$name has no birth date recorded. Adding one improves timeline '
-            'accuracy and record matching.',
-        confidence: central ? 70 : 62,
-        personId: id,
-        field: 'birthDate',
-      ));
+      out.add(
+        _hint(
+          id: 'local_birth_$id',
+          treeId: treeId,
+          type: 'missingData',
+          title: 'Add a birth date for $name',
+          description:
+              '$name has no birth date recorded. Adding one improves timeline '
+              'accuracy and record matching.',
+          confidence: central ? 70 : 62,
+          personId: id,
+          field: 'birthDate',
+        ),
+      );
     }
     final String? birthPlace = (p['birthPlace'] as String?)?.trim();
     if (birthPlace == null || birthPlace.isEmpty) {
-      out.add(_hint(
-        id: 'local_birthplace_$id',
-        treeId: treeId,
-        type: 'missingData',
-        title: 'Add a birthplace for $name',
-        description:
-            '$name has no birthplace. Knowing where they were born helps '
-            'surface local records.',
-        confidence: 55,
-        personId: id,
-        field: 'birthPlace',
-      ));
+      out.add(
+        _hint(
+          id: 'local_birthplace_$id',
+          treeId: treeId,
+          type: 'missingData',
+          title: 'Add a birthplace for $name',
+          description:
+              '$name has no birthplace. Knowing where they were born helps '
+              'surface local records.',
+          confidence: 55,
+          personId: id,
+          field: 'birthPlace',
+        ),
+      );
     }
   }
   return out;
@@ -148,18 +152,20 @@ List<Map<String, dynamic>> _duplicateHints(
       final bool yearsAgree = ay != null && by != null && ay == by;
       final int confidence = yearsAgree ? 90 : 78;
 
-      out.add(_hint(
-        id: 'local_dup_${aId}_$bId',
-        treeId: treeId,
-        type: 'duplicate',
-        title: 'Possible duplicate: ${a['name']}',
-        description:
-            'Two people share the name "${a['name']}". They may be the same '
-            'person — review and merge if so.',
-        confidence: confidence,
-        personId: aId,
-        relatedPersonId: bId,
-      ));
+      out.add(
+        _hint(
+          id: 'local_dup_${aId}_$bId',
+          treeId: treeId,
+          type: 'duplicate',
+          title: 'Possible duplicate: ${a['name']}',
+          description:
+              'Two people share the name "${a['name']}". They may be the same '
+              'person — review and merge if so.',
+          confidence: confidence,
+          personId: aId,
+          relatedPersonId: bId,
+        ),
+      );
     }
   }
   return out;
@@ -181,21 +187,20 @@ Map<String, dynamic> _hint({
   String? personId,
   String? relatedPersonId,
   String? field,
-}) =>
-    <String, dynamic>{
-      'id': id,
-      'treeId': treeId,
-      'type': type,
-      'title': title,
-      'description': description,
-      'confidence': confidence,
-      'status': 'pending',
-      'source': 'local',
-      'personId': personId,
-      'relatedPersonId': relatedPersonId,
-      'recordId': null,
-      'field': field,
-      'suggestedValue': null,
-      'relation': null,
-      'createdAt': DateTime.now().toIso8601String(),
-    };
+}) => <String, dynamic>{
+  'id': id,
+  'treeId': treeId,
+  'type': type,
+  'title': title,
+  'description': description,
+  'confidence': confidence,
+  'status': 'pending',
+  'source': 'local',
+  'personId': personId,
+  'relatedPersonId': relatedPersonId,
+  'recordId': null,
+  'field': field,
+  'suggestedValue': null,
+  'relation': null,
+  'createdAt': DateTime.now().toIso8601String(),
+};

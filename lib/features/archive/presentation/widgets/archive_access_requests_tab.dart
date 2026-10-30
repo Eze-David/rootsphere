@@ -45,7 +45,8 @@ class ArchiveAccessRequestsTab extends ConsumerWidget {
           padding: const EdgeInsets.all(AppSpacing.lg),
           itemCount: pending.length,
           separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.md),
-          itemBuilder: (context, index) => _RequestCard(request: pending[index]),
+          itemBuilder: (context, index) =>
+              _RequestCard(request: pending[index]),
         );
       },
     );

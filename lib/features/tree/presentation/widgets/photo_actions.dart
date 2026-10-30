@@ -77,9 +77,11 @@ class PhotoActions {
         personId: person.id,
         file: file,
       );
-      await repo.upsertPerson(person.copyWith(
-        videoGallery: <String>[...person.videoGallery, reference],
-      ));
+      await repo.upsertPerson(
+        person.copyWith(
+          videoGallery: <String>[...person.videoGallery, reference],
+        ),
+      );
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
       if (context.mounted) _handleError(context, e, 'Could not upload video.');
@@ -102,9 +104,9 @@ class PhotoActions {
         personId: person.id,
         path: path,
       );
-      await repo.upsertPerson(person.copyWith(
-        voiceNotes: <String>[...person.voiceNotes, reference],
-      ));
+      await repo.upsertPerson(
+        person.copyWith(voiceNotes: <String>[...person.voiceNotes, reference]),
+      );
       if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
     } catch (e) {
       if (context.mounted) {
@@ -121,9 +123,11 @@ class PhotoActions {
   ) async {
     final storage = ref.read(photoStorageServiceProvider);
     final repo = ref.read(treeRepositoryProvider);
-    await repo.upsertPerson(person.copyWith(
-      videoGallery: person.videoGallery.where((r) => r != reference).toList(),
-    ));
+    await repo.upsertPerson(
+      person.copyWith(
+        videoGallery: person.videoGallery.where((r) => r != reference).toList(),
+      ),
+    );
     await storage.deletePersonPhoto(reference);
   }
 
@@ -135,9 +139,11 @@ class PhotoActions {
   ) async {
     final storage = ref.read(photoStorageServiceProvider);
     final repo = ref.read(treeRepositoryProvider);
-    await repo.upsertPerson(person.copyWith(
-      voiceNotes: person.voiceNotes.where((r) => r != reference).toList(),
-    ));
+    await repo.upsertPerson(
+      person.copyWith(
+        voiceNotes: person.voiceNotes.where((r) => r != reference).toList(),
+      ),
+    );
     await storage.deletePersonPhoto(reference);
   }
 
@@ -152,8 +158,7 @@ class PhotoActions {
     final repo = ref.read(treeRepositoryProvider);
     await repo.upsertPerson(
       person.copyWith(
-        photoGallery:
-            person.photoGallery.where((r) => r != reference).toList(),
+        photoGallery: person.photoGallery.where((r) => r != reference).toList(),
         // Clear the avatar too if it pointed at this image.
         photoUrl: person.photoUrl == reference ? null : person.photoUrl,
       ),
@@ -162,10 +167,7 @@ class PhotoActions {
   }
 
   /// Removes the profile photo.
-  static Future<void> removeProfilePhoto(
-    WidgetRef ref,
-    Person person,
-  ) async {
+  static Future<void> removeProfilePhoto(WidgetRef ref, Person person) async {
     final repo = ref.read(treeRepositoryProvider);
     final String? ref0 = person.photoUrl;
     await repo.upsertPerson(person.copyWith(photoUrl: null));
@@ -224,8 +226,9 @@ class PhotoActions {
     return showModalBottomSheet<ImageSource>(
       context: context,
       shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppSpacing.radiusLg)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppSpacing.radiusLg),
+        ),
       ),
       builder: (ctx) => SafeArea(
         child: Column(
@@ -234,9 +237,7 @@ class PhotoActions {
             const SizedBox(height: AppSpacing.md),
             ListTile(
               leading: Icon(
-                video
-                    ? Icons.videocam_outlined
-                    : Icons.photo_camera_outlined,
+                video ? Icons.videocam_outlined : Icons.photo_camera_outlined,
               ),
               title: Text(video ? 'Record video' : 'Take photo'),
               onTap: () => Navigator.pop(ctx, ImageSource.camera),

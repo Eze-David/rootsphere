@@ -90,10 +90,7 @@ class _RecordsLibraryHeroState extends State<RecordsLibraryHero> {
             layoutBuilder: (Widget? currentChild, List<Widget> previous) {
               return Stack(
                 fit: StackFit.expand,
-                children: <Widget>[
-                  ...previous,
-                  ?currentChild,
-                ],
+                children: <Widget>[...previous, ?currentChild],
               );
             },
             child: Image.asset(
@@ -162,7 +159,9 @@ class _Headline extends StatelessWidget {
       // HistoricalRecordsSearchScreen — so content is deliberately kept low).
       // A subtitle-only hero is short by design; centering reads better
       // there than crowding text against the very bottom edge.
-      mainAxisAlignment: hasTitle ? MainAxisAlignment.end : MainAxisAlignment.center,
+      mainAxisAlignment: hasTitle
+          ? MainAxisAlignment.end
+          : MainAxisAlignment.center,
       children: <Widget>[
         if (hasTitle)
           Text(

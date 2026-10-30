@@ -57,9 +57,7 @@ class WatchStorageService {
       if (!SupabaseConfig.isReady || !url.startsWith('http')) return;
       final String path = _objectPathFromPublicUrl(url);
       if (path.isNotEmpty) {
-        await SupabaseConfig.client.storage.from(bucket).remove(<String>[
-          path,
-        ]);
+        await SupabaseConfig.client.storage.from(bucket).remove(<String>[path]);
       }
     } catch (_) {
       // Best-effort cleanup.

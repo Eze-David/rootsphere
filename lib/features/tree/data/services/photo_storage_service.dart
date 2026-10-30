@@ -62,9 +62,7 @@ class PhotoStorageService {
     }
     if (kIsWeb) {
       // No local filesystem on web — Supabase is required there.
-      throw const ServerFailure(
-        'Connect Supabase to upload media on the web.',
-      );
+      throw const ServerFailure('Connect Supabase to upload media on the web.');
     }
     return _persistLocally(personId: personId, bytes: bytes, ext: ext);
   }
@@ -78,7 +76,9 @@ class PhotoStorageService {
         if (!SupabaseConfig.isReady) return;
         final String path = _objectPathFromPublicUrl(reference);
         if (path.isNotEmpty) {
-          await SupabaseConfig.client.storage.from(bucket).remove(<String>[path]);
+          await SupabaseConfig.client.storage.from(bucket).remove(<String>[
+            path,
+          ]);
         }
       } else if (!kIsWeb) {
         final File f = File(reference);
@@ -102,7 +102,9 @@ class PhotoStorageService {
       final String objectPath =
           '$userId/$personId/${DateTime.now().microsecondsSinceEpoch}.$ext';
 
-      await client.storage.from(bucket).uploadBinary(
+      await client.storage
+          .from(bucket)
+          .uploadBinary(
             objectPath,
             bytes,
             fileOptions: FileOptions(

@@ -1,18 +1,26 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/config/supabase_config.dart';
+import '../../../../core/offline/offline_providers.dart';
 import '../../../../core/storage/preferences_provider.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/family_tree_repository_local.dart';
+import '../../data/repositories/family_tree_repository_offline.dart';
 import '../../data/repositories/family_tree_repository_supabase.dart';
 import '../../domain/entities/family_tree.dart';
 import '../../domain/repositories/family_tree_repository.dart';
 
-/// Family-tree linking repository: Supabase-backed when configured, local
-/// SharedPreferences otherwise. The interface is identical either way.
+/// Family-tree linking repository: Supabase-backed (with an offline copy of
+/// the trees list) when configured, local SharedPreferences otherwise. The
+/// interface is identical either way.
 final familyTreeRepositoryProvider = Provider<FamilyTreeRepository>((ref) {
   if (SupabaseConfig.isReady) {
-    return FamilyTreeRepositorySupabase(SupabaseConfig.client);
+    return FamilyTreeRepositoryOffline(
+      remote: FamilyTreeRepositorySupabase(SupabaseConfig.client),
+      cache: ref.watch(offlineCacheProvider),
+      currentUid: () => SupabaseConfig.client.auth.currentUser?.id ?? '',
+      onlineChanges: watchOnline,
+    );
   }
   final prefs = ref.watch(sharedPreferencesProvider);
   return FamilyTreeRepositoryLocal(prefs);

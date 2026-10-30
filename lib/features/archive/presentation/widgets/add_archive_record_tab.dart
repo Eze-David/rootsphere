@@ -239,13 +239,17 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
             () => _statusMessage =
                 'Uploading ${i + 1} of ${_pendingFiles.length}…',
           );
-          final stored = await service.uploadArchiveFile(
+          final stored = await service.uploadOrKeepForLater(
             recordId: id,
             fileName: pf.file.name,
             bytes: bytes,
           );
           uploaded.add(
-            ArchiveFile(url: stored.url, fileName: stored.fileName, kind: pf.kind),
+            ArchiveFile(
+              url: stored.url,
+              fileName: stored.fileName,
+              kind: pf.kind,
+            ),
           );
         }
       }
@@ -281,10 +285,15 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
       }
 
       if (!mounted) return;
+      final bool queued =
+          ref.read(offlineArchiveRepositoryProvider)?.isPending(id) ?? false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            submitForReview ? 'Submitted for review.' : 'Saved as draft.',
+            (submitForReview ? 'Submitted for review.' : 'Saved as draft.') +
+                (queued
+                    ? " You're offline; it will sync when you reconnect."
+                    : ''),
           ),
         ),
       );
@@ -295,7 +304,9 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _statusMessage = e is Failure ? e.message : 'Could not save the record.';
+          _statusMessage = e is Failure
+              ? e.message
+              : 'Could not save the record.';
         });
       }
     } finally {
@@ -341,11 +352,11 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                     enabled: !_saving,
                     decoration: const InputDecoration(
                       labelText: 'Record title',
-                      hintText: 'e.g. Birth Register — Kwande District, 1952–1964',
+                      hintText:
+                          'e.g. Birth Register — Kwande District, 1952–1964',
                     ),
-                    validator: (v) => (v ?? '').trim().isEmpty
-                        ? 'Add a record title.'
-                        : null,
+                    validator: (v) =>
+                        (v ?? '').trim().isEmpty ? 'Add a record title.' : null,
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
@@ -359,7 +370,10 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                         .map(
                           (t) => DropdownMenuItem<RecordType>(
                             value: t,
-                            child: Text(t.label, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              t.label,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         )
                         .toList(),
@@ -391,7 +405,9 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                     key: ValueKey<ArchiveAccessStatus>(_accessStatus),
                     initialValue: _accessStatus,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Access level'),
+                    decoration: const InputDecoration(
+                      labelText: 'Access level',
+                    ),
                     items: ArchiveAccessStatus.values
                         .map(
                           (a) => DropdownMenuItem<ArchiveAccessStatus>(
@@ -429,7 +445,8 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                     items: <DropdownMenuItem<String>>[
                       for (final String c in <String>[
                         ...africanCountries,
-                        if (_country != null && !africanCountries.contains(_country))
+                        if (_country != null &&
+                            !africanCountries.contains(_country))
                           _country!,
                       ])
                         DropdownMenuItem<String>(
@@ -459,12 +476,15 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                         isExpanded: true,
                         decoration: InputDecoration(
                           labelText: 'State / region',
-                          hintText: _country == null ? 'Pick a country first' : null,
+                          hintText: _country == null
+                              ? 'Pick a country first'
+                              : null,
                         ),
                         items: <DropdownMenuItem<String>>[
                           for (final String s in <String>[
                             ...states,
-                            if (_stateRegion != null && !states.contains(_stateRegion))
+                            if (_stateRegion != null &&
+                                !states.contains(_stateRegion))
                               _stateRegion!,
                           ])
                             DropdownMenuItem<String>(
@@ -500,7 +520,9 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                           controller: _dateStart,
                           enabled: !_saving,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'From year'),
+                          decoration: const InputDecoration(
+                            labelText: 'From year',
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -509,7 +531,9 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
                           controller: _dateEnd,
                           enabled: !_saving,
                           keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'To year'),
+                          decoration: const InputDecoration(
+                            labelText: 'To year',
+                          ),
                         ),
                       ),
                     ],
@@ -545,7 +569,8 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
               enabled: !_saving,
               decoration: const InputDecoration(
                 labelText: 'Names and keywords',
-                hintText: 'Comma-separated, e.g. births, Kwande, civil registration',
+                hintText:
+                    'Comma-separated, e.g. births, Kwande, civil registration',
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -603,14 +628,18 @@ class _AddArchiveRecordTabState extends ConsumerState<AddArchiveRecordTab> {
               children: <Widget>[
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: _saving ? null : () => _save(submitForReview: false),
+                    onPressed: _saving
+                        ? null
+                        : () => _save(submitForReview: false),
                     child: const Text('Save draft'),
                   ),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: FilledButton(
-                    onPressed: _saving ? null : () => _save(submitForReview: true),
+                    onPressed: _saving
+                        ? null
+                        : () => _save(submitForReview: true),
                     child: _saving
                         ? const SizedBox(
                             height: 20,
@@ -665,7 +694,10 @@ class _FilesPicker extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(AppSpacing.lg),
             decoration: BoxDecoration(
-              border: Border.all(color: theme.dividerColor, style: BorderStyle.solid),
+              border: Border.all(
+                color: theme.dividerColor,
+                style: BorderStyle.solid,
+              ),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               color: theme.colorScheme.surface,
             ),
@@ -673,10 +705,15 @@ class _FilesPicker extends StatelessWidget {
               children: <Widget>[
                 const Icon(Icons.upload_file, color: AppColors.primary),
                 const SizedBox(height: AppSpacing.xs),
-                Text('Upload scanned pages, photographs, audio or video', style: text.bodyMedium),
+                Text(
+                  'Upload scanned pages, photographs, audio or video',
+                  style: text.bodyMedium,
+                ),
                 Text(
                   'PDF, JPG, PNG, TIFF, MP3 or MP4',
-                  style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+                  style: text.bodySmall?.copyWith(
+                    color: AppColors.textTertiary,
+                  ),
                 ),
               ],
             ),
@@ -700,8 +737,12 @@ class _FilesPicker extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    f.kind == ArchiveFileKind.master ? 'Master scan' : 'Supporting',
-                    style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+                    f.kind == ArchiveFileKind.master
+                        ? 'Master scan'
+                        : 'Supporting',
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 18),
@@ -734,7 +775,11 @@ class _FilesPicker extends StatelessWidget {
                         .map(
                           (k) => DropdownMenuItem<ArchiveFileKind>(
                             value: k,
-                            child: Text(k == ArchiveFileKind.master ? 'Master scan' : 'Supporting'),
+                            child: Text(
+                              k == ArchiveFileKind.master
+                                  ? 'Master scan'
+                                  : 'Supporting',
+                            ),
                           ),
                         )
                         .toList(),
@@ -786,14 +831,22 @@ class _CataloguePreview extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
-          Text('Catalogue preview', style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+          Text(
+            'Catalogue preview',
+            style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: AppSpacing.sm),
           _PreviewRow(
             label: 'Record ID',
             value: recordRef ?? 'Assigned when submitted for review',
           ),
           _PreviewRow(label: 'Access', value: accessStatus.label),
-          _PreviewRow(label: 'Files', value: fileCount == 0 ? 'None yet' : '$fileCount file${fileCount == 1 ? '' : 's'}'),
+          _PreviewRow(
+            label: 'Files',
+            value: fileCount == 0
+                ? 'None yet'
+                : '$fileCount file${fileCount == 1 ? '' : 's'}',
+          ),
           _PreviewRow(
             label: 'Search text',
             value: searchText.isEmpty ? 'Fill in the fields above' : searchText,
@@ -834,10 +887,7 @@ class _EditingBanner extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          TextButton(
-            onPressed: onDiscard,
-            child: const Text('New record'),
-          ),
+          TextButton(onPressed: onDiscard, child: const Text('New record')),
         ],
       ),
     );
@@ -859,7 +909,10 @@ class _PreviewRow extends StatelessWidget {
         children: <Widget>[
           SizedBox(
             width: 90,
-            child: Text(label, style: text.bodySmall?.copyWith(color: AppColors.textTertiary)),
+            child: Text(
+              label,
+              style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+            ),
           ),
           Expanded(child: Text(value, style: text.bodySmall)),
         ],

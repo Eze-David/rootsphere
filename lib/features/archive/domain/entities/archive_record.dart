@@ -200,17 +200,23 @@ class ArchiveRecord {
           ? this.description
           : description as String?,
       files: files ?? this.files,
-      searchText: searchText == _sentinel ? this.searchText : searchText as String?,
+      searchText: searchText == _sentinel
+          ? this.searchText
+          : searchText as String?,
       accessStatus: accessStatus ?? this.accessStatus,
       reviewStatus: reviewStatus ?? this.reviewStatus,
       reviewerNote: reviewerNote == _sentinel
           ? this.reviewerNote
           : reviewerNote as String?,
       createdBy: createdBy ?? this.createdBy,
-      reviewedBy: reviewedBy == _sentinel ? this.reviewedBy : reviewedBy as String?,
+      reviewedBy: reviewedBy == _sentinel
+          ? this.reviewedBy
+          : reviewedBy as String?,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      reviewedAt: reviewedAt == _sentinel ? this.reviewedAt : reviewedAt as DateTime?,
+      reviewedAt: reviewedAt == _sentinel
+          ? this.reviewedAt
+          : reviewedAt as DateTime?,
     );
   }
 

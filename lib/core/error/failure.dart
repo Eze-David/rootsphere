@@ -37,12 +37,7 @@ class UnknownFailure extends Failure {
 String friendlyErrorMessage(Object error) {
   if (error is Failure) return error.message;
   final String raw = error.toString().toLowerCase();
-  if (raw.contains('socketexception') ||
-      raw.contains('failed host lookup') ||
-      raw.contains('network is unreachable') ||
-      raw.contains('connection refused') ||
-      raw.contains('connection reset') ||
-      raw.contains('clientexception')) {
+  if (_isConnectionError(raw)) {
     return 'No internet connection. Check your network and try again.';
   }
   if (raw.contains('timeoutexception') || raw.contains('timed out')) {
@@ -50,3 +45,27 @@ String friendlyErrorMessage(Object error) {
   }
   return 'Something went wrong. Please try again.';
 }
+
+/// Whether [error] means the server couldn't be reached at all (no network,
+/// DNS failure, timeout) as opposed to the server answering with an error.
+/// Matched on the message text because the concrete types differ by platform
+/// (`SocketException` doesn't exist on the web, where it's a
+/// `ClientException: XMLHttpRequest error`).
+bool isNetworkError(Object error) {
+  if (error is NetworkFailure) return true;
+  final String raw = error.toString().toLowerCase();
+  return _isConnectionError(raw) ||
+      raw.contains('timeoutexception') ||
+      raw.contains('timed out') ||
+      raw.contains('retryablefetch') ||
+      raw.contains('failed to fetch');
+}
+
+bool _isConnectionError(String raw) =>
+    raw.contains('socketexception') ||
+    raw.contains('failed host lookup') ||
+    raw.contains('network is unreachable') ||
+    raw.contains('connection refused') ||
+    raw.contains('connection reset') ||
+    raw.contains('connection closed') ||
+    raw.contains('clientexception');

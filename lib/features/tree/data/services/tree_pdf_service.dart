@@ -39,7 +39,9 @@ class TreePdfService {
     // DM Sans / Playfair Display don't cover the dotted-Latin letters used in
     // Yoruba/Igbo orthography (Ọ, Ṣ, Ụ …); fall back to Noto Sans, which does,
     // so names with those diacritics don't render as tofu boxes.
-    final List<pw.Font> fallback = <pw.Font>[await PdfGoogleFonts.notoSansRegular()];
+    final List<pw.Font> fallback = <pw.Font>[
+      await PdfGoogleFonts.notoSansRegular(),
+    ];
 
     final doc = pw.Document();
 
@@ -58,8 +60,10 @@ class TreePdfService {
     final double sceneH = layout.size.height;
     final double fit = (sceneW <= maxPdfDimension && sceneH <= maxPdfDimension)
         ? 1.0
-        : <double>[maxPdfDimension / sceneW, maxPdfDimension / sceneH]
-            .reduce((a, b) => a < b ? a : b);
+        : <double>[
+            maxPdfDimension / sceneW,
+            maxPdfDimension / sceneH,
+          ].reduce((a, b) => a < b ? a : b);
 
     final double pageW = _maxD(sceneW * fit + margin * 2, format.width);
     final double pageH = _maxD(
@@ -72,7 +76,8 @@ class TreePdfService {
       marginAll: margin,
     );
 
-    final bool wideCards = layout.nodes.isNotEmpty &&
+    final bool wideCards =
+        layout.nodes.isNotEmpty &&
         layout.nodes.first.rect.width > layout.nodes.first.rect.height;
 
     doc.addPage(
@@ -154,13 +159,20 @@ class TreePdfService {
                           top: node.rect.top * fit,
                           child: pw.SizedBox(
                             width: node.rect.width * fit,
-                            height: node.rect.height * fit +
+                            height:
+                                node.rect.height * fit +
                                 (wideCards
                                     ? 0
                                     : _detailExtraHeight(node.person, fit)),
                             child: wideCards
                                 ? _wideCard(node, body, bodyBold, fallback, fit)
-                                : _tallCard(node, body, bodyBold, fallback, fit),
+                                : _tallCard(
+                                    node,
+                                    body,
+                                    bodyBold,
+                                    fallback,
+                                    fit,
+                                  ),
                           ),
                         ),
                     ],
@@ -177,10 +189,10 @@ class TreePdfService {
   }
 
   static PdfColor _tintFor(Sex sex) => switch (sex) {
-        Sex.male => _male,
-        Sex.female => _female,
-        Sex.unknown => _neutral,
-      };
+    Sex.male => _male,
+    Sex.female => _female,
+    Sex.unknown => _neutral,
+  };
 
   static String _initials(Person p) {
     final String a = p.givenName.trim().isNotEmpty ? p.givenName.trim()[0] : '';
@@ -236,16 +248,16 @@ class TreePdfService {
   }
 
   static pw.BoxDecoration _cardDecoration(bool isFocus) => pw.BoxDecoration(
-        color: _paper,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
-        border: pw.Border.all(
-          // Hairline borders stay a fixed width regardless of `fit` — like
-          // the on-screen card borders, they should read at any zoom level
-          // rather than shrink away on a big, heavily scaled-down tree.
-          color: isFocus ? _focusBorder : _line,
-          width: isFocus ? 1.2 : 0.6,
-        ),
-      );
+    color: _paper,
+    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(5)),
+    border: pw.Border.all(
+      // Hairline borders stay a fixed width regardless of `fit` — like
+      // the on-screen card borders, they should read at any zoom level
+      // rather than shrink away on a big, heavily scaled-down tree.
+      color: isFocus ? _focusBorder : _line,
+      width: isFocus ? 1.2 : 0.6,
+    ),
+  );
 
   /// Scales a base point size by `fit` (how much [build] shrank the whole
   /// tree to fit the page) — proportional scaling keeps text fitting its
@@ -376,8 +388,10 @@ class TreePdfService {
     final double pad = _scaled(4, fit, min: 1);
     // Sized off the (already fit-scaled) card height, so it never asks for
     // more room than the card actually has.
-    final double avatarSize =
-        (node.rect.height * fit - pad * 2).clamp(4.0, 28.0);
+    final double avatarSize = (node.rect.height * fit - pad * 2).clamp(
+      4.0,
+      28.0,
+    );
     return pw.Container(
       decoration: _cardDecoration(node.isFocus),
       padding: pw.EdgeInsets.symmetric(horizontal: pad + 1, vertical: pad),

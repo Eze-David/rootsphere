@@ -55,7 +55,8 @@ class StoredCollectionsTab extends ConsumerWidget {
                   AppSpacing.xxl,
                 ),
                 itemCount: filtered.length,
-                separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
+                separatorBuilder: (_, _) =>
+                    const SizedBox(height: AppSpacing.sm),
                 itemBuilder: (context, index) => _RecordCard(
                   record: filtered[index],
                   onTap: () async {
@@ -67,10 +68,13 @@ class StoredCollectionsTab extends ConsumerWidget {
                         );
                     if (action == ArchiveDetailAction.continueEditing) {
                       ref
-                          .read(archiveRecordBeingEditedProvider.notifier)
-                          .state = filtered[index];
+                              .read(archiveRecordBeingEditedProvider.notifier)
+                              .state =
+                          filtered[index];
                       if (context.mounted) {
-                        DefaultTabController.of(context).animateTo(0); // Add record
+                        DefaultTabController.of(
+                          context,
+                        ).animateTo(0); // Add record
                       }
                     }
                   },
@@ -181,7 +185,9 @@ class _RecordCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           record.displayTitle,
-                          style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                          style: text.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
@@ -196,7 +202,9 @@ class _RecordCard extends StatelessWidget {
                         '${record.files.length} file${record.files.length == 1 ? '' : 's'}',
                         if (indexedLabel != null) indexedLabel,
                       ].join(' · '),
-                      style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+                      style: text.bodySmall?.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   ],
                   const SizedBox(height: 4),
@@ -242,10 +250,7 @@ class _AccessBadge extends StatelessWidget {
         border: Border.all(color: Theme.of(context).dividerColor),
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
-      child: Text(
-        status.label,
-        style: Theme.of(context).textTheme.labelSmall,
-      ),
+      child: Text(status.label, style: Theme.of(context).textTheme.labelSmall),
     );
   }
 }

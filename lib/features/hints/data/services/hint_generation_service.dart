@@ -68,10 +68,7 @@ class HintGenerationService {
           ? (data['hints'] as List<dynamic>? ?? const <dynamic>[])
           : (data as List<dynamic>? ?? const <dynamic>[]);
       final List<Hint> hints = rows
-          .map((e) => _hintFromAi(
-                treeId,
-                Map<String, dynamic>.from(e as Map),
-              ))
+          .map((e) => _hintFromAi(treeId, Map<String, dynamic>.from(e as Map)))
           .toList();
       return AiHintResult(hints: hints);
     } on FunctionException catch (e) {
@@ -90,24 +87,24 @@ class HintGenerationService {
   // ── Compact summaries sent to the model ────────────────────────────────────
 
   Map<String, dynamic> _personSummary(Person p) => <String, dynamic>{
-        'id': p.id,
-        'name': p.fullName,
-        'sex': p.sex.name,
-        'birthYear': p.birthDate?.year,
-        'deathYear': p.deathDate?.year,
-        'birthPlace': p.birthPlace,
-        'deathPlace': p.deathPlace,
-        'parentIds': p.parentIds,
-        'spouseIds': p.spouseIds,
-      };
+    'id': p.id,
+    'name': p.fullName,
+    'sex': p.sex.name,
+    'birthYear': p.birthDate?.year,
+    'deathYear': p.deathDate?.year,
+    'birthPlace': p.birthPlace,
+    'deathPlace': p.deathPlace,
+    'parentIds': p.parentIds,
+    'spouseIds': p.spouseIds,
+  };
 
   Map<String, dynamic> _recordSummary(Record r) => <String, dynamic>{
-        'id': r.id,
-        'type': r.type.name,
-        'title': r.title,
-        'year': r.year,
-        'personIds': r.personIds,
-      };
+    'id': r.id,
+    'type': r.type.name,
+    'title': r.title,
+    'year': r.year,
+    'personIds': r.personIds,
+  };
 
   Hint _hintFromAi(String treeId, Map<String, dynamic> j) {
     final String idStr =

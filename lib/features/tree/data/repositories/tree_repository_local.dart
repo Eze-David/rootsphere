@@ -141,8 +141,7 @@ class TreeRepositoryLocal implements TreeRepository {
   Future<void> addEditHistory(EditHistoryEntry entry) async {
     final List<EditHistoryEntry> entries = await getEditHistory(entry.personId);
     entries.insert(0, entry);
-    final String encoded =
-        jsonEncode(entries.map((e) => e.toJson()).toList());
+    final String encoded = jsonEncode(entries.map((e) => e.toJson()).toList());
     await _prefs.setString(_historyKey(entry.personId), encoded);
   }
 

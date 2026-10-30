@@ -1,11 +1,11 @@
 {
-    "name": "rootsphere",
-    "short_name": "rootsphere",
+    "name": "RootSphere",
+    "short_name": "RootSphere",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#3B2A20",
-    "description": "A new Flutter project.",
+    "description": "Build, preserve and share your family history.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

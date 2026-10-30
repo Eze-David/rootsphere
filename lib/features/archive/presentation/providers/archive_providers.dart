@@ -2,11 +2,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/config/supabase_config.dart';
+import '../../../../core/offline/offline_providers.dart';
+import '../../../../core/offline/outbox.dart';
 import '../../../../core/storage/preferences_provider.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../records/domain/entities/record.dart';
 import '../../data/repositories/archive_access_request_repository_local.dart';
 import '../../data/repositories/archive_access_request_repository_supabase.dart';
 import '../../data/repositories/archive_repository_local.dart';
+import '../../data/repositories/archive_repository_offline.dart';
 import '../../data/repositories/archive_repository_supabase.dart';
 import '../../data/repositories/saved_archive_records_repository_local.dart';
 import '../../data/repositories/saved_archive_records_repository_supabase.dart';
@@ -17,13 +21,48 @@ import '../../domain/repositories/archive_access_request_repository.dart';
 import '../../domain/repositories/archive_repository.dart';
 import '../../domain/repositories/saved_archive_records_repository.dart';
 
-/// Archive repository: Supabase-backed when configured, local JSON otherwise.
+/// Archive repository: Supabase-backed (behind an offline copy + sync queue)
+/// when configured, local JSON otherwise.
 final archiveRepositoryProvider = Provider<ArchiveRepository>((ref) {
-  if (SupabaseConfig.isReady) {
-    return ArchiveRepositorySupabase(SupabaseConfig.client);
-  }
+  final ArchiveRepositoryOffline? offline = ref.watch(
+    offlineArchiveRepositoryProvider,
+  );
+  if (offline != null) return offline;
   final prefs = ref.watch(sharedPreferencesProvider);
   return ArchiveRepositoryLocal(prefs);
+});
+
+/// The offline-first archive repository, or null when Supabase isn't
+/// configured (the local repository is already fully on-device then).
+final offlineArchiveRepositoryProvider = Provider<ArchiveRepositoryOffline?>((
+  ref,
+) {
+  if (!SupabaseConfig.isReady) return null;
+  final ArchiveRepositoryOffline repo = ArchiveRepositoryOffline(
+    remote: ArchiveRepositorySupabase(SupabaseConfig.client),
+    storage: ref.watch(archiveStorageServiceProvider),
+    prefs: ref.watch(sharedPreferencesProvider),
+    cache: ref.watch(offlineCacheProvider),
+    currentUid: () => SupabaseConfig.client.auth.currentUser?.id ?? '',
+    onlineChanges: watchOnline(),
+  );
+  ref.onDispose(repo.dispose);
+  // Changes queued before the app was closed belong to an account; send them
+  // once that account's session is back.
+  ref.listen(authStateProvider, (_, next) {
+    if (next.value != null) repo.flush();
+  }, fireImmediately: true);
+  return repo;
+});
+
+/// Queued archive changes waiting for the network (drives the offline
+/// banner).
+final archiveSyncStatusProvider = StreamProvider<SyncStatus>((ref) {
+  final ArchiveRepositoryOffline? repo = ref.watch(
+    offlineArchiveRepositoryProvider,
+  );
+  if (repo == null) return Stream<SyncStatus>.value(const SyncStatus());
+  return repo.watchStatus();
 });
 
 /// Storage service for archive attachments (Supabase Storage + local fallback).
@@ -98,7 +137,9 @@ final filteredArchiveRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
 final publishedArchiveRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
   final List<ArchiveRecord> all =
       ref.watch(archiveRecordsProvider).value ?? const <ArchiveRecord>[];
-  return all.where((r) => r.reviewStatus == ArchiveReviewStatus.published).toList();
+  return all
+      .where((r) => r.reviewStatus == ArchiveReviewStatus.published)
+      .toList();
 });
 
 /// Free-text search query for the public Catalogue browser — kept separate
@@ -163,7 +204,14 @@ final filteredCatalogueRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
       .toList();
 });
 
-const Set<String> _avExtensions = <String>{'mp4', 'm4v', 'mov', 'mp3', 'm4a', 'wav'};
+const Set<String> _avExtensions = <String>{
+  'mp4',
+  'm4v',
+  'mov',
+  'mp3',
+  'm4a',
+  'wav',
+};
 
 bool _hasAvFile(ArchiveRecord r) => r.files.any((f) {
   final String name = f.fileName.toLowerCase();
@@ -209,18 +257,16 @@ final myArchiveAccessRequestsProvider =
     });
 
 /// This user's request for [recordId], or null if they've never asked.
-final archiveAccessRequestForRecordProvider = Provider.family<
-  ArchiveAccessRequest?,
-  String
->((ref, recordId) {
-  final List<ArchiveAccessRequest> mine =
-      ref.watch(myArchiveAccessRequestsProvider).value ??
-      const <ArchiveAccessRequest>[];
-  for (final r in mine) {
-    if (r.recordId == recordId) return r;
-  }
-  return null;
-});
+final archiveAccessRequestForRecordProvider =
+    Provider.family<ArchiveAccessRequest?, String>((ref, recordId) {
+      final List<ArchiveAccessRequest> mine =
+          ref.watch(myArchiveAccessRequestsProvider).value ??
+          const <ArchiveAccessRequest>[];
+      for (final r in mine) {
+        if (r.recordId == recordId) return r;
+      }
+      return null;
+    });
 
 /// All pending access requests — admin review tab only (RLS blocks this for
 /// anyone else anyway).
@@ -241,7 +287,21 @@ final savedArchiveRecordsRepositoryProvider =
     });
 
 final savedArchiveRecordIdsProvider = StreamProvider<Set<String>>((ref) {
-  return ref.watch(savedArchiveRecordsRepositoryProvider).watchSavedIds();
+  final SavedArchiveRecordsRepository repo = ref.watch(
+    savedArchiveRecordsRepositoryProvider,
+  );
+  if (!SupabaseConfig.isReady) return repo.watchSavedIds();
+  // Device copy so the Saved list still shows offline.
+  final String uid = ref.watch(authStateProvider).value?.id ?? '';
+  return ref
+      .watch(offlineCacheProvider)
+      .stream<Set<String>>(
+        key: 'saved_archive_ids_$uid',
+        remote: repo.watchSavedIds,
+        encode: (ids) => ids.toList(),
+        decode: (json) => (json! as List<dynamic>).cast<String>().toSet(),
+        onlineChanges: watchOnline(),
+      );
 });
 
 final isArchiveRecordSavedProvider = Provider.family<bool, String>((
@@ -270,7 +330,9 @@ final savedArchiveRecordsListProvider = Provider<List<ArchiveRecord>>((ref) {
 
 /// Same as [savedArchiveRecordsListProvider] but respecting the active
 /// search/type/location filters, consistent with the other Catalogue tabs.
-final filteredSavedArchiveRecordsProvider = Provider<List<ArchiveRecord>>((ref) {
+final filteredSavedArchiveRecordsProvider = Provider<List<ArchiveRecord>>((
+  ref,
+) {
   final String query = ref.watch(catalogueSearchProvider).trim().toLowerCase();
   final RecordType? type = ref.watch(catalogueTypeFilterProvider);
   final String? country = ref.watch(catalogueCountryFilterProvider);

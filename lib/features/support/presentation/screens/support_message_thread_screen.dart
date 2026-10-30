@@ -98,10 +98,7 @@ class _SupportMessageThreadScreenState
                     for (final r in replies)
                       Padding(
                         padding: const EdgeInsets.only(top: AppSpacing.md),
-                        child: _Bubble(
-                          body: r.body,
-                          fromAdmin: r.isAdminReply,
-                        ),
+                        child: _Bubble(body: r.body, fromAdmin: r.isAdminReply),
                       ),
                   ],
                 );

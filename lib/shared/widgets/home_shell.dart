@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import 'offline_banner.dart';
+
 /// Bottom-navigation shell hosting the five primary destinations
 /// (Home · Tree · Records · Collab · Profile) seen across the mockups.
 class HomeShell extends StatelessWidget {
@@ -30,16 +32,22 @@ class HomeShell extends StatelessWidget {
       // Material 3 NavigationBar — a themed pill indicator slides behind the
       // active icon (see navigationBarTheme in app_theme.dart) instead of
       // the old flat BottomNavigationBar's plain color swap.
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: _onTap,
-        destinations: <NavigationDestination>[
-          for (final _Destination d in _destinations)
-            NavigationDestination(
-              icon: Icon(d.icon),
-              selectedIcon: Icon(d.activeIcon),
-              label: d.label,
-            ),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          const OfflineBanner(),
+          NavigationBar(
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: _onTap,
+            destinations: <NavigationDestination>[
+              for (final _Destination d in _destinations)
+                NavigationDestination(
+                  icon: Icon(d.icon),
+                  selectedIcon: Icon(d.activeIcon),
+                  label: d.label,
+                ),
+            ],
+          ),
         ],
       ),
     );

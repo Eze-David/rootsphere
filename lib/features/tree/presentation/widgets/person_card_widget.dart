@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
@@ -240,10 +241,10 @@ class _PersonCardWidgetState extends State<PersonCardWidget> {
     return Container(
       color: _tint,
       child: hasPhoto
-          ? Image.network(
-              person.photoUrl!,
+          ? CachedNetworkImage(
+              imageUrl: person.photoUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stack) => Center(
+              errorWidget: (context, url, error) => Center(
                 child: Icon(Icons.person, size: 40, color: silhouette),
               ),
             )

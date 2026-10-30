@@ -62,7 +62,9 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: ref.read(catalogueSearchProvider));
+    _controller = TextEditingController(
+      text: ref.read(catalogueSearchProvider),
+    );
   }
 
   @override
@@ -91,7 +93,8 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
         children: <Widget>[
           TextField(
             controller: _controller,
-            onChanged: (v) => ref.read(catalogueSearchProvider.notifier).state = v,
+            onChanged: (v) =>
+                ref.read(catalogueSearchProvider.notifier).state = v,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               hintText: 'Name, place, collection or keyword',
@@ -151,7 +154,8 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
                     ref.read(catalogueCountryFilterProvider.notifier).state = c;
                     // A state/region from the previous country would no
                     // longer be valid (or meaningful) for the new one.
-                    ref.read(catalogueStateFilterProvider.notifier).state = null;
+                    ref.read(catalogueStateFilterProvider.notifier).state =
+                        null;
                   },
                 ),
               ),
@@ -174,7 +178,11 @@ class _CatalogueFiltersState extends ConsumerState<_CatalogueFilters> {
                   ],
                   onChanged: country == null
                       ? null
-                      : (s) => ref.read(catalogueStateFilterProvider.notifier).state = s,
+                      : (s) =>
+                            ref
+                                    .read(catalogueStateFilterProvider.notifier)
+                                    .state =
+                                s,
                 ),
               ),
             ],
@@ -190,7 +198,9 @@ class _CatalogueRecordsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<ArchiveRecord> records = ref.watch(filteredCatalogueRecordsProvider);
+    final List<ArchiveRecord> records = ref.watch(
+      filteredCatalogueRecordsProvider,
+    );
     if (records.isEmpty) {
       return const _CatalogueEmptyState();
     }
@@ -203,7 +213,8 @@ class _CatalogueRecordsList extends ConsumerWidget {
       ),
       itemCount: records.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) => _CatalogueRecordCard(record: records[index]),
+      itemBuilder: (context, index) =>
+          _CatalogueRecordCard(record: records[index]),
     );
   }
 }
@@ -213,7 +224,9 @@ class _CatalogueFilmsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<ArchiveRecord> records = ref.watch(filteredCatalogueFilmsProvider);
+    final List<ArchiveRecord> records = ref.watch(
+      filteredCatalogueFilmsProvider,
+    );
     if (records.isEmpty) {
       return const _CatalogueEmptyState(
         message: 'No digital films or recordings match your search.',
@@ -228,7 +241,8 @@ class _CatalogueFilmsList extends ConsumerWidget {
       ),
       itemCount: records.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) => _CatalogueRecordCard(record: records[index]),
+      itemBuilder: (context, index) =>
+          _CatalogueRecordCard(record: records[index]),
     );
   }
 }
@@ -238,10 +252,13 @@ class _CatalogueSavedList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<ArchiveRecord> records = ref.watch(filteredSavedArchiveRecordsProvider);
+    final List<ArchiveRecord> records = ref.watch(
+      filteredSavedArchiveRecordsProvider,
+    );
     if (records.isEmpty) {
       return const _CatalogueEmptyState(
-        message: 'Nothing saved yet — tap "Save collection" on a record to keep it here.',
+        message:
+            'Nothing saved yet — tap "Save collection" on a record to keep it here.',
       );
     }
     return ListView.separated(
@@ -253,7 +270,8 @@ class _CatalogueSavedList extends ConsumerWidget {
       ),
       itemCount: records.length,
       separatorBuilder: (_, _) => const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) => _CatalogueRecordCard(record: records[index]),
+      itemBuilder: (context, index) =>
+          _CatalogueRecordCard(record: records[index]),
     );
   }
 }
@@ -263,14 +281,19 @@ class _CatalogueCollectionsList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<ArchiveRecord> records = ref.watch(filteredCatalogueRecordsProvider);
+    final List<ArchiveRecord> records = ref.watch(
+      filteredCatalogueRecordsProvider,
+    );
     if (records.isEmpty) {
       return const _CatalogueEmptyState();
     }
 
-    final Map<String, List<ArchiveRecord>> byCollection = <String, List<ArchiveRecord>>{};
+    final Map<String, List<ArchiveRecord>> byCollection =
+        <String, List<ArchiveRecord>>{};
     for (final ArchiveRecord r in records) {
-      final String key = r.collection.trim().isEmpty ? 'Uncategorized' : r.collection.trim();
+      final String key = r.collection.trim().isEmpty
+          ? 'Uncategorized'
+          : r.collection.trim();
       byCollection.putIfAbsent(key, () => <ArchiveRecord>[]).add(r);
     }
     final List<String> names = byCollection.keys.toList()..sort();
@@ -346,7 +369,12 @@ class _CollectionCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(name, style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    name,
+                    style: text.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     <String>[
@@ -354,7 +382,9 @@ class _CollectionCard extends StatelessWidget {
                       '${records.length} record${records.length == 1 ? '' : 's'}',
                       '$fileCount file${fileCount == 1 ? '' : 's'}',
                     ].join(' · '),
-                    style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+                    style: text.bodySmall?.copyWith(
+                      color: AppColors.textTertiary,
+                    ),
                   ),
                 ],
               ),
@@ -398,13 +428,17 @@ class _CatalogueRecordCard extends ConsumerWidget {
                 children: <Widget>[
                   Text(
                     record.displayTitle,
-                    style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: text.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (meta.isNotEmpty) ...<Widget>[
                     const SizedBox(height: 2),
                     Text(
                       meta.join(' · '),
-                      style: text.bodySmall?.copyWith(color: AppColors.textTertiary),
+                      style: text.bodySmall?.copyWith(
+                        color: AppColors.textTertiary,
+                      ),
                     ),
                   ],
                 ],
@@ -445,9 +479,10 @@ class _AccessBadge extends StatelessWidget {
       ),
       child: Text(
         status.label,
-        style: Theme.of(
-          context,
-        ).textTheme.labelSmall?.copyWith(color: color, fontWeight: FontWeight.w600),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
