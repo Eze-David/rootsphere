@@ -8,7 +8,7 @@ import '../../domain/entities/person.dart';
 import '../../domain/entities/timeline_event.dart';
 
 /// Renders a single person's vital details + life story to a one-page,
-/// printable PDF — the "Print or export" action on their profile.
+/// printable PDF — the "Person Details" print option on their profile.
 class PersonPdfService {
   PersonPdfService._();
 

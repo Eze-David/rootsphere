@@ -11,6 +11,15 @@ class GeocodeResult {
   final String? displayName;
 }
 
+/// A type-ahead match for a location field, e.g. "Gwarinpa" /
+/// "Federal Capital Territory".
+class PlaceSuggestion {
+  const PlaceSuggestion({required this.name, this.detail = ''});
+
+  final String name;
+  final String detail;
+}
+
 /// Resolves a free-text place name to coordinates via the `geocode` Supabase
 /// Edge Function (OpenStreetMap Nominatim, cached server-side).
 ///
@@ -44,6 +53,41 @@ class GeocodingService {
       lon: lon.toDouble(),
       displayName: data['displayName']?.toString(),
     );
+  }
+
+  /// Places matching what's been typed so far, limited to [country] when one
+  /// is given. Failures return an empty list: suggestions are optional, and
+  /// whatever the user typed is still kept.
+  Future<List<PlaceSuggestion>> suggest(String query, {String? country}) async {
+    if (!SupabaseConfig.isReady || query.trim().isEmpty) {
+      return const <PlaceSuggestion>[];
+    }
+    try {
+      final FunctionResponse res = await SupabaseConfig.client.functions.invoke(
+        'geocode',
+        body: <String, dynamic>{
+          'query': query,
+          'suggest': true,
+          'country': country,
+        },
+      );
+      final dynamic data = res.data;
+      if (data is! Map || data['suggestions'] is! List) {
+        return const <PlaceSuggestion>[];
+      }
+      return (data['suggestions'] as List<dynamic>)
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (m) => PlaceSuggestion(
+              name: m['name']?.toString() ?? '',
+              detail: m['detail']?.toString() ?? '',
+            ),
+          )
+          .where((s) => s.name.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return const <PlaceSuggestion>[];
+    }
   }
 }
 

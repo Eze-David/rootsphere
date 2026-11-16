@@ -15,6 +15,7 @@ import '../../../assistant/presentation/providers/assistant_providers.dart';
 import '../../../profile/presentation/providers/family_tree_provider.dart';
 import '../../../records/domain/entities/record.dart';
 import '../../../records/presentation/providers/record_providers.dart';
+import '../../data/services/family_chart_pdf_service.dart';
 import '../../data/services/geocoding_service.dart';
 import '../../data/services/person_pdf_service.dart';
 import '../../domain/entities/edit_history_entry.dart';
@@ -1938,7 +1939,7 @@ class _QuickActionsCard extends ConsumerWidget {
                   ),
           ),
           const SizedBox(height: AppSpacing.md),
-          _PrintOrExportButton(person: person),
+          _PrintOptionsButton(person: person),
           const SizedBox(height: AppSpacing.md),
           Container(
             width: double.infinity,
@@ -2002,34 +2003,139 @@ class _AccordionItem extends StatelessWidget {
   }
 }
 
-/// The quick-actions card's "Print or export" button — a small stateful
-/// widget of its own so it can show a spinner while the PDF is generated
-/// (fonts are fetched over the network the first time) without needing to
-/// convert the whole (stateless) [PersonProfileScreen] just for this.
-class _PrintOrExportButton extends ConsumerStatefulWidget {
-  const _PrintOrExportButton({required this.person});
+/// The label and icon each print option shows in the "Print options" dialog.
+extension on PersonPrintKind {
+  String get label => switch (this) {
+    PersonPrintKind.personDetails => 'Person Details',
+    PersonPrintKind.pedigree => 'Pedigree',
+    PersonPrintKind.portraitPedigree => 'Portrait Pedigree',
+    PersonPrintKind.fanChart => 'Fan Chart',
+    PersonPrintKind.familyGroupRecord => 'Family Group Record',
+    PersonPrintKind.familyGroupRecordWithSources =>
+      'Family Group Record With Sources',
+  };
+
+  IconData get icon => switch (this) {
+    PersonPrintKind.personDetails => Icons.person_outline,
+    PersonPrintKind.pedigree => Icons.account_tree_outlined,
+    PersonPrintKind.portraitPedigree => Icons.schema_outlined,
+    PersonPrintKind.fanChart => Icons.pie_chart_outline,
+    PersonPrintKind.familyGroupRecord => Icons.description_outlined,
+    PersonPrintKind.familyGroupRecordWithSources => Icons.description_outlined,
+  };
+}
+
+/// The "Print Options" dialog: pops with the chosen [PersonPrintKind], or
+/// null when dismissed.
+class _PrintOptionsDialog extends StatelessWidget {
+  const _PrintOptionsDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 380),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.sm,
+                  bottom: AppSpacing.sm,
+                ),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text('Print Options', style: text.titleLarge),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: <Widget>[
+                    for (final PersonPrintKind kind in PersonPrintKind.values)
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.lg,
+                        ),
+                        leading: Icon(kind.icon, size: 20),
+                        title: Text(kind.label),
+                        onTap: () => Navigator.of(context).pop(kind),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The quick-actions card's "Print options" button — opens the options
+/// dialog, then prints the chosen document. A small stateful widget of its
+/// own so it can show a spinner while the PDF is generated (fonts are
+/// fetched over the network the first time) without needing to convert the
+/// whole (stateless) [PersonProfileScreen] just for this.
+class _PrintOptionsButton extends ConsumerStatefulWidget {
+  const _PrintOptionsButton({required this.person});
   final Person person;
 
   @override
-  ConsumerState<_PrintOrExportButton> createState() =>
-      _PrintOrExportButtonState();
+  ConsumerState<_PrintOptionsButton> createState() =>
+      _PrintOptionsButtonState();
 }
 
-class _PrintOrExportButtonState extends ConsumerState<_PrintOrExportButton> {
+class _PrintOptionsButtonState extends ConsumerState<_PrintOptionsButton> {
   bool _busy = false;
 
-  Future<void> _printOrExport() async {
+  Future<void> _choose() async {
+    final PersonPrintKind? kind = await showDialog<PersonPrintKind>(
+      context: context,
+      builder: (_) => const _PrintOptionsDialog(),
+    );
+    if (kind != null && mounted) await _print(kind);
+  }
+
+  Future<void> _print(PersonPrintKind kind) async {
     setState(() => _busy = true);
     try {
-      final List<TimelineEvent> events = _personTimeline(widget.person);
+      final Person person = widget.person;
+      final Map<String, Person> people = ref.read(personMapProvider);
+      final List<Record> records =
+          ref.read(recordsProvider).value ?? const <Record>[];
+      final List<TimelineEvent> events = _personTimeline(person);
       final bool launched = await Printing.layoutPdf(
-        format: PdfPageFormat.a4,
-        name: '${widget.person.fullName}.pdf',
-        onLayout: (PdfPageFormat format) => PersonPdfService.build(
-          person: widget.person,
-          events: events,
-          format: format,
-        ),
+        format: FamilyChartPdfService.isLandscape(kind)
+            ? PdfPageFormat.a4.landscape
+            : PdfPageFormat.a4,
+        name: '${person.fullName} - ${kind.label}.pdf',
+        onLayout: (PdfPageFormat format) =>
+            kind == PersonPrintKind.personDetails
+            ? PersonPdfService.build(
+                person: person,
+                events: events,
+                format: format,
+              )
+            : FamilyChartPdfService.build(
+                kind: kind,
+                person: person,
+                people: people,
+                records: records,
+                format: format,
+              ),
       );
       if (!launched && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -2055,7 +2161,7 @@ class _PrintOrExportButtonState extends ConsumerState<_PrintOrExportButton> {
   @override
   Widget build(BuildContext context) {
     return OutlinedButton.icon(
-      onPressed: _busy ? null : _printOrExport,
+      onPressed: _busy ? null : _choose,
       icon: _busy
           ? const SizedBox(
               width: 16,
@@ -2063,7 +2169,7 @@ class _PrintOrExportButtonState extends ConsumerState<_PrintOrExportButton> {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : const Icon(Icons.print_outlined, size: 18),
-      label: const Text('Print or export'),
+      label: const Text('Print options'),
     );
   }
 }

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/data/african_locations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../data/services/geocoding_service.dart';
 import '../../domain/entities/edit_history_entry.dart';
 import '../../domain/entities/person.dart';
 import '../providers/tree_providers.dart';
@@ -646,10 +647,9 @@ class _PersonEditorState extends ConsumerState<_PersonEditor> {
               Row(
                 children: <Widget>[
                   Expanded(
-                    child: TextFormField(
+                    child: _RegionField(
                       controller: _region,
-                      textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Region'),
+                      country: _country.text,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -898,6 +898,99 @@ const List<String> languageOptions = <String>[
   'Spanish',
   'Other',
 ];
+
+/// Free-text Region field that suggests matching places in the selected
+/// [country] while typing. Picking one is optional: typed text is kept as is,
+/// since many estates and villages aren't in the place data.
+class _RegionField extends ConsumerStatefulWidget {
+  const _RegionField({required this.controller, required this.country});
+
+  final TextEditingController controller;
+  final String country;
+
+  @override
+  ConsumerState<_RegionField> createState() => _RegionFieldState();
+}
+
+class _RegionFieldState extends ConsumerState<_RegionField> {
+  final FocusNode _focusNode = FocusNode();
+  int _latestRequest = 0;
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  Future<Iterable<PlaceSuggestion>> _suggest(TextEditingValue value) async {
+    final int request = ++_latestRequest;
+    final String query = value.text.trim();
+    if (query.length < 3) return const <PlaceSuggestion>[];
+    // Wait for a pause in typing rather than searching on every keystroke.
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    if (!mounted || request != _latestRequest) {
+      return const <PlaceSuggestion>[];
+    }
+    return ref
+        .read(geocodingServiceProvider)
+        .suggest(query, country: widget.country);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RawAutocomplete<PlaceSuggestion>(
+      textEditingController: widget.controller,
+      focusNode: _focusNode,
+      // Upward: this field sits low in the sheet, just above the keyboard.
+      optionsViewOpenDirection: OptionsViewOpenDirection.up,
+      displayStringForOption: (s) => s.name,
+      optionsBuilder: _suggest,
+      fieldViewBuilder: (context, controller, focusNode, _) => TextFormField(
+        controller: controller,
+        focusNode: focusNode,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'Region'),
+      ),
+      optionsViewBuilder: (context, onSelected, options) {
+        return Align(
+          alignment: Alignment.bottomLeft,
+          child: Material(
+            elevation: 6,
+            borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+            clipBehavior: Clip.antiAlias,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                children: <Widget>[
+                  for (final PlaceSuggestion s in options)
+                    ListTile(
+                      dense: true,
+                      leading: const Icon(Icons.location_on_outlined, size: 18),
+                      title: Text(
+                        s.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: s.detail.isEmpty
+                          ? null
+                          : Text(
+                              s.detail,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                      onTap: () => onSelected(s),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
 
 const List<String> occupationOptions = <String>[
   '',
